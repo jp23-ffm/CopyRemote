@@ -1,0 +1,462 @@
+{
+  "columns": {
+    "col-expand": {
+      "width": "50px",
+      "minWidth": "50px",
+      "maxWidth": "50px",
+      "priority": 1,
+      "resizable": false,
+      "sticky": true,
+      "stickyLeft": "0px",
+      "visible": true
+    },
+    "col-info": {
+      "width": "80px",
+      "minWidth": "80px",
+      "maxWidth": "80px",
+      "priority": 1,
+      "resizable": false,
+      "sticky": true,
+      "stickyLeft": "50px",
+      "visible": true
+    },
+    "col-hostname": {
+      "width": "auto",
+      "minWidth": "200px",
+      "maxWidth": "400px",
+      "priority": 1,
+      "resizable": true,
+      "sticky": true,
+      "stickyLeft": "130px",
+      "visible": true
+    },
+    "col-ip_address": {
+      "width": "140px",
+      "minWidth": "120px",
+      "maxWidth": "160px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-os": {
+      "width": "120px",
+      "minWidth": "80px",
+      "maxWidth": "150px",
+      "priority": 2,
+      "resizable": true,
+      "sticky": false,
+      "visible": true
+    },
+    "col-os_version": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-ram": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 2,
+      "resizable": true,
+      "sticky": false,
+      "visible": true
+    },
+    "col-cpu": {
+      "width": "auto",
+      "minWidth": "120px",
+      "maxWidth": "250px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-cpu_cores": {
+      "width": "60px",
+      "minWidth": "50px",
+      "maxWidth": "80px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-storage_type": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-storage_size": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-datacenter": {
+      "width": "130px",
+      "minWidth": "100px",
+      "maxWidth": "180px",
+      "priority": 2,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-rack": {
+      "width": "60px",
+      "minWidth": "50px",
+      "maxWidth": "80px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-availability_zone": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-network_vlan": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-network_speed": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-application": {
+      "width": "auto",
+      "minWidth": "130px",
+      "maxWidth": "250px",
+      "priority": 2,
+      "resizable": true,
+      "sticky": false,
+      "visible": true
+    },
+    "col-service_level": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-db_instance": {
+      "width": "150px",
+      "minWidth": "120px",
+      "maxWidth": "200px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-owner": {
+      "width": "auto",
+      "minWidth": "120px",
+      "maxWidth": "200px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnTablet": true
+    },
+    "col-business_unit": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-cost_center": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-project_code": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-support_email": {
+      "width": "180px",
+      "minWidth": "150px",
+      "maxWidth": "250px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-virtualization": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-security_zone": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-compliance_level": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-antivirus": {
+      "width": "120px",
+      "minWidth": "100px",
+      "maxWidth": "150px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-patch_group": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-monitoring_tool": {
+      "width": "120px",
+      "minWidth": "100px",
+      "maxWidth": "150px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-backup_policy": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-maintenance_window": {
+      "width": "150px",
+      "minWidth": "120px",
+      "maxWidth": "200px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-power_state": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-health_status": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+    "col-deployment_status": {
+      "width": "120px",
+      "minWidth": "100px",
+      "maxWidth": "150px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-cpu_utilization": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-memory_utilization": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-disk_utilization": {
+      "width": "80px",
+      "minWidth": "60px",
+      "maxWidth": "100px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnMobile": true
+    },
+    "col-serial_number": {
+      "width": "120px",
+      "minWidth": "100px",
+      "maxWidth": "150px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-asset_tag": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-install_date": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-last_boot_time": {
+      "width": "120px",
+      "minWidth": "100px",
+      "maxWidth": "150px",
+      "priority": 4,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-warranty_expiry": {
+      "width": "100px",
+      "minWidth": "80px",
+      "maxWidth": "120px",
+      "priority": 5,
+      "resizable": true,
+      "sticky": false,
+      "visible": false,
+      "hideOnTablet": true
+    },
+    "col-annotations": {
+      "width": "150px",
+      "minWidth": "120px",
+      "maxWidth": "200px",
+      "priority": 2,
+      "resizable": true,
+      "sticky": false,
+      "visible": true
+    }
+  },
+    "col-dns_primary": {
+      "width": "140px",
+      "minWidth": "120px",
+      "maxWidth": "160px",
+      "priority": 3,
+      "resizable": true,
+      "sticky": false,
+      "visible": true,
+      "hideOnMobile": true
+    },
+  "breakpoints": {
+    "mobile": "768px",
+    "tablet": "1200px",
+    "desktop": "1400px"
+  },
+  "settings": {
+    "defaultColumnWidth": "120px",
+    "enableColumnToggle": true,
+    "enableColumnResize": true,
+    "saveUserPreferences": true,
+    "animationDuration": "200ms"
+  }
+}
