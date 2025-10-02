@@ -1,0 +1,427 @@
+# ============================================
+
+# models.py - Simplified annotation model
+
+# ============================================
+
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+
+class ServerAnnotation(models.Model):
+“”“Simplified server annotations with history tracking”””
+hostname = models.CharField(max_length=255, unique=True, db_index=True)
+notes = models.TextField(blank=True, help_text=“Current annotation”)
+history = models.JSONField(default=list, help_text=“Historical entries”)
+updated_at = models.DateTimeField(auto_now=True)
+
+```
+def add_entry(self, text, user):
+    """Add a new entry to history and update current notes"""
+    if not self.history:
+        self.history = []
+    
+    # Add to history
+    self.history.append({
+        'text': text,
+        'user': user.username if user else 'Unknown',
+        'date': timezone.now().isoformat()
+    })
+    
+    # Update current notes
+    self.notes = text
+    self.save()
+
+def get_history_display(self):
+    """Format history for display - last 10 entries, most recent first"""
+    if not self.history:
+        return []
+    
+    return sorted(self.history, key=lambda x: x['date'], reverse=True)[:10]
+
+def __str__(self):
+    return f"{self.hostname} - {self.notes[:50] if self.notes else 'No annotation'}"
+
+class Meta:
+    ordering = ['hostname']
+    verbose_name = "Server Annotation"
+    verbose_name_plural = "Server Annotations"
+```
+
+# ============================================
+
+# forms.py - Django form for annotations
+
+# ============================================
+
+from django import forms
+from .models import ServerAnnotation
+
+class AnnotationForm(forms.ModelForm):
+class Meta:
+model = ServerAnnotation
+fields = [‘notes’]
+widgets = {
+‘notes’: forms.Textarea(attrs={
+‘rows’: 4,
+‘placeholder’: ‘Add annotation for this server…’,
+‘class’: ‘annotation-textarea’,
+‘id’: ‘annotation-notes’
+})
+}
+labels = {
+‘notes’: ‘Annotation’
+}
+
+# ============================================
+
+# views.py - Simplified annotation view
+
+# ============================================
+
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from .models import ServerAnnotation
+from .forms import AnnotationForm
+
+@login_required
+@require_http_methods([“GET”, “POST”])
+def edit_annotation(request, hostname):
+“”“View to edit server annotations with history tracking”””
+
+```
+annotation = ServerAnnotation.objects.filter(hostname=hostname).first()
+
+if request.method == 'GET':
+    # Return current state and history
+    form = AnnotationForm(instance=annotation)
+    
+    return JsonResponse({
+        'hostname': hostname,
+        'notes': annotation.notes if annotation else '',
+        'history': annotation.get_history_display() if annotation else [],
+        'form_html': form.as_p()  # Optional: if you want server-rendered form
+    })
+
+elif request.method == 'POST':
+    # Save annotation with history
+    form = AnnotationForm(request.POST, instance=annotation)
+    
+    if form.is_valid():
+        notes_text = form.cleaned_data['notes'].strip()
+        
+        if not notes_text:
+            # Delete annotation if empty
+            if annotation:
+                annotation.delete()
+            return JsonResponse({
+                'success': True,
+                'message': 'Annotation removed',
+                'notes': '',
+                'history': []
+            })
+        
+        # Create or update annotation
+        if not annotation:
+            annotation = ServerAnnotation(hostname=hostname)
+        
+        # Add entry to history
+        annotation.add_entry(notes_text, request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Annotation saved successfully',
+            'notes': annotation.notes,
+            'history': annotation.get_history_display(),
+            'updated_by': request.user.username,
+            'updated_at': annotation.updated_at.strftime('%d/%m/%Y %H:%M')
+        })
+    
+    # Form validation errors
+    return JsonResponse({
+        'success': False,
+        'message': 'Validation error',
+        'errors': form.errors
+    }, status=400)
+```
+
+# ============================================
+
+# Template - Simplified modal HTML
+
+# ============================================
+
+“””
+
+<!-- Modal HTML for server_list.html -->
+
+<div id="annotationModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Server Annotation</h3>
+            <button class="modal-close" onclick="closeAnnotationModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="annotationForm">
+                <div class="form-group">
+                    <label for="modal-hostname">Server:</label>
+                    <input type="text" id="modal-hostname" name="hostname" readonly>
+                </div>
+
+```
+            <div class="form-group">
+                <label for="annotation-notes">Annotation:</label>
+                <textarea id="annotation-notes" name="notes" rows="4" 
+                          placeholder="Add annotation for this server..."></textarea>
+                <small class="form-hint">Your annotation will be saved in the history</small>
+            </div>
+            
+            <!-- History section -->
+            <div class="form-group" id="history-section" style="display: none;">
+                <label>History:</label>
+                <div id="annotation-history" class="history-list">
+                    <!-- History entries will be inserted here -->
+                </div>
+            </div>
+        </form>
+    </div>
+    <div class="modal-footer">
+        <button class="btn-cancel" onclick="closeAnnotationModal()">Cancel</button>
+        <button class="btn-save" onclick="saveAnnotation()">Save</button>
+    </div>
+</div>
+```
+
+</div>
+
+<!-- CSS for history display -->
+
+<style>
+.history-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    background: #f9f9f9;
+}
+
+.history-entry {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: white;
+    border-left: 3px solid #007bff;
+    border-radius: 3px;
+}
+
+.history-entry:last-child {
+    margin-bottom: 0;
+}
+
+.history-meta {
+    font-size: 0.85em;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.history-text {
+    color: #333;
+}
+
+.annotation-textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 4px;
+    color: #666;
+    font-size: 0.9em;
+}
+</style>
+
+“””
+
+# ============================================
+
+# JavaScript - Updated annotation manager
+
+# ============================================
+
+“””
+// static/claude/js/annotation-manager.js
+
+let currentHostname = null;
+
+function editAnnotation(hostname) {
+currentHostname = hostname;
+console.log(’[Annotation] Editing:’, hostname);
+
+```
+// Show modal
+document.getElementById('annotationModal').style.display = 'flex';
+document.getElementById('modal-hostname').value = hostname;
+
+// Load existing data
+fetch(`/claude/annotation/${encodeURIComponent(hostname)}/`)
+    .then(response => response.json())
+    .then(data => {
+        // Fill form
+        document.getElementById('annotation-notes').value = data.notes || '';
+        
+        // Display history
+        displayHistory(data.history);
+    })
+    .catch(error => {
+        console.error('[Annotation] Error loading:', error);
+        alert('Error loading annotation');
+    });
+```
+
+}
+
+function displayHistory(history) {
+const historySection = document.getElementById(‘history-section’);
+const historyContainer = document.getElementById(‘annotation-history’);
+
+```
+if (!history || history.length === 0) {
+    historySection.style.display = 'none';
+    return;
+}
+
+historySection.style.display = 'block';
+historyContainer.innerHTML = '';
+
+history.forEach(entry => {
+    const entryDiv = document.createElement('div');
+    entryDiv.className = 'history-entry';
+    
+    const date = new Date(entry.date);
+    const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    
+    entryDiv.innerHTML = `
+        <div class="history-meta">
+            <strong>${entry.user}</strong> - ${formattedDate}
+        </div>
+        <div class="history-text">${escapeHtml(entry.text)}</div>
+    `;
+    
+    historyContainer.appendChild(entryDiv);
+});
+```
+
+}
+
+function escapeHtml(text) {
+const div = document.createElement(‘div’);
+div.textContent = text;
+return div.innerHTML;
+}
+
+function closeAnnotationModal() {
+document.getElementById(‘annotationModal’).style.display = ‘none’;
+currentHostname = null;
+document.getElementById(‘annotationForm’).reset();
+document.getElementById(‘history-section’).style.display = ‘none’;
+}
+
+function saveAnnotation() {
+if (!currentHostname) {
+alert(‘Error: no server selected’);
+return;
+}
+
+```
+const notes = document.getElementById('annotation-notes').value.trim();
+
+// Disable button during save
+const saveBtn = document.querySelector('.btn-save');
+const originalText = saveBtn.textContent;
+saveBtn.disabled = true;
+saveBtn.textContent = 'Saving...';
+
+// Send data
+fetch(`/claude/annotation/${encodeURIComponent(currentHostname)}/`, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRFToken': getCsrfToken()
+    },
+    body: `notes=${encodeURIComponent(notes)}`
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        console.log('[Annotation] Saved successfully');
+        closeAnnotationModal();
+        // Reload page to see changes
+        window.location.reload();
+    } else {
+        console.error('[Annotation] Error:', data.message);
+        alert('Error: ' + data.message);
+    }
+})
+.catch(error => {
+    console.error('[Annotation] Network error:', error);
+    alert('Connection error during save');
+})
+.finally(() => {
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
+});
+```
+
+}
+
+function getCsrfToken() {
+const cookies = document.cookie.split(’;’);
+for (let cookie of cookies) {
+const [name, value] = cookie.trim().split(’=’);
+if (name === ‘csrftoken’) {
+return value;
+}
+}
+
+```
+const metaTag = document.querySelector('meta[name="csrf-token"]');
+if (metaTag) {
+    return metaTag.getAttribute('content');
+}
+
+console.warn('[Annotation] CSRF token not found');
+return '';
+```
+
+}
+
+// Close modal by clicking outside
+document.addEventListener(‘click’, function(event) {
+const modal = document.getElementById(‘annotationModal’);
+if (event.target === modal) {
+closeAnnotationModal();
+}
+});
+
+// Close modal with Escape key
+document.addEventListener(‘keydown’, function(event) {
+if (event.key === ‘Escape’) {
+const modal = document.getElementById(‘annotationModal’);
+if (modal && modal.style.display === ‘flex’) {
+closeAnnotationModal();
+}
+}
+});
+
+// Initialization
+document.addEventListener(‘DOMContentLoaded’, function() {
+console.log(’[Annotation] Simplified annotation manager initialized’);
+});
+“””
