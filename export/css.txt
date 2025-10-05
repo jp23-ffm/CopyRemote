@@ -1,0 +1,48 @@
+td {
+  width: 50px; /* ou la largeur souhaitée */
+  min-width: 50px;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+}
+
+td:hover {
+  overflow: visible;
+  white-space: normal;
+  /* La largeur reste fixée */
+}
+
+------------------
+
+td {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
+  position: relative;
+}
+
+td .content {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+td:hover .content {
+  position: absolute;
+  background: white;
+  border: 1px solid #ccc;
+  padding: 4px;
+  white-space: normal;
+  width: max-content;
+  max-width: 200px; /* largeur max du texte déployé */
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+
+---
+
+
+<td><div class="content">Votre texte long ici...</div></td>
