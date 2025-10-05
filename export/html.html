@@ -1,0 +1,8 @@
+<!-- Dans la zone des stats, après le view toggle -->
+<div class="export-actions">
+    <a href="{% url 'inventory:export_grouped_csv' %}?{% for k,v in request.GET.items %}{{ k }}={{ v }}&{% endfor %}" 
+       class="export-btn" 
+       title="Export current view as CSV">
+        📥 Export CSV
+    </a>
+</div>
