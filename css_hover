@@ -1,4 +1,30 @@
-									{% if field.name == 'annotations' %}
+document.querySelectorAll('td').forEach(cell => {
+  cell.addEventListener('mouseenter', function() {
+    // Utilise getBoundingClientRect() pour plus de précision
+    if (!this.style.width) {
+      this.style.width = this.getBoundingClientRect().width + 'px';
+    }
+  });
+  
+  cell.addEventListener('mouseleave', function() {
+    this.style.width = '';
+  });
+});
+
+
+
+ou
+
+cell.addEventListener('mouseenter', function() {
+  this.dataset.lockedWidth = this.offsetWidth;
+  this.style.width = this.offsetWidth + 'px';
+  this.classList.add('width-locked');
+});
+
+
+
+
+{% if field.name == 'annotations' %}
                                         <!-- Annotations column -->
                                         {% if server_group.annotation %}
                                             <div class="annotation-display">
