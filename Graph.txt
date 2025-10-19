@@ -1,0 +1,31 @@
+# Définir le chemin central
+$modulePath = "\\serveur\partage\Modules\Microsoft.Graph.Mail"
+
+# Importer le module
+Import-Module $modulePath -Force
+
+# Ou ajouter le chemin aux modules disponibles
+$env:PSModulePath += ";\\serveur\partage\Modules"
+Import-Module Microsoft.Graph.Mail
+
+
+$tenantId = "d26628af-ba"
+$clientId = "7be22f39-51c"
+$thumbprint = (Get-ChildItem -Path Cert:\CurrentUser\My | Where-Object { $_.Subject -eq "CN=GraphAPI-Automation" }).Thumbprint
+
+Connect-MgGraph -TenantId $tenantId -ClientId $clientId -CertificateThumbprint $thumbprint
+
+# Se connecter
+Connect-MgGraph -Scopes "Mail.Read", "Mail.ReadWrite"
+
+# Exemple : lire les mails
+Get-MgUserMessage -UserId "user@domain.com" -Top 10
+
+
+$certPath = "\\serveur\partage\Certs\MonCert.pfx"
+$certPassword = ConvertTo-SecureString -String "MotDePasseSecurise" -AsPlainText -Force
+$cert = Get-PfxCertificate -FilePath $certPath -Password $certPassword
+
+Connect-MgGraph -ClientId "ton-client-id" `
+    -TenantId "ton-tenant-id" `
+    -Certificate $cert
