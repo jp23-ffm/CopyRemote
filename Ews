@@ -1,0 +1,541 @@
+#Requires -Modules Microsoft.Graph.Mail, Microsoft.Graph.Users
+
+<#
+.SYNOPSIS
+Bibliothèque de wrappers pour migrer EWS vers Microsoft Graph
+
+.DESCRIPTION
+Ces fonctions imitent le comportement des objets EWS pour minimiser
+les changements dans les scripts existants lors de la migration vers Graph.
+
+.NOTES
+Prérequis: Connect-MgGraph doit être appelé avant d’utiliser ces fonctions
+Permissions nécessaires: Mail.ReadWrite, Mail.ReadWrite.Shared (si délégation)
+#>
+
+# Variable globale pour stocker l’utilisateur en cours (pour impersonation)
+
+$script:EwsCompat_CurrentUser = $null
+
+#region Configuration et Connexion
+
+<#
+.SYNOPSIS
+Initialise la connexion Graph en mode “impersonation”
+
+.DESCRIPTION
+Remplace la création du ExchangeService EWS avec impersonation.
+Configure l’utilisateur cible pour toutes les opérations suivantes.
+
+.PARAMETER UserEmail
+Adresse email de la boîte aux lettres à consulter
+
+.EXAMPLE
+Initialize-EwsCompatConnection -UserEmail “user@domain.com”
+#>
+function Initialize-EwsCompatConnection {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+[string]$UserEmail
+)
+
+```
+try {
+    # Vérifier que Graph est connecté
+    $context = Get-MgContext
+    if (-not $context) {
+        throw "Microsoft Graph n'est pas connecté. Utilisez Connect-MgGraph d'abord."
+    }
+    
+    # Stocker l'utilisateur pour les opérations futures
+    $script:EwsCompat_CurrentUser = $UserEmail
+    
+    Write-Verbose "Connexion Graph initialisée pour: $UserEmail"
+    
+    return [PSCustomObject]@{
+        Success = $true
+        User = $UserEmail
+        Context = $context
+    }
+}
+catch {
+    Write-Error "Erreur lors de l'initialisation: $_"
+    return [PSCustomObject]@{
+        Success = $false
+        Error = $_.Exception.Message
+    }
+}
+```
+
+}
+
+#endregion
+
+#region Gestion des Dossiers
+
+<#
+.SYNOPSIS
+Récupère un dossier par son nom (équivalent FindFolders)
+
+.DESCRIPTION
+Simule ExchangeService.FindFolders() en recherchant un dossier par nom
+
+.PARAMETER ParentFolderId
+ID du dossier parent (ou “Inbox” pour la boîte de réception)
+
+.PARAMETER DisplayName
+Nom du dossier à rechercher
+
+.EXAMPLE
+$folder = Get-EwsCompatFolder -ParentFolderId “Inbox” -DisplayName “TODO”
+#>
+function Get-EwsCompatFolder {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+[string]$ParentFolderId,
+
+```
+    [Parameter(Mandatory = $false)]
+    [string]$DisplayName
+)
+
+if (-not $script:EwsCompat_CurrentUser) {
+    throw "Utilisateur non initialisé. Appelez Initialize-EwsCompatConnection d'abord."
+}
+
+try {
+    # Gérer le cas spécial "Inbox" - on doit d'abord récupérer le dossier Inbox pour avoir son ID
+    if ($ParentFolderId -eq "Inbox") {
+        Write-Verbose "Récupération du dossier Inbox"
+        $inboxFolder = Get-MgUserMailFolder -UserId $script:EwsCompat_CurrentUser -MailFolderId "Inbox"
+        $ParentFolderId = $inboxFolder.Id
+    }
+    
+    # Récupérer les sous-dossiers
+    $folders = Get-MgUserMailFolderChildFolder -UserId $script:EwsCompat_CurrentUser -MailFolderId $ParentFolderId
+    
+    # Filtrer par nom si spécifié
+    if ($DisplayName) {
+        $folders = $folders | Where-Object { $_.DisplayName -eq $DisplayName }
+    }
+    
+    # Convertir en objets compatibles EWS
+    $compatFolders = @()
+    foreach ($folder in $folders) {
+        $compatFolders += New-EwsCompatFolder -GraphFolder $folder
+    }
+    
+    return $compatFolders
+}
+catch {
+    Write-Error "Erreur lors de la récupération des dossiers: $_"
+    Write-Verbose "Détails: $($_.Exception.Message)"
+    return $null
+}
+```
+
+}
+
+<#
+.SYNOPSIS
+Crée un objet dossier compatible EWS
+
+.DESCRIPTION
+Fonction interne pour convertir un dossier Graph en objet compatible EWS
+#>
+function New-EwsCompatFolder {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$GraphFolder
+)
+
+```
+$obj = [PSCustomObject]@{
+    Id = $GraphFolder.Id
+    DisplayName = $GraphFolder.DisplayName
+    TotalCount = $GraphFolder.TotalItemCount
+    UnreadCount = $GraphFolder.UnreadItemCount
+    ChildFolderCount = $GraphFolder.ChildFolderCount
+}
+
+# Ajouter un type pour faciliter l'identification
+$obj.PSObject.TypeNames.Insert(0, 'EwsCompat.Folder')
+
+return $obj
+```
+
+}
+
+#endregion
+
+#region Gestion des Messages
+
+<#
+.SYNOPSIS
+Récupère les messages d’un dossier (équivalent FindItems)
+
+.DESCRIPTION
+Simule FolderObject.FindItems() avec support du tri et de la pagination
+
+.PARAMETER FolderId
+ID du dossier ou objet dossier compatible EWS
+
+.PARAMETER Top
+Nombre de messages à récupérer (défaut: 1)
+
+.PARAMETER OrderBy
+Champ de tri: “DateTimeReceived” ou “Subject”
+
+.PARAMETER Ascending
+Ordre croissant (true) ou décroissant (false)
+
+.EXAMPLE
+$messages = Get-EwsCompatMessages -FolderId $folder.Id -Top 1 -OrderBy “DateTimeReceived” -Ascending $true
+#>
+function Get-EwsCompatMessages {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$FolderId,
+
+```
+    [Parameter(Mandatory = $false)]
+    [int]$Top = 1,
+    
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("DateTimeReceived", "Subject", "From")]
+    [string]$OrderBy = "DateTimeReceived",
+    
+    [Parameter(Mandatory = $false)]
+    [bool]$Ascending = $true
+)
+
+if (-not $script:EwsCompat_CurrentUser) {
+    throw "Utilisateur non initialisé. Appelez Initialize-EwsCompatConnection d'abord."
+}
+
+try {
+    # Extraire l'ID si c'est un objet
+    if ($FolderId -is [PSCustomObject] -and $FolderId.Id) {
+        $FolderId = $FolderId.Id
+    }
+    
+    # Récupérer les messages
+    $messages = Get-MgUserMailFolderMessage -UserId $script:EwsCompat_CurrentUser -MailFolderId $FolderId -Top $Top -All:$false
+    
+    # Trier les messages (Graph ne supporte pas toujours l'orderby via API)
+    switch ($OrderBy) {
+        "DateTimeReceived" {
+            if ($Ascending) {
+                $messages = $messages | Sort-Object ReceivedDateTime
+            } else {
+                $messages = $messages | Sort-Object ReceivedDateTime -Descending
+            }
+        }
+        "Subject" {
+            if ($Ascending) {
+                $messages = $messages | Sort-Object Subject
+            } else {
+                $messages = $messages | Sort-Object Subject -Descending
+            }
+        }
+    }
+    
+    # Prendre seulement le Top demandé après tri
+    $messages = $messages | Select-Object -First $Top
+    
+    # Convertir en objets compatibles EWS
+    $compatMessages = @()
+    foreach ($message in $messages) {
+        # Récupérer les pièces jointes pour ce message
+        $attachments = Get-MgUserMessageAttachment -UserId $script:EwsCompat_CurrentUser -MessageId $message.Id -ErrorAction SilentlyContinue
+        
+        $compatMessages += New-EwsCompatMessage -GraphMessage $message -GraphAttachments $attachments
+    }
+    
+    # Créer un objet collection compatible avec .Load()
+    $collection = [PSCustomObject]@{
+        Items = $compatMessages
+        Count = $compatMessages.Count
+    }
+    
+    # Ajouter une méthode Load() factice (pour compatibilité)
+    $collection | Add-Member -MemberType ScriptMethod -Name "Load" -Value {
+        # Déjà chargé, ne fait rien
+        Write-Verbose "Load() appelé - données déjà chargées avec Graph"
+    }
+    
+    return $collection
+}
+catch {
+    Write-Error "Erreur lors de la récupération des messages: $_"
+    return $null
+}
+```
+
+}
+
+<#
+.SYNOPSIS
+Crée un objet message compatible EWS
+
+.DESCRIPTION
+Fonction interne pour convertir un message Graph en objet compatible EWS
+#>
+function New-EwsCompatMessage {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$GraphMessage,
+
+```
+    [Parameter(Mandatory = $false)]
+    $GraphAttachments
+)
+
+# Convertir les pièces jointes
+$compatAttachments = @()
+if ($GraphAttachments) {
+    foreach ($att in $GraphAttachments) {
+        $compatAttachments += New-EwsCompatAttachment -GraphAttachment $att -MessageId $GraphMessage.Id
+    }
+}
+
+# Créer l'objet principal
+$obj = [PSCustomObject]@{
+    Id = $GraphMessage.Id
+    Subject = $GraphMessage.Subject
+    DateTimeReceived = $GraphMessage.ReceivedDateTime
+    IsRead = $GraphMessage.IsRead
+    HasAttachments = $GraphMessage.HasAttachments
+    Body = $GraphMessage.Body.Content
+    BodyType = $GraphMessage.Body.ContentType
+    Attachments = $compatAttachments
+    
+    # Propriété From compatible EWS
+    From = [PSCustomObject]@{
+        Address = $GraphMessage.From.EmailAddress.Address
+        Name = $GraphMessage.From.EmailAddress.Name
+    }
+    
+    # Pour compatibilité avec .items.Move()
+    Items = [PSCustomObject]@{
+        _graphId = $GraphMessage.Id
+        _graphUser = $script:EwsCompat_CurrentUser
+    }
+}
+
+# Ajouter la méthode Move
+$obj.Items | Add-Member -MemberType ScriptMethod -Name "Move" -Value {
+    param($DestinationFolderId)
+    
+    # Extraire l'ID si c'est un objet
+    if ($DestinationFolderId -is [PSCustomObject] -and $DestinationFolderId.Id) {
+        $DestinationFolderId = $DestinationFolderId.Id
+    }
+    
+    try {
+        Move-MgUserMessage -UserId $this._graphUser -MessageId $this._graphId -DestinationId $DestinationFolderId
+        Write-Verbose "Message $($this._graphId) déplacé vers $DestinationFolderId"
+    }
+    catch {
+        Write-Error "Erreur lors du déplacement du message: $_"
+    }
+}
+
+# Ajouter une méthode Load() factice pour les attachments
+$obj | Add-Member -MemberType ScriptMethod -Name "Load" -Value {
+    Write-Verbose "Load() appelé sur le message - données déjà chargées"
+}
+
+$obj.PSObject.TypeNames.Insert(0, 'EwsCompat.Message')
+
+return $obj
+```
+
+}
+
+#endregion
+
+#region Gestion des Pièces Jointes
+
+<#
+.SYNOPSIS
+Crée un objet pièce jointe compatible EWS
+
+.DESCRIPTION
+Fonction interne pour convertir une pièce jointe Graph en objet compatible EWS
+#>
+function New-EwsCompatAttachment {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$GraphAttachment,
+
+```
+    [Parameter(Mandatory = $true)]
+    [string]$MessageId
+)
+
+$obj = [PSCustomObject]@{
+    Id = $GraphAttachment.Id
+    Name = $GraphAttachment.Name
+    ContentType = $GraphAttachment.ContentType
+    Size = $GraphAttachment.Size
+    IsInline = $GraphAttachment.IsInline
+    _messageId = $MessageId
+    _graphUser = $script:EwsCompat_CurrentUser
+}
+
+# Ajouter une méthode pour sauvegarder la pièce jointe
+$obj | Add-Member -MemberType ScriptMethod -Name "Load" -Value {
+    try {
+        # Récupérer le contenu complet de la pièce jointe
+        $fullAttachment = Get-MgUserMessageAttachment -UserId $this._graphUser -MessageId $this._messageId -AttachmentId $this.Id
+        
+        # Ajouter la propriété Content si disponible
+        if ($fullAttachment.AdditionalProperties.ContainsKey('contentBytes')) {
+            $this | Add-Member -MemberType NoteProperty -Name "ContentBytes" -Value $fullAttachment.AdditionalProperties['contentBytes'] -Force
+        }
+        
+        Write-Verbose "Contenu de la pièce jointe chargé: $($this.Name)"
+    }
+    catch {
+        Write-Error "Erreur lors du chargement de la pièce jointe: $_"
+    }
+}
+
+# Méthode pour sauvegarder sur disque (simulant le comportement EWS)
+$obj | Add-Member -MemberType ScriptMethod -Name "SaveToFile" -Value {
+    param([string]$Path)
+    
+    try {
+        # Charger le contenu si pas déjà fait
+        if (-not $this.ContentBytes) {
+            $this.Load()
+        }
+        
+        # Sauvegarder le fichier
+        $bytes = [System.Convert]::FromBase64String($this.ContentBytes)
+        [System.IO.File]::WriteAllBytes($Path, $bytes)
+        
+        Write-Verbose "Pièce jointe sauvegardée: $Path"
+    }
+    catch {
+        Write-Error "Erreur lors de la sauvegarde de la pièce jointe: $_"
+    }
+}
+
+$obj.PSObject.TypeNames.Insert(0, 'EwsCompat.Attachment')
+
+return $obj
+```
+
+}
+
+<#
+.SYNOPSIS
+Sauvegarde toutes les pièces jointes d’un message
+
+.PARAMETER Message
+Objet message compatible EWS
+
+.PARAMETER DestinationPath
+Chemin de destination pour les pièces jointes
+
+.EXAMPLE
+Save-EwsCompatAttachments -Message $message -DestinationPath “C:\Temp"
+#>
+function Save-EwsCompatAttachments {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$Message,
+
+```
+    [Parameter(Mandatory = $true)]
+    [string]$DestinationPath
+)
+
+try {
+    # Créer le répertoire si nécessaire
+    if (-not (Test-Path $DestinationPath)) {
+        New-Item -ItemType Directory -Path $DestinationPath -Force | Out-Null
+    }
+    
+    $savedFiles = @()
+    
+    foreach ($attachment in $Message.Attachments) {
+        $filePath = Join-Path $DestinationPath $attachment.Name
+        
+        # Charger et sauvegarder
+        $attachment.Load()
+        $attachment.SaveToFile($filePath)
+        
+        $savedFiles += $filePath
+    }
+    
+    return $savedFiles
+}
+catch {
+    Write-Error "Erreur lors de la sauvegarde des pièces jointes: $_"
+    return @()
+}
+```
+
+}
+
+#endregion
+
+#region Fonctions Utilitaires
+
+<#
+.SYNOPSIS
+Obtient le nombre de messages dans un dossier
+
+.PARAMETER FolderId
+ID du dossier ou objet dossier compatible EWS
+
+.EXAMPLE
+$count = Get-EwsCompatFolderMessageCount -FolderId $folder.Id
+#>
+function Get-EwsCompatFolderMessageCount {
+[CmdletBinding()]
+param(
+[Parameter(Mandatory = $true)]
+$FolderId
+)
+
+```
+try {
+    # Extraire l'ID si c'est un objet
+    if ($FolderId -is [PSCustomObject] -and $FolderId.Id) {
+        return $FolderId.TotalCount
+    }
+    
+    # Sinon récupérer le dossier
+    $folder = Get-MgUserMailFolder -UserId $script:EwsCompat_CurrentUser -MailFolderId $FolderId
+    return $folder.TotalItemCount
+}
+catch {
+    Write-Error "Erreur lors de la récupération du nombre de messages: $_"
+    return 0
+}
+```
+
+}
+
+#endregion
+
+# Export des fonctions
+
+Export-ModuleMember -Function @(
+‘Initialize-EwsCompatConnection’,
+‘Get-EwsCompatFolder’,
+‘Get-EwsCompatMessages’,
+‘Save-EwsCompatAttachments’,
+‘Get-EwsCompatFolderMessageCount’
+)
