@@ -1,0 +1,45 @@
+$O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService
+$O_message = New-Object Microsoft.Exchange.WebServices.Data.EmailMessage
+$O_message.Subject = "Test"
+$O_message.Body = "Hello"
+$O_message.ToRecipients.Add("user@domain.com")
+$O_message.SendAndSaveCopy()
+
+->
+
+Initialize-EwsCompatConnection -UserEmail "service@domain.com"
+Send-EwsCompatMessage -Subject "Test" `
+                      -Body "Hello" `
+                      -ToRecipients @("user@domain.com")
+					  
+					  
+
+Permissions Graph supplémentaires nécessaires					  
+	Connect-MgGraph -Scopes "Mail.ReadWrite", "Mail.ReadWrite.Shared", "Mail.Send", "Mail.Send.Shared"
+	
+Valeur de retour de F_SentMail
+	Return @(0, $null)      # Succès
+	Return @(1, $error)     # Échec
+	
+
+Test
+
+# 1. Se connecter à Graph
+Connect-MgGraph -Scopes "Mail.ReadWrite", "Mail.ReadWrite.Shared", "Mail.Send", "Mail.Send.Shared"
+
+# 2. Import du module
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+# 3. Test simple de F_SentMail
+$result = F_SentMail -S_MailOfService "workflow@bnpparibas.com" `
+                     -S_Connectionstring $S_Connectionstring `
+                     -S_Body "<h1>Test</h1><p>Email de test depuis Graph</p>" `
+                     -S_SubjectMail "Test Migration Graph" `
+                     -A_ToRecipients @("ton.email@bnpparibas.com")
+
+If ($result[0] -eq 0) {
+    Write-Host "✅ Email envoyé avec succès"
+} Else {
+    Write-Host "❌ Erreur: $($result[1])"
+}
+
