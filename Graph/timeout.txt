@@ -1,0 +1,27 @@
+Dans R_CheckReceivedMail, dans le Do...Until
+
+Do {
+    Try {
+        # Récupérer le message
+        $O_CheckMailCollection = Get-EwsCompatMessages -FolderId $O_FolderTODOMailAutomate.Id -Top 1 -OrderBy "DateTimeReceived" -Ascending $true
+        $O_CheckMail = $O_CheckMailCollection.Items[0]
+        
+        # ... traitement du mail ...
+        
+        $I_CountMailchecked++
+        Start-Sleep -Seconds 10
+    }
+    Catch {
+        # TIMEOUT OU ERREUR GRAPH DÉTECTÉE
+        Write-Host -ForegroundColor Red "❌ Erreur Graph détectée: $_"
+        Write-Host -ForegroundColor Red "Arrêt du traitement. $I_CountMailchecked mails traités sur $I_CountMail."
+        
+        # Alerte
+        R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail] - Graph timeout" `
+                        -MsgError "Timeout détecté après $I_CountMailchecked mails traités. Mails restants: $($I_CountMail - $I_CountMailchecked). Erreur: $($_.Exception.Message)"
+        
+        # SORTIE IMMÉDIATE DE LA FONCTION
+        Break  # Sort du Do...Until
+    }
+    
+} Until ($I_CountMail -eq $I_CountMailchecked)
