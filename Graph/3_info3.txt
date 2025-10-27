@@ -1,0 +1,64 @@
+Recherche d'emails
+Avant (EWS) :
+$O_SearchFilterSubject = new-object Microsoft.Exchange.WebServices.Data.SearchFilter+ContainsSubstring(...)
+$O_ReplyOnMail = $O_FolderDONEMailAutomate.FindItems($O_SearchFilterSubject, $O_ItemViewAsc)
+
+Après (Graph) :
+$allMessages = Get-MgUserMailFolderMessage -UserId $user `
+                                           -MailFolderId $folderId `
+                                           -Filter "contains(subject, '[PURCHASE_WORKFLOW_ORDER][ID_123]')"
+
+
+Réponse à un email
+Avant (EWS) :
+$O_ReplyOnMail.Reply($replyBody, $true)
+
+Après (Graph) :
+Send-EwsCompatReply -MessageId $O_ReplyOnMail.Id -ReplyBody $replyBody -ReplyToAll $true
+
+
+Connect-MgGraph -Scopes "Mail.ReadWrite", "Mail.ReadWrite.Shared", "Mail.Send", "Mail.Send.Shared"
+
+
+
+ Pour tester
+ # Test du wrapper de réponse seul
+$testMessage = Get-MgUserMessage -UserId "user@domain.com" -MessageId "AAMkAG..."
+Send-EwsCompatReply -MessageId $testMessage.Id -ReplyBody "Test de réponse" -ReplyToAll $false
+
+
+
+
+F_GetAttachmentsObject
+-------------------------
+
+Chargement du contenu
+Avant (EWS) :
+$O_ValAttachments.Content  # Directement disponible
+
+Après (Graph) :
+If (-not $O_ValAttachments.ContentBytes) {
+    $O_ValAttachments.Load()  # Charger si nécessaire
+}
+
+Sauvegarde du fichier
+Avant (EWS) :
+$O_File = new-object System.IO.FileStream($path, [System.IO.FileMode]::Create)
+$O_File.Write($O_ValAttachments.Content, 0, $O_ValAttachments.Content.Length)
+$O_File.Close()
+
+Après (Graph) :
+# Convertir Base64 → bytes
+$fileBytes = [System.Convert]::FromBase64String($O_ValAttachments.ContentBytes)
+# Sauvegarder directement
+[System.IO.File]::WriteAllBytes($filePath, $fileBytes)
+
+
+Test
+# Dans R_CheckReceivedMail, l'appel reste identique :
+$A_F_GetAttachmentsObject = F_GetAttachmentsObject -O_CheckMail $O_CheckMail `
+                                                   -S_PathArchiveAttachments $S_PathArchiveAttachments
+
+If ($A_F_GetAttachmentsObject[0] -eq 0) {
+    Write-Host "✅ PDFs sauvegardés"
+}
