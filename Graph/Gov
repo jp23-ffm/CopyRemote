@@ -1,0 +1,372 @@
+# Import du module de wrappers
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+<#
+.SYNOPSIS
+Version migrée stricte - structure identique au code original
+
+.DESCRIPTION
+Seuls les appels EWS ont été remplacés par Graph.
+Toute la logique, les loops et les blocs restent identiques.
+#>
+Function R_CheckSendingGovernance {
+param(
+[Parameter(Mandatory = $true)] [string]$S_Mail,
+[Parameter(Mandatory = $true)] [string]$S_LoginExchange,
+[Parameter(Mandatory = $true)] [string]$S_PasswordExchange,
+[Parameter(Mandatory = $true)] [string]$S_Domain,
+[Parameter(Mandatory = $true)] [string]$S_Connectionstring,
+[Parameter(Mandatory = $true)] [string]$S_UrlSP
+)
+
+```
+$I_adOpenStatic = 3
+$I_adLockOptimistic = 3
+$O_Connection = New-Object -comobject ADODB.Connection
+$O_Connection.Open($S_Connectionstring)
+$O_RecordsetRead = New-Object -comobject ADODB.Recordset
+$O_RecordsetReadSecond = New-Object -comobject ADODB.Recordset
+$O_RecordsetUpdate = New-Object -comobject ADODB.Recordset
+
+$O_RecordsetRead.Open(
+    "select * from T_PurchaseCart where T_PurchaseCart_StateInt = 25 and T_PurchaseCart_Provider = 'DELL' and (T_PurchaseCart_Country = 'FR')", 
+    $O_Connection, 
+    $I_adOpenStatic, 
+    $I_adLockOptimistic
+)
+
+If (-Not $O_RecordsetRead.EOF) {
+    $SetFormDigest = F_SetFormDigest
+    $O_RecordsetRead.MoveFirst()
+    
+    Do {
+        # === CHANGEMENT : Graph au lieu de EWS ===
+        # Remplace : $O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService
+        $connectionResult = Initialize-EwsCompatConnection -UserEmail $S_Mail
+        
+        $S_message_Subject = "Order approved for the project nammed : " + 
+                            $O_RecordsetRead.Fields.Item("T_PurchaseCart_ProjectName").Value
+        
+        $O_RecordsetReadSecond.Open(
+            "select T_LdapLoginTranslate_Mail, T_LdapLoginTranslate_Name from T_LdapLoginTranslate where T_LdapLoginTranslate_Login = '" + 
+            $O_RecordsetRead.Fields.Item("T_PurchaseCart_Requester").Value + "'", 
+            $O_Connection, 
+            $I_adOpenStatic, 
+            $I_adLockOptimistic
+        )
+        
+        $O_RecordsetReadSecond.MoveFirst()
+        $S_MailToRequester = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Mail").Value
+        $S_NameToRequester = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Name").Value
+        $O_RecordsetReadSecond.Close()
+        
+        $O_RecordsetReadSecond.Open(
+            "select T_LdapLoginTranslate_Mail, T_LdapLoginTranslate_Name from T_LdapLoginTranslate where T_LdapLoginTranslate_Login = '" + 
+            $O_RecordsetRead.Fields.Item("T_PurchaseCart_ValidateManagerLevel1").Value + "'", 
+            $O_Connection, 
+            $I_adOpenStatic, 
+            $I_adLockOptimistic
+        )
+        
+        $S_MailToValidator = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Mail").Value
+        $S_NameToValidator = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Name").Value
+        $O_RecordsetReadSecond.Close()
+        
+        If ($O_RecordsetRead.Fields.Item("T_PurchaseCart_Delegation").Value -ne "-") {
+            $O_RecordsetReadSecond.Open(
+                "select T_LdapLoginTranslate_Mail, T_LdapLoginTranslate_Name from T_LdapLoginTranslate where T_LdapLoginTranslate_Login = '" + 
+                $O_RecordsetRead.Fields.Item("T_PurchaseCart_Delegation").Value + "'", 
+                $O_Connection, 
+                $I_adOpenStatic, 
+                $I_adLockOptimistic
+            )
+            
+            $S_MailToDelegate = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Mail").Value
+            $S_NameToDelegate = $O_RecordsetReadSecond.Fields.Item("T_LdapLoginTranslate_Name").Value
+            $O_RecordsetReadSecond.Close()
+        }
+        
+        $O_RecordsetReadSecond.Open(
+            "SELECT T_PurchaseMailReceived.T_PurchaseMailReceived_QuotationValid, T_PurchaseMailReceivedAttachment.T_PurchaseMailReceivedAttachment_id, " + 
+            "T_PurchaseMailReceivedAttachment.T_PurchaseMailReceivedAttachment_AttachmentName, " + 
+            "T_PurchaseMailReceivedAttachment.T_PurchaseMailReceivedAttachment_RamdomFileName, " + 
+            "T_PurchaseMailReceived.T_PurchaseMailReceived_Body, " + 
+            "T_PurchaseMailReceived.T_PurchaseMailReceived_Subject, " + 
+            "T_PurchaseMailReceived.T_PurchaseMailReceived_AttachmentCount, " + 
+            "T_PurchaseMailReceived.T_PurchaseMailReceived_T_PurchaseCart_ID " + 
+            "FROM T_PurchaseMailReceived " + 
+            "INNER JOIN T_PurchaseMailReceivedAttachment ON T_PurchaseMailReceived.T_PurchaseMailReceived_ID = " + 
+            "T_PurchaseMailReceivedAttachment.T_PurchaseMailReceivedAttachment_T_PurchaseMailReceived_ID " + 
+            "where T_PurchaseMailReceived_QuotationValid = 'YES' And " + 
+            "T_PurchaseMailReceived_T_PurchaseCart_ID = '" + 
+            $O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value + "'",
+            $O_Connection, 
+            $I_adOpenStatic, 
+            $I_adLockOptimistic
+        )
+        
+        $O_RecordsetReadSecond.MoveFirst()
+        $A_FileAttachment = @()
+        $S_HistoryMail = $O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceived_Body").Value
+        
+        Do {
+            $O_PSObject = New-Object PSObject
+            Copy-Item `
+                ("\\DFS\root\common\infrads\Portal_Indus\WebSite\wwwroot\Purchase\Attachments\" + 
+                $O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceivedAttachment_RamdomFileName").Value + ".pdf") `
+                ("\\DFS\root\common\infrads\Portal_Indus\Scripts\Purchase\Attachments\" + 
+                $O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceivedAttachment_AttachmentName").Value)
+            
+            Add-Member -InputObject $O_PSObject -MemberType NoteProperty -Name A_FileAttachment -Value `
+                $("\\DFS\root\common\infrads\Portal_Indus\Scripts\Purchase\Attachments\" + 
+                $O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceivedAttachment_AttachmentName").Value)
+            
+            Add-Member -InputObject $O_PSObject -MemberType NoteProperty -Name T_PurchaseMailReceivedAttachment_id -Value `
+                $($O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceivedAttachment_id").Value)
+            
+            $A_FileAttachment += $O_PSObject
+            $O_RecordsetReadSecond.MoveNext()
+            
+        } Until ($O_RecordsetReadSecond.EOF)
+        
+        $O_RecordsetReadSecond.Close()
+        
+        $O_message_Body = "Hello, <br><br>The quotation has been added in the form of the governance order server." + 
+                        "<br>This order has been approved by $S_NameToValidator from the workflow purchase" + 
+                        "<br>The requester $S_NameToRequester is in charge of this order.<br>The budget assign is :" + 
+                        "<b>" + $O_RecordsetRead.Fields.Item("T_PurchaseCart_Budget").Value + 
+                        "</b><br><br><br>Below the history from the mail with attachment quotation." + 
+                        "<br><br><br><br><br>Regards,<br>Portal Indus WorkFlow Purchase<br>emea.purchase.digital.workflow@bnpparibas.com<br><br><br>$S_HistoryMail"
+        
+        $S_ToRecipients = @()
+        ForEach ($S_A_FileAttachment in $A_FileAttachment) {
+            $F_GetInfoPurchaseFormGov = F_GetInfoPurchaseFormGov -S_Connectionstring $S_Connectionstring `
+                -S_T_PurchaseSettings_Id $($O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value) `
+                -S_UrlSP $S_UrlSP `
+                -S_PathFileQuotation $($S_A_FileAttachment.A_FileAttachment) `
+                -I_CostOrder $I_CostOrder `
+                -F_GetInfoPurchaseFormGov $F_GetInfoPurchaseFormGov
+            
+            Write-host -red "ici"
+            Write-host -f green $F_GetInfoPurchaseFormGov
+            write-host -f red "ici"
+            
+            If ($I_FlagIdFormOrder -eq 1) {
+                write-host -f red "insert line in SP"
+                $F_InsertDataFormSP = F_InsertDataFormSP -S_TableSP "OrderForm" `
+                    -F_GetInfoPurchaseFormGov $F_GetInfoPurchaseFormGov `
+                    -S_TypeSP "OrderForm_x0020_testListItem"
+                
+                $O_RecordsetUpdate.Open(
+                    "update T_PurchaseCart set T_PurchaseCart_IdSpGov = $($F_InsertDataFormSP.d.Id) where T_PurchaseCart_ID = '" + 
+                    $O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value + "'", 
+                    $O_Connection, 
+                    $I_adOpenStatic, 
+                    $I_adLockOptimistic
+                )
+                
+                $I_FlagIdFormOrder = 0
+            }
+            
+            Write-host -f green "Stdout insert line sharepoint"
+            Write-host -f green $F_InsertDataFormSP
+            
+            If ($($F_InsertDataFormSP.d.Id)) {
+                F_AddAttachments -S_UrlSP $S_UrlSP `
+                    -S_ListName "OrderForm" `
+                    -I_ItemId $($F_InsertDataFormSP.d.Id) `
+                    -S_SourcePath $($S_A_FileAttachment.A_FileAttachment) `
+                    -verbose
+                
+                $O_RecordsetUpdate.Open(
+                    "update T_PurchaseMailReceivedAttachment set T_PurchaseMailReceivedAttachment_IdSpGov = $($F_InsertDataFormSP.d.Id) " + 
+                    "where T_PurchaseMailReceivedAttachment_id = $($S_A_FileAttachment.T_PurchaseMailReceivedAttachment_id)", 
+                    $O_Connection, 
+                    $I_adOpenStatic, 
+                    $I_adLockOptimistic
+                )
+            }
+            Else {
+                R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [Push Data Form Governance]" `
+                    -MsgError "None ID receive, please check or add manually these information<br>$F_GetInfoPurchaseFormGov<br>ID Order:"+$($O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value)+"<br>$($S_A_FileAttachment.A_FileAttachment)"
+                
+                R_WriteLogs -S_LogInfo "ERROR processing WorkFlow Order [Push Data Form Governance]" `
+                    -S_ScriptName $S_ScriptName `
+                    -S_LogFile $S_LogFullPath `
+                    -S_LogSeverity "Error"
+            }
+        }
+        
+        Write-host -f yellow "update price $I_CostOrder"
+        $data = (ConvertTo-Json @{
+            __metadata = @{type= "SP.Data.OrderForm_x0020_testListItem"}
+            jlvi = "$I_CostOrder"
+        })
+        
+        $Updated = F_UpdateListItem -itemURI $($F_InsertDataFormSP.d.__metadata.uri) `
+            -PropertyName $data `
+            -SetFormDigest $SetFormDigest
+        
+        Write-host -f yellow $data
+        
+        # === CHANGEMENT : Envoi via Graph au lieu de EWS ===
+        # Remplace : $O_message = New-Object Microsoft.Exchange.WebServices.Data.EmailMessage
+        
+        # Préparer les destinataires To
+        $toRecipients = @()
+        ForEach ($S_ToRecipients in $A_MailToGovernance) {
+            $toRecipients += $S_ToRecipients
+        }
+        
+        # Préparer les destinataires Cc
+        $ccRecipients = @($S_MailToRequester, $S_MailToValidator)
+        
+        If ($O_RecordsetRead.Fields.Item("T_PurchaseCart_Delegation").Value -ne "-") {
+            $ccRecipients += $S_MailToDelegate
+        }
+        
+        # Préparer les pièces jointes
+        $attachmentPaths = @()
+        ForEach ($S_A_FileAttachment in $A_FileAttachment) {
+            $attachmentPaths += $S_A_FileAttachment.A_FileAttachment
+        }
+        
+        # Envoyer le message
+        $result = Send-EwsCompatMessage -Subject $S_message_Subject `
+                                        -Body $O_message_Body `
+                                        -BodyType "HTML" `
+                                        -ToRecipients $toRecipients `
+                                        -CcRecipients $ccRecipients `
+                                        -Attachments $attachmentPaths `
+                                        -SaveToSentItems $true
+        
+        Start-Sleep -s 10
+        
+        ForEach ($S_A_FileAttachment in $A_FileAttachment) {
+            Remove-Item $($S_A_FileAttachment.A_FileAttachment)
+        }
+        
+        $O_RecordsetUpdate.Open(
+            "update T_PurchaseCart set T_PurchaseCart_StateInt = '30', T_PurchaseCart_StateString = 'ORDER SENT GOVERNANCE' " + 
+            "where T_PurchaseCart_ID = '" + $O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value + "'", 
+            $O_Connection, 
+            $I_adOpenStatic, 
+            $I_adLockOptimistic
+        )
+        
+        $O_RecordsetRead.MoveNext()
+        
+    } Until ($O_RecordsetRead.EOF)
+}
+
+$O_RecordsetRead.Close()
+$O_Connection.Close()
+```
+
+}
+
+<#
+.SYNOPSIS
+F_SentMail - Migration Graph stricte (version migrée de F_SentMail)
+#>
+Function F_SentMail {
+param(
+[Parameter(Mandatory = $true)] [string]$S_MailOfService,
+[Parameter(Mandatory = $true)] [string]$S_LoginExchange,
+[Parameter(Mandatory = $true)] [string]$S_Domain,
+[Parameter(Mandatory = $true)] [string]$S_PasswordExchange,
+[Parameter(Mandatory = $true)] [string]$S_Connectionstring,
+[Parameter(Mandatory = $true)] [string]$S_Body,
+[Parameter(Mandatory = $true)] [string]$S_SubjectMail,
+[Parameter(Mandatory = $true)] [array]$A_ToRecipients
+)
+
+```
+Try {
+    # === CHANGEMENT : Graph au lieu de EWS ===
+    # Remplace : $O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService
+    $connectionResult = Initialize-EwsCompatConnection -UserEmail $S_MailOfService
+    
+    # === CHANGEMENT : Envoi via Graph au lieu de EWS ===
+    # Remplace : $O_message = New-Object Microsoft.Exchange.WebServices.Data.EmailMessage
+    
+    # Conversion du tableau de destinataires
+    $toRecipients = @()
+    foreach ($recipient in $A_ToRecipients) {
+        if ($recipient -is [string]) {
+            $toRecipients += $recipient
+        }
+        elseif ($recipient.Address) {
+            $toRecipients += $recipient.Address
+        }
+        elseif ($recipient.EmailAddress) {
+            $toRecipients += $recipient.EmailAddress
+        }
+    }
+    
+    # Envoi du message
+    $result = Send-EwsCompatMessage -Subject $S_SubjectMail `
+                                    -Body $S_Body `
+                                    -BodyType "HTML" `
+                                    -ToRecipients $toRecipients `
+                                    -SaveToSentItems $true
+    
+    Return @(0, $error)
+}
+Catch {
+    Return @(1, $error)
+}
+```
+
+}
+
+# <#
+
+# EXEMPLE D’UTILISATION
+
+#>
+
+# Connexion Graph
+
+Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint
+
+# Import du module
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+# Appel R_CheckSendingGovernance
+
+R_CheckSendingGovernance -S_Mail “emea.purchase.digital.workflow@bnpparibas.com” `-S_LoginExchange "SVC.EMEAWINTEL.EWS"`
+-S_PasswordExchange “dummy” `-S_Domain "MERCURY\"`
+-S_Connectionstring $S_Connectionstring `
+-S_UrlSP “https://sharepoint.domain.com”
+
+# Appel F_SentMail
+
+$result = F_SentMail -S_MailOfService “workflow@domain.com” `-S_LoginExchange "dummy"`
+-S_Domain “dummy” `-S_PasswordExchange "dummy"`
+-S_Connectionstring $S_Connectionstring `-S_Body "<h1>Test</h1>"`
+-S_SubjectMail “Test” `
+-A_ToRecipients @(“user@domain.com”)
+
+# <#
+
+# CHANGEMENTS MINIMAUX - SEULEMENT EWS → GRAPH
+
+IDENTIQUE À LA VERSION UK, CHANGEMENTS SEULEMENT :
+
+1. Remplacement création EWS:
+   AVANT: $O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService …
+   APRÈS: Initialize-EwsCompatConnection -UserEmail $S_Mail
+1. Remplacement envoi message:
+   AVANT: $O_message = New-Object …EmailMessage; $O_message.SendAndSaveCopy()
+   APRÈS: Send-EwsCompatMessage -Subject … -Body … -ToRecipients … -Attachments …
+
+TOUT LE RESTE IDENTIQUE :
+
+- Même structure Do…Until
+- Même logique DB et SharePoint
+- Mêmes variables
+- Même ordre
+  #>
