@@ -1,0 +1,221 @@
+# Import du module de wrappers
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+<#
+.SYNOPSIS
+R_CheckReplyMail - Version migrée stricte
+
+.DESCRIPTION
+Structure 100% identique au code original
+Seuls les appels EWS ont été remplacés par Graph
+#>
+Function R_CheckReplyMail {
+param(
+[Parameter(Mandatory = $true)] [string]$S_Mail,
+[Parameter(Mandatory = $true)] [string]$S_LoginExchange,
+[Parameter(Mandatory = $true)] [string]$S_PasswordExchange,
+[Parameter(Mandatory = $true)] [string]$S_Domain,
+[Parameter(Mandatory = $true)] [string]$S_FolderRoot,
+[Parameter(Mandatory = $true)] [string]$S_FolderProvider,
+[Parameter(Mandatory = $true)] [string]$S_FolderSource,
+[Parameter(Mandatory = $true)] [string]$S_FolderDestination,
+[Parameter(Mandatory = $true)] [string]$S_FolderError,
+[Parameter(Mandatory = $true)] [string]$S_Connectionstring,
+[Parameter(Mandatory = $true)] [string]$S_Css
+)
+
+```
+$I_adOpenStatic = 3
+$I_adLockOptimistic = 3
+$O_Connection = New-Object -comobject ADODB.Connection
+$O_Connection.Open($S_Connectionstring)
+$O_RecordsetInsertUpdate = New-Object -comobject ADODB.Recordset
+$O_RecordsetRead = New-Object -comobject ADODB.Recordset
+$O_RecordsetReadSecond = New-Object -comobject ADODB.Recordset
+
+# === CHANGEMENT : Graph au lieu de EWS ===
+# Remplace : $O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService
+$connectionResult = Initialize-EwsCompatConnection -UserEmail $S_Mail
+
+# === CHANGEMENT : Navigation dossiers via Graph ===
+$O_FolderRootMailAutomate = Get-EwsCompatFolder -ParentFolderId "Inbox" -DisplayName $S_FolderRoot
+
+If ($O_FolderRootMailAutomate -eq $Null) {
+    Write-host -f green "Folder Root not found"
+    R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReplyMail], Folder $S_FolderRoot not available"
+}
+Else {
+    $O_FolderProviderMailAutomate = Get-EwsCompatFolder -ParentFolderId $O_FolderRootMailAutomate[0].Id -DisplayName $S_FolderProvider
+    
+    If ($O_FolderProviderMailAutomate -eq $Null) {
+        Write-host -f green "Folder Provider not found"
+        R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReplyMail], Folder $S_FolderProvider not available"
+    }
+    Else {
+        $allSubFolders = Get-EwsCompatFolder -ParentFolderId $O_FolderProviderMailAutomate[0].Id
+        
+        $O_FolderTODOMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderSource}
+        $O_FolderDONEMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderDestination}
+        $O_FolderERRORMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderError}
+        
+        $I_CountMailchecked = 0
+        
+        If ($O_FolderTODOMailAutomate -eq $Null) {
+            Write-host -f green "folder TODO not found"
+            R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReplyMail], Folder TODO not available"
+        }
+        Else {
+            If ($O_FolderDONEMailAutomate -eq $Null) {
+                Write-host -f green "Folder DONE not found"
+                R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReplyMail], Folder DONE not available"
+            }
+            Else {
+                If ($O_FolderERRORMailAutomate -eq $Null) {
+                    Write-host -f green "Folder ERROR not found"
+                    R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReplyMail], Folder ERROR not available"
+                }
+                Else {
+                    Write-host -f green "Requete dans une requete à faire"
+                    
+                    $O_RecordsetRead.Open(
+                        "select T_PurchaseCart_ID From T_PurchaseCart where T_PurchaseCart_StateInt = 13", 
+                        $O_Connection, 
+                        $I_adOpenStatic, 
+                        $I_adLockOptimistic
+                    )
+                    
+                    If (-Not $O_RecordsetRead.EOF) {
+                        $O_RecordsetRead.MoveFirst()
+                        
+                        Do {
+                            Write-host -f green "envoie mail"
+                            
+                            $O_RecordsetReadSecond.Open(
+                                "select top 1 T_PurchaseMailReceived_ReplyMail, T_PurchaseMailReceived_T_PurchaseCart_ID " +
+                                "From T_PurchaseMailReceived " +
+                                "Where T_PurchaseMailReceived_T_PurchaseCart_ID = " + 
+                                $($O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value) + 
+                                " order by T_PurchaseMailReceived_ID desc", 
+                                $O_Connection, 
+                                $I_adOpenStatic, 
+                                $I_adLockOptimistic
+                            )
+                            
+                            $O_RecordsetReadSecond.MoveFirst()
+                            $I_T_PurchaseMailReceived_T_PurchaseCart_ID = $($O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceived_T_PurchaseCart_ID").Value)
+                            
+                            # === CHANGEMENT : Recherche via Graph ===
+                            # Remplace : $O_SearchFilterSubject = new-object Microsoft.Exchange.WebServices.Data.SearchFilter+ContainsSubstring
+                            #            $O_ReplyOnMail = $O_FolderDONEMailAutomate.FindItems($O_SearchFilterSubject, $O_ItemViewAsc)
+                            
+                            $searchSubject = "[PURCHASE_WORKFLOW_ORDER][ID_$I_T_PurchaseMailReceived_T_PurchaseCart_ID]"
+                            
+                            $allMessages = Get-MgUserMailFolderMessage -UserId $script:EwsCompat_CurrentUser `
+                                                                       -MailFolderId $O_FolderDONEMailAutomate.Id `
+                                                                       -Filter "contains(subject, '$searchSubject')" `
+                                                                       -Top 1
+                            
+                            if ($allMessages) {
+                                $O_ReplyOnMail = New-EwsCompatMessage -GraphMessage $allMessages[0] -GraphAttachments $null
+                                
+                                # === CHANGEMENT : Réponse via Graph ===
+                                # Remplace : $O_ReplyOnMail.Reply($replyBody, $true)
+                                $replyBody = $O_RecordsetReadSecond.Fields.Item("T_PurchaseMailReceived_ReplyMail").Value
+                                
+                                $replyResult = Send-EwsCompatReply -MessageId $O_ReplyOnMail.Id `
+                                                                   -ReplyBody $replyBody `
+                                                                   -ReplyToAll $true
+                                
+                                $O_RecordsetInsertUpdate.Open(
+                                    "Update T_PurchaseCart set T_PurchaseCart_StateInt = '14', T_PurchaseCart_StateString = 'REPLY SENT' " +
+                                    "where T_PurchaseCart_ID = '" + $O_RecordsetRead.Fields.Item("T_PurchaseCart_ID").Value + "'", 
+                                    $O_Connection, 
+                                    $I_adOpenStatic, 
+                                    $I_adLockOptimistic
+                                )
+                            }
+                            
+                            $O_RecordsetReadSecond.Close()
+                            $O_RecordsetRead.MoveNext()
+                            
+                        } Until ($O_RecordsetRead.EOF)
+                    }
+                    Else {
+                        Write-host -f green "None Mail to do it"
+                    }
+                }
+            }
+        }
+    }
+}
+
+$O_RecordsetRead.Close()
+$O_Connection.Close()
+```
+
+}
+
+# <#
+
+# EXEMPLE D’UTILISATION
+
+#>
+
+# Connexion Graph
+
+Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint
+
+# Import du module
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+# Appel de la fonction
+
+R_CheckReplyMail -S_Mail “emea.purchase.digital.workflow@bnpparibas.com” `-S_LoginExchange "SVC.EMEAWINTEL.EWS"`
+-S_PasswordExchange “dummy” `-S_Domain "MERCURY\"`
+-S_FolderRoot “_01 AUTOMATE MAIL” `-S_FolderProvider "DELL"`
+-S_FolderSource “TODO” `-S_FolderDestination "DONE"`
+-S_FolderError “ERROR” `-S_Connectionstring $S_Connectionstring`
+-S_Css “/* CSS */”
+
+# <#
+
+# CHANGEMENTS MINIMAUX - SEULEMENT EWS → GRAPH
+
+LIGNE PAR LIGNE :
+
+AVANT (EWS):
+$O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService…
+
+APRÈS (GRAPH):
+Initialize-EwsCompatConnection -UserEmail $S_Mail
+
+-----
+
+AVANT (EWS):
+$O_SearchFilterSubject = new-object Microsoft.Exchange.WebServices.Data.SearchFilter+ContainsSubstring(…)
+$O_ItemViewAsc = New-Object Microsoft.Exchange.WebServices.Data.ItemView(1)
+$O_ReplyOnMail = $O_FolderDONEMailAutomate.FindItems($O_SearchFilterSubject, $O_ItemViewAsc)
+
+APRÈS (GRAPH):
+$searchSubject = “[PURCHASE_WORKFLOW_ORDER][ID_$I_T_PurchaseMailReceived_T_PurchaseCart_ID]”
+$allMessages = Get-MgUserMailFolderMessage -UserId … -Filter “contains(subject, ‘$searchSubject’)” -Top 1
+$O_ReplyOnMail = New-EwsCompatMessage -GraphMessage $allMessages[0] …
+
+-----
+
+AVANT (EWS):
+$O_ReplyOnMail.Reply($replyBody, $true)
+
+APRÈS (GRAPH):
+Send-EwsCompatReply -MessageId $O_ReplyOnMail.Id -ReplyBody $replyBody -ReplyToAll $true
+
+TOUT LE RESTE IDENTIQUE :
+
+- Même structure If/Else imbriquée
+- Même Do…Until
+- Même requêtes DB
+- Même variables
+- Même Write-host
+  #>
