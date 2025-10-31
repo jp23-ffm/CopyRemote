@@ -1,0 +1,297 @@
+# Import du module de wrappers
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+<#
+.SYNOPSIS
+R_CheckReceivedMail - Version migrée stricte
+
+.DESCRIPTION
+Structure 100% identique au code original
+Seuls les appels EWS ont été remplacés par Graph
+#>
+Function R_CheckReceivedMail {
+param(
+[Parameter(Mandatory = $true)] [string]$S_Mail,
+[Parameter(Mandatory = $true)] [string]$S_LoginExchange,
+[Parameter(Mandatory = $true)] [string]$S_PasswordExchange,
+[Parameter(Mandatory = $true)] [string]$S_Domain,
+[Parameter(Mandatory = $true)] [string]$S_FolderRoot,
+[Parameter(Mandatory = $true)] [string]$S_FolderProvider,
+[Parameter(Mandatory = $true)] [string]$S_FolderSource,
+[Parameter(Mandatory = $true)] [string]$S_FolderDestination,
+[Parameter(Mandatory = $true)] [string]$S_FolderError,
+[Parameter(Mandatory = $true)] [string]$S_PathArchiveAttachments,
+[Parameter(Mandatory = $true)] [string]$S_Connectionstring
+)
+
+```
+$I_adOpenStatic = 3
+$I_adLockOptimistic = 3
+$O_Connection = New-Object -comobject ADODB.Connection
+$O_Connection.Open($S_Connectionstring)
+$O_RecordsetInsertUpdate = New-Object -comobject ADODB.Recordset
+
+# === CHANGEMENT : Graph au lieu de EWS ===
+# Remplace : $O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService
+$connectionResult = Initialize-EwsCompatConnection -UserEmail $S_Mail
+
+# === CHANGEMENT : Navigation dossiers via Graph ===
+# Remplace : $O_FolderId = New-Object Microsoft.Exchange.WebServices.Data.FolderId
+#            $O_Inbox = [Microsoft.Exchange.WebServices.Data.Folder]::Bind(...)
+$O_FolderRootMailAutomate = Get-EwsCompatFolder -ParentFolderId "Inbox" -DisplayName $S_FolderRoot
+
+If ($O_FolderRootMailAutomate -eq $Null) {
+    Write-host -f green "Folder Provider not found"
+    R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Folder $S_FolderRoot not available"
+}
+Else {
+    $O_FolderProviderMailAutomate = Get-EwsCompatFolder -ParentFolderId $O_FolderRootMailAutomate[0].Id -DisplayName $S_FolderProvider
+    
+    If ($O_FolderProviderMailAutomate -eq $Null) {
+        Write-host -f green "Folder Provider not found"
+        R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Folder $S_FolderProvider not available"
+    }
+    Else {
+        $allSubFolders = Get-EwsCompatFolder -ParentFolderId $O_FolderProviderMailAutomate[0].Id
+        
+        $O_FolderTODOMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderSource}
+        $O_FolderDONEMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderDestination}
+        $O_FolderERRORMailAutomate = $allSubFolders | ?{$_.DisplayName -eq $S_FolderError}
+        
+        $I_CountMailchecked = 0
+        
+        If ($O_FolderTODOMailAutomate -eq $Null) {
+            Write-host -f green "folder TODO not found"
+            R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Folder TODO not available"
+        }
+        Else {
+            If ($O_FolderDONEMailAutomate -eq $Null) {
+                Write-host -f green "Folder DONE not found"
+                R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Folder DONE not available"
+            }
+            Else {
+                If ($O_FolderERRORMailAutomate -eq $Null) {
+                    Write-host -f green "Folder ERROR not found"
+                    R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Folder ERROR not available"
+                }
+                Else {
+                    If ($O_FolderTODOMailAutomate.TotalCount -ne 0) {
+                        $I_CountMail = $O_FolderTODOMailAutomate.TotalCount
+                        Write-host -f green "number mail to checking $I_CountMail"
+                        
+                        Do {
+                            # === CHANGEMENT : Récupération messages via Graph ===
+                            # Remplace : $O_ItemViewAsc = New-Object Microsoft.Exchange.WebServices.Data.ItemView(1)
+                            #            $O_CheckMail = $O_FolderTODOMailAutomate.FindItems($O_ItemViewAsc)
+                            $O_CheckMailCollection = Get-EwsCompatMessages -FolderId $O_FolderTODOMailAutomate.Id -Top 1 -OrderBy "DateTimeReceived" -Ascending $true
+                            
+                            $O_CheckMailCollection.Load()
+                            $O_CheckMail = $O_CheckMailCollection.Items[0]
+                            
+                            Try {
+                                $O_CheckMail.Attachments | ForEach-Object { $_.Load() }
+                            }
+                            Catch {
+                                Write-host -f green "error onload attchment"
+                            }
+                            
+                            If ($O_CheckMail.Subject -like '*[PURCHASE WORKFLOW ORDER]*' -And $O_CheckMail.Subject -like "*ID_*") {
+                                Write-host -f green "Format de mail conforme a traiter"
+                                Write-host -f green $($O_CheckMail.Subject)
+                                Write-host -f green $($O_CheckMail.From.Address)
+                                
+                                $A_F_GetAttachmentsObject = F_GetAttachmentsObject -O_CheckMail $O_CheckMail -S_PathArchiveAttachments $S_PathArchiveAttachments
+                                
+                                If ($A_F_GetAttachmentsObject[0] -eq 0) {
+                                    Write-host -f green "OK Traitement avec document pdf"
+                                    R_AddMailInDB -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                 -B_FilePdf $true `
+                                                 -O_CheckMail $O_CheckMail `
+                                                 -S_Connectionstring $S_Connectionstring
+                                }
+                                ElseIf ($A_F_GetAttachmentsObject[0] -eq 1) {
+                                    Write-host -f green "OK Traitement sans document"
+                                    R_AddMailInDB -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                 -B_FilePdf $false `
+                                                 -O_CheckMail $O_CheckMail `
+                                                 -S_Connectionstring $S_Connectionstring
+                                }
+                                Else {
+                                    Write-host -f green "Error"
+                                }
+                                
+                                Write-host -f green $A_F_GetAttachmentsObject[1]
+                                
+                                # === CHANGEMENT : Move via Graph ===
+                                # Remplace : $O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)
+                                $O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)
+                            }
+                            ElseIf (($O_CheckMail.Subject -like 'Your Dell Order Has Been Confirmed: Order #*' -And $O_CheckMail.Subject -like '*Purchase Order #*') -Or 
+                                    ($O_CheckMail.Subject -like 'Votre commande Dell est confirmée. Commande*' -And $O_CheckMail.Subject -like '*Votre bon de commande numéro*')) {
+                                
+                                Write-host -f green "Mail receive for confirmation order"
+                                Write-host -f green $($O_CheckMail.Subject)
+                                Write-host -f green $($O_CheckMail.From.Address)
+                                
+                                $A_F_GetAttachmentsObject = F_GetAttachmentsObject -O_CheckMail $O_CheckMail -S_PathArchiveAttachments $S_PathArchiveAttachments
+                                
+                                If ($A_F_GetAttachmentsObject[0] -eq 0) {
+                                    Write-host -f green "Fichier pdf trouvé"
+                                    
+                                    ForEach ($O_ValAttachments In $O_CheckMail.Attachments) {
+                                        If ($O_ValAttachments.Name.ToString() -ne "FR_COMMERCIALTerms Of Sale.pdf") {
+                                            $A_F_ReadFilePdf = F_ReadFilePdf -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                                             -S_fileName $($O_ValAttachments.Name.ToString())
+                                            
+                                            R_AddMailConfirmOrderInDB -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                                     -O_CheckMail $O_CheckMail `
+                                                                     -S_Connectionstring $S_Connectionstring `
+                                                                     -A_F_ReadFilePdf $A_F_ReadFilePdf
+                                        }
+                                    }
+                                    
+                                    $O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)
+                                }
+                                Else {
+                                    Write-host -f green "Format de mail non conforme devrait avoir une piece jointe"
+                                    Write-host -f green $($O_CheckMail.Subject)
+                                    Write-host -f green $($O_CheckMail.From.Address)
+                                    R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Mail not compliance for the process" `
+                                                   -MsgError "$($O_CheckMail.Subject) An attchment should be present please check it !, mail has been moved in the folder ERROR mailbox purchase"
+                                    
+                                    $O_CheckMail.items.Move($O_FolderERRORMailAutomate.Id)
+                                }
+                            }
+                            ElseIf ($($O_CheckMail.Subject).ToUpper() -like '*COMMANDE*' -And 
+                                    $($O_CheckMail.Subject).ToUpper() -like '*BNP*' -And 
+                                    $($O_CheckMail.Subject).ToUpper() -like '*DELL*') {
+                                
+                                Write-host -f green "Mail receive for confirmation order governance"
+                                Write-host -f green "Format de mail conforme a traiter"
+                                Write-host -f green $($O_CheckMail.Subject)
+                                Write-host -f green $($O_CheckMail.From.Address)
+                                
+                                $A_F_GetAttachmentsObject = F_GetAttachmentsObject -O_CheckMail $O_CheckMail -S_PathArchiveAttachments $S_PathArchiveAttachments
+                                
+                                If ($A_F_GetAttachmentsObject[0] -eq 0) {
+                                    Write-host -f green "OK Traitement avec document pdf"
+                                    R_AddMailInDBFromGovernance -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                               -B_FilePdf $true `
+                                                               -O_CheckMail $O_CheckMail `
+                                                               -S_Connectionstring $S_Connectionstring
+                                }
+                                ElseIf ($A_F_GetAttachmentsObject[0] -eq 1) {
+                                    Write-host -f green "OK Traitement sans document"
+                                    R_AddMailInDBFromGovernance -S_PathArchiveAttachments $S_PathArchiveAttachments `
+                                                               -B_FilePdf $false `
+                                                               -O_CheckMail $O_CheckMail `
+                                                               -S_Connectionstring $S_Connectionstring
+                                }
+                                Else {
+                                    Write-host -f green "Error"
+                                }
+                                
+                                Write-host -f green $A_F_GetAttachmentsObject[1]
+                                $O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)
+                            }
+                            Else {
+                                Write-host -f green "Format de mail non conforme ne devrait pas être dans ce répertoire."
+                                Write-host -f green $($O_CheckMail.Subject)
+                                Write-host -f green $($O_CheckMail.From.Address)
+                                R_Send-MailSmtp -Subject "ERROR processing WorkFlow Order [R_CheckReceivedMail], Mail not compliance for the process"
+                                
+                                $O_CheckMail.items.Move($O_FolderERRORMailAutomate.Id)
+                            }
+                            
+                            $I_CountMailchecked++
+                            Start-Sleep -s 10
+                            
+                        } Until ($I_CountMail -eq $I_CountMailchecked)
+                    }
+                    Else {
+                        Write-host -f green "None Mail to do it"
+                    }
+                }
+            }
+        }
+    }
+}
+
+$O_Connection.Close()
+```
+
+}
+
+# <#
+
+# EXEMPLE D’UTILISATION
+
+#>
+
+# Connexion Graph
+
+Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $Thumbprint
+
+# Import du module
+
+Import-Module .\EwsGraphWrappers.psm1 -Force
+
+# Appel de la fonction
+
+R_CheckReceivedMail -S_Mail “emea.purchase.digital.workflow@bnpparibas.com” `-S_LoginExchange "SVC.EMEAWINTEL.EWS"`
+-S_PasswordExchange “dummy” `-S_Domain "MERCURY\"`
+-S_FolderRoot “_01 AUTOMATE MAIL” `-S_FolderProvider "DELL"`
+-S_FolderSource “TODO” `-S_FolderDestination "DONE"`
+-S_FolderError “ERROR” `-S_PathArchiveAttachments "C:\Attachments\"`
+-S_Connectionstring $S_Connectionstring
+
+# <#
+
+# CHANGEMENTS MINIMAUX - SEULEMENT EWS → GRAPH
+
+LIGNE PAR LIGNE :
+
+AVANT (EWS):
+$O_ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService…
+$O_ExchService.ImpersonatedUserId = New-Object…
+
+APRÈS (GRAPH):
+Initialize-EwsCompatConnection -UserEmail $S_Mail
+
+-----
+
+AVANT (EWS):
+$O_FolderId = New-Object Microsoft.Exchange.WebServices.Data.FolderId…
+$O_Inbox = [Microsoft.Exchange.WebServices.Data.Folder]::Bind(…)
+$O_FindFolderResults = $O_ExchService.FindFolders(…)
+
+APRÈS (GRAPH):
+Get-EwsCompatFolder -ParentFolderId “Inbox” -DisplayName $S_FolderRoot
+
+-----
+
+AVANT (EWS):
+$O_ItemViewAsc = New-Object Microsoft.Exchange.WebServices.Data.ItemView(1)
+$O_CheckMail = $O_FolderTODOMailAutomate.FindItems($O_ItemViewAsc)
+
+APRÈS (GRAPH):
+$O_CheckMailCollection = Get-EwsCompatMessages -FolderId … -Top 1 -OrderBy “DateTimeReceived” -Ascending $true
+$O_CheckMail = $O_CheckMailCollection.Items[0]
+
+-----
+
+AVANT (EWS):
+$O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)
+
+APRÈS (GRAPH):
+$O_CheckMail.items.Move($O_FolderDONEMailAutomate.Id)  # Identique ! Le wrapper gère
+
+TOUT LE RESTE IDENTIQUE :
+
+- Même structure If/ElseIf/Else imbriquée
+- Même Do…Until
+- Même logique métier
+- Même variables
+- Même Write-host
+  #>
