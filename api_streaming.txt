@@ -120,4 +120,271 @@ def export_servers(request):
     )
     response['Content-Disposition'] = 'attachment; filename="servers.zip"'
     
+
     return response
+
+
+
+
+
+
+
+
+
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from django.http import StreamingHttpResponse
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
+import json
+
+
+class ServerPagination(PageNumberPagination):
+    """Pagination pour volumes moyens"""
+    page_size = 100
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
+class SrvPropViewSet(viewsets.ViewSet):
+    serializer_class = None
+    
+    # ===== CONFIGURATION =====
+    # Ajuste ces valeurs selon tes besoins
+    SMALL_THRESHOLD = 100    # < 100: réponse normale
+    LARGE_THRESHOLD = 500    # > 500: streaming
+    MAX_RESULTS = 2000       # Limite absolue (protection)
+    STREAMING_CHUNK_SIZE = 100  # Nombre d'objets par chunk en streaming
+    
+    def get_view_name(self):
+        return "Servers Properties"
+    
+    def post(self, request):
+        try:
+            # ===== VALIDATION JSON =====
+            validate_json_data(request.data, SrvPropSerializer)
+            
+        except ValidationError as e:
+            return Response({"Error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            serializer = SrvPropSerializer(data=request.data)
+            
+            if not serializer.is_valid():
+                return Response(
+                    {"Error": serializer.errors}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # ===== EXTRACTION DES PARAMÈTRES =====
+            index_name = serializer.validated_data["index"]
+            filters = serializer.validated_data.get("filters", {})
+            sort_field = serializer.validated_data.get("sort", None)
+            excludefields = serializer.validated_data.get("excludefields", None)
+            default_exclude = ['id'] + getattr(settings, 'SPECIFY_FIELDS_TO_BE_EXCLUDED_BY_DEFAULT', [])
+            
+            # ===== SÉLECTION DU SERIALIZER ET INDEX =====
+            if index_name == "reportapp":
+                index_cls = ReportServer
+                output_serializer = ServerSerializer
+            elif index_name == "businesscontinuity":
+                index_cls = BCServer
+                output_serializer = BusinessContinuitySerializer
+            elif index_name == "inventoryserv":
+                index_cls = InventoryServ
+                output_serializer = InventoryServerSerializer
+            else:
+                return Response(
+                    {"Error": f"Unsupported index: {index_name}"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # ===== MAPPING DES ALIAS DE CHAMPS =====
+            alias_map = {
+                'priority_asset': 'server_unique__priority_asset',
+                'in_live_play': 'server_unique__in_live_play',
+                'unique_action_during_lp': 'server_unique__unique_action_during_lp',
+                'original_action_during_lp': 'server_unique__original_action_during_lp',
+                'cluster': 'server_unique__cluster',
+                'cluster_type': 'server_unique__cluster_type'
+            }
+            
+            # ===== REMPLACEMENT DES ALIAS =====
+            mapped_filters = {}
+            for key, value in filters.items():
+                mapped_key = alias_map.get(key, key)
+                mapped_filters[mapped_key] = value
+            
+            # ===== VALIDATION DES FILTRES =====
+            invalid_filters = [
+                fil for fil in mapped_filters 
+                if not hasattr(index_cls, fil.split('__')[0]) 
+                and not hasattr(ServerUnique, fil.split('__')[1] if '__' in fil else '')
+            ]
+            
+            if invalid_filters:
+                return Response(
+                    {
+                        "Error": f"Invalid fields for {index_name} index: {', '.join(invalid_filters)}"
+                    }, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # ===== CONSTRUCTION DU QUERY FILTER =====
+            query_filter = Q()
+            
+            for field, values in mapped_filters.items():
+                if values:
+                    or_conditions = Q()
+                    for value in values:
+                        # ✅ OPTIMISATION: Utilise lookup exact si pas de wildcard
+                        if '*' in value:
+                            # Regex seulement si nécessaire
+                            value_pattern = value.replace('*', '.*').upper()
+                            or_conditions |= Q(**{f"{field}__iregex": f"^{value_pattern}$"})
+                        else:
+                            # Lookup exact (plus rapide)
+                            or_conditions |= Q(**{f"{field}__iexact": value})
+                    
+                    query_filter &= or_conditions
+            
+            # ===== CONSTRUCTION DU QUERYSET =====
+            queryset = index_cls.objects.filter(query_filter)
+            
+            # ✅ OPTIMISATION: Charge seulement les champs nécessaires
+            fields = serializer.validated_data.get("fields", None)
+            if fields and len(fields) < 30:  # Limite raisonnable
+                # .only() réduit drastiquement la RAM
+                queryset = queryset.only('id', *fields)
+            
+            # ===== COMPTAGE =====
+            count = queryset.count()
+            
+            # ✅ PROTECTION: Limite absolue
+            if count > self.MAX_RESULTS:
+                return Response({
+                    "error": f"Trop de résultats: {count} (maximum: {self.MAX_RESULTS})",
+                    "hint": "Veuillez affiner vos filtres pour réduire le nombre de résultats",
+                    "count": count
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # ===== STRATÉGIE ADAPTATIVE =====
+            
+            # Option 1: Gros volume → STREAMING
+            if count > self.LARGE_THRESHOLD:
+                return self._stream_response(
+                    queryset=queryset,
+                    serializer_class=output_serializer,
+                    count=count,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+            
+            # Option 2: Volume moyen → PAGINATION
+            elif count > self.SMALL_THRESHOLD:
+                paginator = ServerPagination()
+                page = paginator.paginate_queryset(queryset, request)
+                
+                if page is not None:
+                    serializer_instance = output_serializer(
+                        page,
+                        many=True,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                    return paginator.get_paginated_response(serializer_instance.data)
+            
+            # Option 3: Petit volume → RÉPONSE NORMALE
+            output_serializer_instance = output_serializer(
+                queryset,
+                many=True,
+                fields=fields,
+                excludefields=excludefields,
+                default_exclude=default_exclude
+            )
+            
+            response_data = {
+                "count": count,
+                "results": output_serializer_instance.data
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            # Log l'erreur pour debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Unexpected error in SrvPropViewSet: {e}", exc_info=True)
+            
+            error_data = {"Unexpected Error": f"{e}"}
+            return Response(error_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def _stream_response(self, queryset, serializer_class, count, fields, excludefields, default_exclude):
+        """
+        Streame la réponse JSON pour éviter l'explosion de RAM
+        
+        Args:
+            queryset: QuerySet Django à streamer
+            serializer_class: Classe du serializer à utiliser
+            count: Nombre total d'objets
+            fields: Champs à inclure
+            excludefields: Champs à exclure
+            default_exclude: Champs exclus par défaut
+        
+        Returns:
+            StreamingHttpResponse avec JSON progressif
+        """
+        def generate():
+            """Générateur qui yield le JSON morceau par morceau"""
+            
+            # Début du JSON
+            yield b'{"count": '
+            yield str(count).encode('utf-8')
+            yield b', "results": ['
+            
+            first = True
+            processed = 0
+            
+            # ✅ iterator() avec chunk_size évite de charger tout en RAM
+            for obj in queryset.iterator(chunk_size=self.STREAMING_CHUNK_SIZE):
+                
+                # Virgule de séparation (sauf pour le premier)
+                if not first:
+                    yield b','
+                
+                # Serialize UN objet à la fois
+                serializer = serializer_class(
+                    obj,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+                
+                # Convertit en JSON et envoie
+                yield json.dumps(serializer.data).encode('utf-8')
+                
+                first = False
+                processed += 1
+                
+                # Log progression tous les 500 objets (optionnel)
+                if processed % 500 == 0:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.info(f"Streaming progress: {processed}/{count} objects sent")
+            
+            # Fin du JSON
+            yield b']}'
+        
+        # Crée la réponse streaming
+        response = StreamingHttpResponse(
+            generate(),
+            content_type='application/json'
+        )
+        
+        # Headers optionnels pour meilleure compatibilité
+        response['X-Total-Count'] = str(count)
+        response['Cache-Control'] = 'no-cache'
+        
+        return response
