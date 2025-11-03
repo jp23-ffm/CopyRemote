@@ -1,0 +1,251 @@
+class SrvPropView(APIView):
+    
+    MAX_RESULTS = 2000
+    STREAMING_THRESHOLD = 100
+    STREAMING_CHUNK_SIZE = 100
+    
+    def post(self, request):
+        try:
+            # ... validation, queryset construction ...
+            
+            queryset = queryset.order_by('id')
+            
+            fields = serializer.validated_data.get("fields", None)
+            if fields and len(fields) < 30:
+                queryset = queryset.only('id', *fields)
+            
+            count = queryset.count()
+            
+            # Log pour debugging
+            logger.info(f"Query: count={count}, page_param={request.GET.get('page')}")
+            
+            if count > self.MAX_RESULTS:
+                return Response({
+                    "error": f"Trop de résultats: {count} (max: {self.MAX_RESULTS})"
+                }, status=400)
+            
+            # ✅ DÉCISION LOGIQUE
+            page_requested = request.GET.get('page')
+            
+            if page_requested:
+                # Mode PAGINATION (utilisateur a demandé une page spécifique)
+                logger.info(f"→ PAGINATION mode (page={page_requested})")
+                paginator = ServerPagination()
+                page = paginator.paginate_queryset(queryset, request)
+                
+                if page is not None:
+                    serializer_instance = output_serializer(
+                        page, many=True,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                    return paginator.get_paginated_response(serializer_instance.data)
+            
+            elif count > self.STREAMING_THRESHOLD:
+                # Mode STREAMING (beaucoup de résultats, tout d'un coup)
+                logger.info(f"→ STREAMING mode ({count} results)")
+                return self._stream_response(
+                    queryset, output_serializer, count,
+                    fields, excludefields, default_exclude
+                )
+            
+            else:
+                # Mode NORMAL (peu de résultats)
+                logger.info(f"→ NORMAL mode ({count} results)")
+                output_serializer_instance = output_serializer(
+                    queryset, many=True,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+                
+                return Response({
+                    "count": count,
+                    "results": output_serializer_instance.data
+                })
+        
+        except Exception as e:
+            logger.error(f"Error: {e}", exc_info=True)
+            return Response({"Unexpected Error": f"{e}"}, status=500)
+    
+    def _stream_response(self, queryset, serializer_class, count, fields, excludefields, default_exclude):
+        def generate():
+            yield b'{"count": '
+            yield str(count).encode('utf-8')
+            yield b', "results": ['
+            
+            first = True
+            for obj in queryset.iterator(chunk_size=self.STREAMING_CHUNK_SIZE):
+                if not first:
+                    yield b','
+                serializer = serializer_class(obj, fields=fields, excludefields=excludefields, default_exclude=default_exclude)
+                yield json.dumps(serializer.data).encode('utf-8')
+                first = False
+            
+            yield b']}'
+        
+        return StreamingHttpResponse(generate(), content_type='application/json')
+
+
+
+
+
+
+
+
+
+
+class SrvPropView(APIView):
+    
+    # ✅ Limites adaptées
+    MAX_RESULTS = 10000              # Augmente (streaming gère la RAM)
+    MAX_FILTER_FIELDS = 15           # Nombre de champs filtrés
+    MAX_FILTER_VALUES_PER_FIELD = 150  # Valeurs par champ
+    MAX_FILTER_COMPLEXITY = 50000    # Produit des valeurs
+    
+    STREAMING_THRESHOLD = 100
+    STREAMING_CHUNK_SIZE = 100
+    QUERY_TIMEOUT = 60  # secondes
+    
+    def post(self, request):
+        try:
+            # ... validation ...
+            
+            filters = serializer.validated_data.get("filters", {})
+            
+            # ✅ VALIDATION 1: Nombre de champs filtrés
+            if len(filters) > self.MAX_FILTER_FIELDS:
+                return Response({
+                    "error": f"Trop de champs filtrés: {len(filters)} (max: {self.MAX_FILTER_FIELDS})"
+                }, status=400)
+            
+            # ✅ VALIDATION 2: Nombre de valeurs par champ
+            for field, values in filters.items():
+                if len(values) > self.MAX_FILTER_VALUES_PER_FIELD:
+                    return Response({
+                        "error": f"Trop de valeurs pour '{field}': {len(values)} (max: {self.MAX_FILTER_VALUES_PER_FIELD})"
+                    }, status=400)
+            
+            # ✅ VALIDATION 3: Complexité totale (produit cartésien)
+            complexity = 1
+            for values in filters.values():
+                complexity *= max(len(values), 1)
+            
+            if complexity > self.MAX_FILTER_COMPLEXITY:
+                return Response({
+                    "error": f"Filtres trop complexes: {complexity:,} combinaisons (max: {self.MAX_FILTER_COMPLEXITY:,})",
+                    "hint": "Réduisez le nombre de valeurs ou de champs filtrés",
+                    "current_filters": {k: len(v) for k, v in filters.items()}
+                }, status=400)
+            
+            # ... construction du queryset ...
+            
+            # ✅ OPTIMISATION: Évite regex inutiles
+            query_filter = Q()
+            
+            for field, values in mapped_filters.items():
+                if values:
+                    or_conditions = Q()
+                    for value in values:
+                        if '*' in value:
+                            # Regex seulement si nécessaire
+                            value_pattern = value.replace('*', '.*').upper()
+                            or_conditions |= Q(**{f"{field}__iregex": f"^{value_pattern}$"})
+                        else:
+                            # Exact match (plus rapide)
+                            or_conditions |= Q(**{f"{field}__iexact": value})
+                    
+                    query_filter &= or_conditions
+            
+            queryset = index_cls.objects.filter(query_filter)
+            queryset = queryset.order_by('id')
+            
+            # Optimisation .only()
+            fields = serializer.validated_data.get("fields", None)
+            if fields and len(fields) < 30:
+                queryset = queryset.only('id', *fields)
+            
+            # ✅ MESURE: Temps de query
+            start = time.time()
+            count = queryset.count()
+            query_time = time.time() - start
+            
+            # Log queries lentes
+            if query_time > 5:
+                logger.warning(
+                    f"Slow query: {query_time:.2f}s for {count} results",
+                    extra={
+                        "complexity": complexity,
+                        "filter_count": len(filters)
+                    }
+                )
+            
+            # ✅ Limite sur le nombre de résultats (plus souple)
+            if count > self.MAX_RESULTS:
+                return Response({
+                    "error": f"Trop de résultats: {count:,} (max: {self.MAX_RESULTS:,})",
+                    "hint": "Affinez vos filtres",
+                    "query_time": f"{query_time:.2f}s"
+                }, status=400)
+            
+            # ✅ Décision: Pagination, Streaming ou Normal
+            if request.GET.get('page'):
+                # Mode PAGINATION
+                paginator = ServerPagination()
+                page = paginator.paginate_queryset(queryset, request)
+                
+                if page is not None:
+                    serializer_instance = output_serializer(
+                        page, many=True,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                    return paginator.get_paginated_response(serializer_instance.data)
+            
+            elif count > self.STREAMING_THRESHOLD:
+                # Mode STREAMING
+                logger.info(f"Streaming {count:,} results (query: {query_time:.2f}s)")
+                return self._stream_response(
+                    queryset, output_serializer, count,
+                    fields, excludefields, default_exclude
+                )
+            
+            else:
+                # Mode NORMAL
+                logger.info(f"Normal response: {count} results (query: {query_time:.2f}s)")
+                output_serializer_instance = output_serializer(
+                    queryset, many=True,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+                
+                return Response({
+                    "count": count,
+                    "results": output_serializer_instance.data,
+                    "query_time": f"{query_time:.2f}s"
+                })
+        
+        except Exception as e:
+            logger.error(f"Error: {e}", exc_info=True)
+            return Response({"Unexpected Error": f"{e}"}, status=500)
+    
+    def _stream_response(self, queryset, serializer_class, count, fields, excludefields, default_exclude):
+        def generate():
+            yield b'{"count": '
+            yield str(count).encode('utf-8')
+            yield b', "results": ['
+            
+            first = True
+            for obj in queryset.iterator(chunk_size=self.STREAMING_CHUNK_SIZE):
+                if not first:
+                    yield b','
+                serializer = serializer_class(obj, fields=fields, excludefields=excludefields, default_exclude=default_exclude)
+                yield json.dumps(serializer.data).encode('utf-8')
+                first = False
+            
+            yield b']}'
+        
+        return StreamingHttpResponse(generate(), content_type='application/json')
