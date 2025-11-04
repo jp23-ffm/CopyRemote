@@ -1,3 +1,47 @@
+import json
+
+def _stream_response(self, queryset, serializer_class, count, fields, excludefields, default_exclude):
+    """Stream avec JSON formaté"""
+    def generate():
+        # Début avec indentation
+        yield b'{\n'
+        yield b'  "count": '
+        yield str(count).encode('utf-8')
+        yield b',\n'
+        yield b'  "results": [\n'
+        
+        first = True
+        for obj in queryset.iterator(chunk_size=self.STREAMING_CHUNK_SIZE):
+            # Virgule + newline (sauf premier)
+            if not first:
+                yield b',\n'
+            
+            # Serialize l'objet
+            serializer = serializer_class(
+                obj,
+                fields=fields,
+                excludefields=excludefields,
+                default_exclude=default_exclude
+            )
+            
+            # ✅ JSON compact sur une ligne, avec indentation initiale
+            json_line = json.dumps(serializer.data, ensure_ascii=False)
+            yield f'    {json_line}'.encode('utf-8')
+            
+            first = False
+        
+        # Fin avec indentation
+        yield b'\n  ]\n'
+        yield b'}'
+    
+    return StreamingHttpResponse(
+        generate(),
+        content_type='application/json; charset=utf-8'
+    )
+
+
+
+
 class SrvPropView(APIView):
     
     MAX_RESULTS = 2000
