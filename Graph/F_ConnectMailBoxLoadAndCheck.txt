@@ -1,0 +1,344 @@
+#region Gestion du déplacement de messages
+
+<#
+.SYNOPSIS
+    Déplace un message vers un autre dossier (équivalent Message.Move)
+    
+.DESCRIPTION
+    Simule la méthode EWS Message.Move() pour déplacer un email vers un autre dossier
+    
+.PARAMETER MessageId
+    ID du message à déplacer (peut être un objet avec propriété .Id)
+    
+.PARAMETER DestinationFolderId
+    ID du dossier de destination (peut être un objet avec propriété .Id)
+    
+.EXAMPLE
+    Move-EwsCompatMessage -MessageId $message.Id -DestinationFolderId $folderDone.Id
+    
+.EXAMPLE
+    # Déplacer vers un dossier bien connu
+    Move-EwsCompatMessage -MessageId $message.Id -DestinationFolderId "DeletedItems"
+#>
+function Move-EwsCompatMessage {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        $MessageId,
+        
+        [Parameter(Mandatory = $true)]
+        $DestinationFolderId
+    )
+    
+    if (-not $script:EwsCompat_CurrentUser) {
+        throw "Utilisateur non initialisé. Appelez Initialize-EwsCompatConnection d'abord."
+    }
+    
+    try {
+        # Extraire l'ID du message si c'est un objet
+        if ($MessageId -is [PSCustomObject] -and $MessageId.Id) {
+            $MessageId = $MessageId.Id
+        }
+        
+        # Extraire l'ID du dossier si c'est un objet
+        if ($DestinationFolderId -is [PSCustomObject] -and $DestinationFolderId.Id) {
+            $DestinationFolderId = $DestinationFolderId.Id
+        }
+        
+        Write-Verbose "Déplacement du message $MessageId vers le dossier $DestinationFolderId"
+        
+        # Utiliser Move-MgUserMessage de Graph API
+        Move-MgUserMessage -UserId $script:EwsCompat_CurrentUser `
+                          -MessageId $MessageId `
+                          -DestinationId $DestinationFolderId `
+                          -ErrorAction Stop
+        
+        Write-Verbose "Message déplacé avec succès"
+        
+        return @{
+            Success = $true
+            MessageId = $MessageId
+            DestinationFolderId = $DestinationFolderId
+        }
+    }
+    catch {
+        Write-Error "Erreur lors du déplacement du message: $_"
+        Write-Verbose "Détails: $($_.Exception.Message)"
+        
+        return @{
+            Success = $false
+            Error = $_.Exception.Message
+        }
+    }
+}
+
+
+----------
+
+Function F_ConnectMailBoxLoadAndCheck {
+
+    Param(
+        [Parameter(Mandatory=$true)][string]$Mail,
+        [Parameter(Mandatory=$true)][string]$LoginExchange,
+        [Parameter(Mandatory=$true)][string]$PasswordExchange,
+        [Parameter(Mandatory=$true)][string]$Domain,
+        [Parameter(Mandatory=$true)][string]$FolderRoot,
+        [Parameter(Mandatory=$true)][string]$S_FolderProvider,
+        [Parameter(Mandatory=$true)][string]$FolderSource,
+        [Parameter(Mandatory=$true)][string]$FolderDestination,
+        [Parameter(Mandatory=$true)][string]$FolderError,
+        [Parameter(Mandatory=$true)][string]$PathArchiveAttachments,
+        [Parameter(Mandatory=$true)][string]$Connectionstring,
+        [Parameter(Mandatory=$true)][string]$S_Css
+    )
+
+    $adOpenStatic = 3
+    $adLockOptimistic = 3
+    $objConnection = New-Object -comobject ADODB.Connection
+    $objConnection.Open($Connectionstring)
+    $objRecordsetInsertUpdate = New-Object -comobject ADODB.Recordset
+    
+    # ========================================================================
+    # CONNEXION EXCHANGE - AVANT (EWS)
+    # ========================================================================
+    # Import-Module -Name "C:\Program Files\Microsoft\Exchange\Web Services\2.2\Microsoft.Exchange.WebServices.dll"
+    # $ExchService = New-Object Microsoft.Exchange.WebServices.Data.ExchangeService -ArgumentList "Exchange2010_SP2"
+    # $UserName = $Domain+$LoginExchange
+    # $Password = $PasswordExchange
+    # $EmailAdd = $Mail
+    # $Credential = New-Object System.Net.NetworkCredential($UserName, $Password)
+    # $ExchService.UseDefaultCredentials = $False
+    # $ExchService.Credentials = $Credential
+    # $ExchService.AutodiscoverUrl($EmailAdd,{$true})
+    # $ExchService.ImpersonatedUserId = New-Object Microsoft.Exchange.WebServices.Data.ImpersonatedUserId([Microsoft.Exchange.WebServices.Data.ConnectingIdType]::SmtpAddress,$EmailAdd)
+    
+    # ========================================================================
+    # CONNEXION EXCHANGE - APRÈS (GRAPH API)
+    # ========================================================================
+    Initialize-EwsCompatConnection -UserEmail $Mail
+    
+    # ========================================================================
+    # RECHERCHE DES DOSSIERS - AVANT (EWS)
+    # ========================================================================
+    # $Mailbox = New-Object Microsoft.Exchange.WebServices.Data.Mailbox($EmailAdd)
+    # $FolderId = New-Object Microsoft.Exchange.WebServices.Data.FolderId([Microsoft.Exchange.WebServices.Data.WellKnownFolderName]::Inbox, $Mailbox)
+    # $Inbox = [Microsoft.Exchange.WebServices.Data.Folder]::Bind($ExchService,$FolderId)
+    # $SubFolderfirst = new-object Microsoft.Exchange.WebServices.Data.FolderView(100)
+    # $FindFolderResults = $ExchService.FindFolders($Inbox.Id,$SubFolderfirst)
+    # $FolderRootMailAutomate = $FindFolderResults | ?{$_.DisplayName -eq $FolderRoot}
+    # $O_SubFolderThird = new-object Microsoft.Exchange.WebServices.Data.FolderView(10)
+    # $O_FolderResultsRootMailAutomateProvider = $ExchService.FindFolders($O_FolderProviderMailAutomate.Id,$O_SubFolderThird)
+    
+    # ========================================================================
+    # RECHERCHE DES DOSSIERS - APRÈS (GRAPH API)
+    # ========================================================================
+    $FolderRootMailAutomate = Get-EwsCompatFolder -ParentFolderId "Inbox" -DisplayName $FolderRoot
+    
+    $O_FolderProviderMailAutomate = ($FolderRootMailAutomate | Where-Object {$_.DisplayName -eq $S_FolderProvider})
+    
+    If ($O_FolderProviderMailAutomate -eq $Null) {
+        #Send email to sysy and djadja to explain an error has occured
+        Write-host -f green "Folder Proivder not found"
+        Send-Mail -Subject "ERROR processing automate mail [DOD Mail], Folder $S_FolderProvider not available"
+    }
+    Else {
+        $O_SubFolderThird = Get-EwsCompatFolder -ParentFolderId $O_FolderProviderMailAutomate.Id
+        
+        $FolderTODOMailAutomate = $O_SubFolderThird | Where-Object {$_.DisplayName -eq $FolderSource}
+        $FolderDONEMailAutomate = $O_SubFolderThird | Where-Object {$_.DisplayName -eq $FolderDestination}
+        $FolderERRORMailAutomate = $O_SubFolderThird | Where-Object {$_.DisplayName -eq $FolderError}
+        
+        $N_CountMailchecked = 0
+        
+        If ($FolderTODOMailAutomate -eq $Null) {
+            #Send email to sysy and djadja to explain an error has occured
+            Write-host -f green "folder TODO not found"
+            Send-Mail -Subject "ERROR processing automate mail, Folder TODO not available"
+        }
+        Else {
+            If ($FolderDONEMailAutomate -eq $Null) {
+                #Send email to sysy and djadja to explain an error has occured
+                Write-host -f green "Folder DONE not found"
+                Send-Mail -Subject "ERROR processing automate mail, Folder DONE not available"
+            }
+            Else {
+                If ($FolderERRORMailAutomate -eq $Null) {
+                    #Send email to sysy and djadja to explain an error has occured
+                    Write-host -f green "Folder ERROR not found"
+                    Send-Mail -Subject "ERROR processing automate mail, Folder ERROR not available"
+                }
+                Else {
+                    
+                    # ========================================================================
+                    # TRAITEMENT DES EMAILS - AVANT (EWS)
+                    # ========================================================================
+                    # If ($FolderTODOMailAutomate.TotalCount -ne 0) {
+                    #     $N_CountMail = $FolderTODOMailAutomate.TotalCount
+                    #     Write-host -f green "number mail to checking $N_CountMail"
+                    #     Do {
+                    #         $CheckMail = $FolderTODOMailAutomate.FindItems(1)
+                    #         $CheckMail.Load()
+                    #         $CheckMail.Attachments.load()
+                    #         $F_ProcessingMailLoaded = F_ProcessingMailLoaded -CheckMail $CheckMail -PathArchiveAttachments $PathArchiveAttachments -Connectionstring $Connectionstring -PasswordExchange $PasswordExchange -S_Css $S_Css
+                    #         If ($F_ProcessingMailLoaded[0] -eq 1) {  #ERROR
+                    #             Write-host -f green "Mail Move to ERROR"
+                    #             Send-Mail -Subject "ERROR processing automate mail DOD, mail moved in folder ERROR" -MsgError $($F_ProcessingMailLoaded[2])
+                    #             $CheckMail.items.Move($FolderERRORMailAutomate.Id)
+                    #         }
+                    #         Else {  #OK
+                    #             Write-host -f green "Mail move to DONE"
+                    #             $CheckMail.items.Move($FolderDONEMailAutomate.Id)
+                    #         }
+                    #         $N_CountMailchecked ++
+                    #         Start-Sleep -s 10
+                    #     } Until($N_CountMail -eq $N_CountMailchecked)
+                    # }
+                    
+                    # ========================================================================
+                    # TRAITEMENT DES EMAILS - APRÈS (GRAPH API)
+                    # ========================================================================
+                    If ($FolderTODOMailAutomate.TotalCount -ne 0) {
+                        $N_CountMail = $FolderTODOMailAutomate.TotalCount
+                        Write-host -f green "number mail to checking $N_CountMail"
+                        Do {
+                            # Récupérer 1 email
+                            $CheckMailCollection = Get-EwsCompatMessages -FolderId $FolderTODOMailAutomate.Id -Top 1
+                            $CheckMailCollection.Load()
+                            $CheckMail = $CheckMailCollection.Messages[0]
+                            
+                            # Traiter l'email (fonction inchangée)
+                            $F_ProcessingMailLoaded = F_ProcessingMailLoaded -CheckMail $CheckMail `
+                                -PathArchiveAttachments $PathArchiveAttachments `
+                                -Connectionstring $Connectionstring `
+                                -PasswordExchange $PasswordExchange `
+                                -S_Css $S_Css
+                            
+                            # Déplacer selon le résultat
+                            If ($F_ProcessingMailLoaded[0] -eq 1) {  #ERROR
+                                Write-host -f green "Mail Move to ERROR"
+                                Send-Mail -Subject "ERROR processing automate mail DOD, mail moved in folder ERROR" -MsgError $($F_ProcessingMailLoaded[2])
+                                Move-EwsCompatMessage -MessageId $CheckMail.Id -DestinationFolderId $FolderERRORMailAutomate.Id
+                            }
+                            Else {  #OK
+                                Write-host -f green "Mail move to DONE"
+                                Move-EwsCompatMessage -MessageId $CheckMail.Id -DestinationFolderId $FolderDONEMailAutomate.Id
+                            }
+                            
+                            $N_CountMailchecked ++
+                            Start-Sleep -s 10
+                            
+                        } Until($N_CountMail -eq $N_CountMailchecked)
+                    }
+                    Else {
+                        # ========================================================================
+                        # PAS DE MAIL - RELOAD DU JSON LOCAL (INCHANGÉ)
+                        # ========================================================================
+                        Write-host -f green "None Mail to do it reload json local file"
+                        $json = Get-Content $PathArchiveAttachments"Dod_Export.json" | Out-String | ConvertFrom-Json
+
+                        ForEach($DataHtml in $json) {
+                            [pscustomobject]$O_ValueSent = @{
+                                flow_section = "server_delivery"
+                                flow_subsection = "sts_inventory"
+                                quantity = "1"
+                                sts_site = $($DataHtml.("Site STS"))
+                                po_number= $($DataHtml.("PO Number"))
+                                order_number = $($DataHtml.("Order Number"))
+                                project_name = $($DataHtml.("Project Name"))
+                                country = $($DataHtml.("Country"))
+                                actual_location = $($DataHtml.("Site STS"))
+                                serial_number = $($DataHtml.("Service Tags"))
+                                region = "EMEA"
+                                sts_status = $($DataHtml.("Status STS"))
+                                sts_begin_date = $($DataHtml.("STS begins"))
+                                sts_remaining_days = $($DataHtml.("Days Left"))
+                                sts_maxstorage_date = $($DataHtml.("Max STS date"))
+                                quote_source_request = $($DataHtml.("Source Request Quote"))
+                                governance_repository_system = $($DataHtml.("Repository Purchase"))
+                                governance_internal_id = $($DataHtml.("ID Repository purchase"))
+                                asset_report_received = $($DataHtml.("Asset Report Received"))
+                            }
+                            $R_SentKibanaMsg = R_SentKibanaMsg -O_Data $O_ValueSent
+                            write-host -f green $R_SentKibanaMsg
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+---
+
+# AVANT
+$FindFolderResults = $ExchService.FindFolders($Inbox.Id,$SubFolderfirst)
+
+# APRÈS
+$FolderRootMailAutomate = Get-EwsCompatFolder -ParentFolderId "Inbox" -DisplayName $FolderRoot
+
+
+# AVANT
+$CheckMail = $FolderTODOMailAutomate.FindItems(1)
+$CheckMail.Load()
+$CheckMail.Attachments.load()
+
+# APRÈS
+$CheckMailCollection = Get-EwsCompatMessages -FolderId $FolderTODOMailAutomate.Id -Top 1
+$CheckMailCollection.Load()
+$CheckMail = $CheckMailCollection.Messages[0]
+
+
+# AVANT
+$CheckMail.items.Move($FolderDONEMailAutomate.Id)
+
+# APRÈS
+Move-EwsCompatMessage -MessageId $CheckMail.Id -DestinationFolderId $FolderDONEMailAutomate.Id
+
+
+
+-----F_ProcessingDod_MIGRATED
+
+$Error.clear()
+try {
+    $fiFile = new-object System.IO.FileStream(($PathArchiveAttachments+$CheckMail.Attachments.Name.ToString()), [System.IO.FileMode]::Create)
+}
+catch {
+    $return += 1
+    $return += "- Mail $($CheckMail.Subject) impossible to open file $($PathArchiveAttachments+$CheckMail.Attachments.Name.ToString()) <br><br>"
+    $return += "- Mail $($CheckMail.Subject) impossible to open file $($PathArchiveAttachments+$CheckMail.Attachments.Name.ToString())"
+    write-host $error
+    Return $return
+    break
+}
+
+$fiFile.Write($CheckMail.Attachments.Content, 0, $CheckMail.Attachments.Content.Length)
+$fiFile.Close()
+
+Write-host -f green "File backuped : $($CheckMail.Attachments.Name.ToString())"
+$FileXls = $CheckMail.Attachments.Name.ToString()
+$PathToXlsx = $PathArchiveAttachments+$FileXls
+
+
+---->
+
+
+try {
+    # Utiliser le wrapper qui gère tout proprement
+    $savedFiles = Save-EwsCompatAttachments -Message $CheckMail -DestinationPath $PathArchiveAttachments
+    
+    if ($savedFiles.Count -eq 0) {
+        throw "Aucun fichier sauvegardé"
+    }
+    
+    Write-Host -ForegroundColor Green "File backuped : $($savedFiles[0])"
+    $FileXls = Split-Path $savedFiles[0] -Leaf
+    $PathToXlsx = $savedFiles[0]
+}
+catch {
+    $return += 1
+    $return += "- Mail $($CheckMail.Subject) impossible to save file <br><br>"
+    $return += "- Mail $($CheckMail.Subject) impossible to save file"
+    Write-Host $error
+    Return $return
+}
