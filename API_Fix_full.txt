@@ -1,0 +1,489 @@
+import csv
+import json
+import os
+from pathlib import Path
+
+from django.apps import apps
+from django.conf import settings
+from django.core.exceptions import ValidationError, FieldError
+from django.http import StreamingHttpResponse, HttpResponse
+from django.db.models import Q
+from django.db.models.functions import Upper
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, status, generics
+from rest_framework.filters import SearchFilter, OrderingFilter
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.renderers import BrowsableAPIRenderer, JSONRenderer
+from rest_framework.views import APIView
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.types import OpenApiTypes
+
+from businesscontinuity.models import Server as BCServer, ServerUnique
+from reportapp.models import Server as ReportServer
+from inventory.models import Server as InventoryServer
+
+from .custom_filters import DynamicFilterBackend
+from .serializers import (
+    ServerSerializer, LimitedServerSerializer, GenericQuerySerializer,
+    SrvPropSerializer, BusinessContinuitySerializer, CheckResultSerializer,
+    GlobalStatusSerializer, InventoryServerSerializer, ModelFieldsContentResponseSerializer
+)
+from . import status_checks as checks
+import datetime
+
+from .streaming_renderers import StreamingOneLinePerInstanceJSONRenderer, CSVRenderer, Echo
+
+
+field_app_mapping = {
+    'reportapp': ReportServer,
+    'inventory': InventoryServer,
+    'businesscontinuity': BCServer
+}
+
+
+class ServerPagination(PageNumberPagination):
+    page_size = 5000
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
+class SrvPropView(APIView):
+    renderer_classes = [JSONRenderer, CSVRenderer]
+    pagination_class = ServerPagination
+
+    STREAMING_THRESHOLD = 200  # Threshold to use to switch to the streaming option
+    STREAMING_CHUNK_SIZE = 1000  # Nb of chunks for the streaming
+
+    MAX_RESULTS = 2000000
+    MAX_FILTER_FIELDS = 15  # Max fields allowed in the filter
+    MAX_FILTER_VALUES_PER_FIELD = 150  # Max values per field allowed in the filter
+
+    def post(self, request):
+        try:
+            # Validate JSON data
+            serializer = SrvPropSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+            index_name = serializer.validated_data["index"]
+
+            filters = serializer.validated_data.get("filters", {})
+            fields = serializer.validated_data.get("fields", None)
+            excludefields = serializer.validated_data.get("excludefields", None)
+            default_exclude = ['id']  # Specify fields to be excluded by default
+            output_format = serializer.validated_data.get("format", "json")  # Default to JSON
+            is_export = serializer.validated_data.get("export", False)  # NEW: flag export
+
+            if len(filters) > self.MAX_FILTER_FIELDS:
+                return Response({
+                    "error": f"Too many fields filters: {len(filters)} (max: {self.MAX_FILTER_FIELDS})"
+                }, status=400)
+
+            for field, values in filters.items():
+                if len(values) > self.MAX_FILTER_VALUES_PER_FIELD:
+                    return Response({
+                        "error": f"Too many values for '{field}': {len(values)} (max: {self.MAX_FILTER_VALUES_PER_FIELD})"
+                    }, status=400)
+
+            if index_name == "reportapp":
+                index_cls = ReportServer
+                output_serializer = ServerSerializer
+            elif index_name == "businesscontinuity":
+                index_cls = BCServer
+                output_serializer = BusinessContinuitySerializer
+            elif index_name == "inventory":
+                index_cls = InventoryServer
+                output_serializer = InventoryServerSerializer
+            else:
+                return Response({
+                    "error": f"Unsupported index: {index_name}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # Map aliases to actual field names
+            alias_map = {
+                'priority_asset': 'server_unique__priority_asset',
+                'in_live_play': 'server_unique__in_live_play',
+                'action_during_lp': 'server_unique__action_during_lp',
+                'original_action_during_lp': 'server_unique__original_action_during_lp',
+                'cluster': 'server_unique__cluster',
+                'cluster_type': 'server_unique__cluster_type'
+            }
+
+            mapped_filters = {}
+            for key, value in filters.items():
+                mapped_key = alias_map.get(key, key)
+                mapped_filters[mapped_key] = value
+
+            invalid_filters = [
+                fil for fil in mapped_filters
+                if not hasattr(index_cls, fil.split('__')[0])
+                and not hasattr(BCServer, fil.split('__')[1] if '__' in fil else '')
+            ]
+
+            if invalid_filters:
+                return Response({
+                    "error": f"Invalid fields for {index_name} index: {', '.join(invalid_filters)}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            query_filter = None
+            for field, values in mapped_filters.items():
+                if values:
+                    or_conditions = None
+                    for value in values:
+                        if '*' in value:
+                            # Regex only if necessary
+                            value_pattern = value.replace('*', '.*').upper()
+                            condition = Q(**{f"{field}__iregex": f"^{value_pattern}$"})
+                        else:
+                            # Exact lookup (quicker)
+                            condition = Q(**{f"{field}__iexact": value})
+
+                        if or_conditions is None:
+                            or_conditions = condition
+                        else:
+                            or_conditions |= condition
+
+                    if query_filter is None:
+                        query_filter = or_conditions
+                    else:
+                        query_filter &= or_conditions
+
+            if query_filter is not None:
+                queryset = index_cls.objects.filter(query_filter)
+            else:
+                queryset = index_cls.objects.all()
+
+            # ===== OPTIMISATIONS QUERYSET =====
+            
+            # 1. Prefetch relations AVANT distinct/only
+            # Adapte selon les FK/M2M de ton modèle réel
+            # Pour BCServer / InventoryServer / ReportServer
+            queryset = queryset.select_related(
+                'server_unique',  # Si c'est une FK commune
+            )
+            
+            # Si tu as d'autres FK spécifiques à chaque modèle
+            if index_name == "businesscontinuity":
+                # Exemple : ajoute les FK spécifiques à BCServer
+                # queryset = queryset.select_related('cluster', 'datacenter')
+                pass
+            elif index_name == "inventory":
+                # Exemple : ajoute les FK spécifiques à InventoryServer
+                # queryset = queryset.select_related('location', 'owner')
+                pass
+            
+            # Si M2M (ex: tags)
+            # queryset = queryset.prefetch_related('tags')
+            
+            # 2. Distinct (garde-le si nécessaire pour éviter doublons)
+            queryset = queryset.distinct()
+            
+            # 3. Only si champs spécifiés - OPTIMISÉ
+            if fields:
+                # Charge toujours l'ID + les champs demandés
+                fields_to_load = ['id'] + list(fields)
+                
+                # Ajoute les FK_id nécessaires pour éviter des requêtes supplémentaires
+                # Si tu sérialises des relations, ajoute leurs _id
+                if index_name in ["businesscontinuity", "inventory", "reportapp"]:
+                    # Assure que server_unique_id est chargé si nécessaire
+                    if 'server_unique' not in fields_to_load and 'server_unique_id' not in fields_to_load:
+                        # Check si le serializer utilise server_unique
+                        fields_to_load.append('server_unique_id')
+                
+                # Applique .only() avec tous les champs nécessaires
+                queryset = queryset.only(*fields_to_load)
+            
+            # ===== FIN OPTIMISATIONS =====
+
+            count = queryset.count()
+
+            if count > self.MAX_RESULTS:
+                return Response({
+                    "error": f"Too many results: {count} (maximum: {self.MAX_RESULTS})",
+                    "hint": "Please refine your filters to reduce the number of results",
+                    "count": count
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # MODE EXPORT : streaming sans pagination
+            if is_export:
+                if output_format == "csv":
+                    return self._stream_csv_response(
+                        queryset=queryset,
+                        serializer_class=output_serializer,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                else:
+                    return self._stream_json_response(
+                        queryset=queryset,
+                        serializer_class=output_serializer,
+                        count=count,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+
+            # MODE EXPLORATION : pagination normale
+            if request.GET.get('page'):
+                # Pagination mode requested
+                paginator = self.pagination_class()
+                paginator = ServerPagination()
+                page = paginator.paginate_queryset(queryset, request)
+
+                if page is not None:
+                    serializer_instance = output_serializer(
+                        page, 
+                        many=True,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                    
+                    if output_format == "csv":
+                        csv_response = self._generate_csv_response(
+                            queryset=page,
+                            serializer_class=output_serializer,
+                            fields=fields,
+                            excludefields=excludefields,
+                            default_exclude=default_exclude
+                        )
+                        return csv_response
+                    else:
+                        return paginator.get_paginated_response(serializer_instance.data)
+
+            # Big amount -> Streaming
+            elif count > self.STREAMING_THRESHOLD:
+                print("Streaming")
+                if output_format == "csv":
+                    return self._stream_csv_response(
+                        queryset=queryset,
+                        serializer_class=output_serializer,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                else:
+                    return self._stream_json_response(
+                        queryset=queryset,
+                        serializer_class=output_serializer,
+                        count=count,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+
+            # Small amount -> Normal
+            else:
+                if output_format == "csv":
+                    return self._generate_csv_response(
+                        queryset=queryset,
+                        serializer_class=output_serializer,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+                else:
+                    output_serializer_instance = output_serializer(
+                        queryset,
+                        many=True,
+                        fields=fields,
+                        excludefields=excludefields,
+                        default_exclude=default_exclude
+                    )
+
+                    response_data = {
+                        "count": count,
+                        "results": output_serializer_instance.data
+                    }
+
+                    return Response(response_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            error_data = {"Unexpected Error": f"{e}"}
+            return Response(error_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def _stream_csv_response(self, queryset, serializer_class, fields, excludefields,
+                            default_exclude):
+        """
+        Stream CSV response optimisé : 
+        - Header une seule fois
+        - Sérialisation par batch (many=True)
+        """
+        def generate():
+            """Generator to yield the CSV chunk by chunk"""
+            pseudo_buffer = Echo()
+            writer = csv.writer(pseudo_buffer)
+
+            # Write the header UNE SEULE FOIS
+            first_obj = queryset.first()
+            if first_obj:
+                header_serializer = serializer_class(
+                    first_obj, 
+                    fields=fields, 
+                    excludefields=excludefields, 
+                    default_exclude=default_exclude
+                )
+                header = header_serializer.data.keys()
+                yield writer.writerow(header)
+
+            # iterator() with chunk_size avoids to load everything in RAM
+            offset = 0
+            while True:
+                # Charge un batch complet
+                batch = list(queryset[offset:offset + self.STREAMING_CHUNK_SIZE])
+                
+                if not batch:
+                    break
+                
+                # Serialize le batch entier (many=True) - OPTIMISÉ
+                serializer = serializer_class(
+                    batch,
+                    many=True,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+                
+                # Convert to CSV and send
+                for data in serializer.data:
+                    yield writer.writerow(data.values())
+                
+                offset += self.STREAMING_CHUNK_SIZE
+
+        # Create the streaming response
+        response = StreamingHttpResponse(generate(), content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="data.csv"'
+        return response
+
+    def _generate_csv_response(self, queryset, serializer_class, fields, excludefields,
+                               default_exclude):
+        """
+        Generate CSV response sans streaming (petit volume)
+        """
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="data.csv"'
+        writer = csv.writer(response)
+
+        # Write the header
+        if isinstance(queryset, list):
+            serializer = serializer_class(
+                queryset[0], 
+                fields=fields, 
+                excludefields=excludefields, 
+                default_exclude=default_exclude
+            )
+        else:
+            serializer = serializer_class(
+                queryset.first(), 
+                fields=fields, 
+                excludefields=excludefields, 
+                default_exclude=default_exclude
+            )
+        header = serializer.data.keys()
+        writer.writerow(header)
+
+        serializer_instance = serializer_class(
+            queryset, 
+            many=True, 
+            fields=fields,
+            excludefields=excludefields, 
+            default_exclude=default_exclude
+        )
+        serialized_data = serializer_instance.data
+        for data in serialized_data:
+            writer.writerow(data.values())
+
+        return response
+
+    def _stream_json_response(self, queryset, serializer_class, count, fields,
+                             excludefields, default_exclude):
+        """
+        Stream JSON response optimisé :
+        - Count une seule fois au début
+        - Sérialisation par batch (many=True)
+        - JSON valide avec un seul objet englobant
+        """
+        def generate():
+            """Generator to yield the JSON chunk by chunk"""
+            
+            # Begin of the JSON - COUNT UNE SEULE FOIS
+            yield b'{"count": '
+            yield str(count).encode('utf-8')
+            yield b', "results": ['
+            
+            first = True
+            
+            # iterator() with chunk_size avoids to load everything in RAM
+            offset = 0
+            while True:
+                # Charge un batch complet
+                batch = list(queryset[offset:offset + self.STREAMING_CHUNK_SIZE])
+                
+                if not batch:
+                    break
+                
+                # Serialize le batch entier (many=True) - OPTIMISÉ
+                serializer = serializer_class(
+                    batch,
+                    many=True,
+                    fields=fields,
+                    excludefields=excludefields,
+                    default_exclude=default_exclude
+                )
+                
+                # Convert to JSON and send
+                for obj_data in serializer.data:
+                    # Use comma as separator, except for the first one
+                    if not first:
+                        yield b','
+                    first = False
+                    
+                    yield json.dumps(obj_data).encode('utf-8')
+                
+                offset += self.STREAMING_CHUNK_SIZE
+
+            # End of JSON - UNE SEULE FOIS
+            yield b']}'
+
+        # Create the streaming response
+        response = StreamingHttpResponse(
+            generate(),
+            content_type='application/json'
+        )
+
+        # Optional Headers for best compatibility
+        response['X-Total-Count'] = str(count)
+        response['Cache-Control'] = 'no-cache'
+
+        return response
+		
+		
+"""
+
+Mode exploration (paginé)
+curl -X POST https://api/servers/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "index": "businesscontinuity",
+    "filters": {"environment": ["prod"]},
+    "fields": ["hostname", "ip_address", "status"]
+  }'
+  
+Mode export (streaming complet)
+curl -X POST https://api/servers/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "index": "businesscontinuity",
+    "filters": {"environment": ["prod"]},
+    "export": true,
+    "format": "csv"
+  }' -o servers.csv
+  
+  
+ class SrvPropSerializer(serializers.Serializer):
+    # ... tes champs existants
+    export = serializers.BooleanField(required=False, default=False)
+"""
