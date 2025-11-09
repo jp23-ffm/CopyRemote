@@ -621,3 +621,147 @@ def export_grouped_csv(request):
         writer.writerow(row)
     
     return response
+    
+ 
+@login_required
+@require_http_methods(["GET"])
+def get_annotation(request, hostname):
+    """
+    Récupère les données d'une annotation
+    """
+    try:
+        annotation = ServerAnnotation.objects.get(hostname=hostname)
+        
+        return JsonResponse({
+            'success': True,
+            'status': annotation.status,
+            'custom_status': annotation.custom_status,
+            'notes': annotation.notes,
+            'priority': annotation.priority,
+        })
+        
+    except ServerAnnotation.DoesNotExist:
+        # Retourner les valeurs par défaut si l'annotation n'existe pas
+        return JsonResponse({
+            'success': True,
+            'status': 'production',
+            'custom_status': '',
+            'notes': '',
+            'priority': 'normal',
+        })
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_annotation(request, hostname):
+    """
+    Sauvegarde ou met à jour une annotation
+    L'historique est automatiquement ajouté par la méthode save() du modèle
+    """
+    try:
+        data = json.loads(request.body)
+        
+        # Récupérer ou créer l'annotation
+        annotation, created = ServerAnnotation.objects.get_or_create(
+            hostname=hostname,
+            defaults={
+                'created_by': request.user,
+                'updated_by': request.user
+            }
+        )
+        
+        # Si ce n'est pas une création, on met à jour l'utilisateur
+        if not created:
+            annotation.updated_by = request.user
+        
+        # Mettre à jour les champs
+        annotation.status = data.get('status', 'production')
+        annotation.custom_status = data.get('custom_status', '')
+        annotation.notes = data.get('notes', '')
+        annotation.priority = data.get('priority', 'normal')
+        
+        # Sauvegarder (l'historique sera ajouté automatiquement)
+        annotation.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Annotation sauvegardée avec succès',
+            'annotation': {
+                'hostname': annotation.hostname,
+                'status': annotation.status,
+                'display_status': annotation.get_display_status(),
+                'priority': annotation.priority,
+                'notes': annotation.notes,
+                'history_count': annotation.get_history_count()
+            }
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la sauvegarde: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def annotation_history(request, hostname):
+    """
+    Retourne l'historique JSON de l'annotation
+    """
+    try:
+        annotation = ServerAnnotation.objects.get(hostname=hostname)
+        
+        # L'historique est déjà en JSON dans annotation.history
+        history_data = []
+        
+        # S'assurer que history est une liste
+        if not isinstance(annotation.history, list):
+            annotation.history = []
+        
+        for entry in annotation.history:
+            # Enrichir les données pour l'affichage
+            status = entry.get('status', 'production')
+            custom_status = entry.get('custom_status', '')
+            
+            # Déterminer le display_status
+            if status == 'custom' and custom_status:
+                display_status = custom_status
+            else:
+                display_status = dict(ServerAnnotation.STATUS_CHOICES).get(status, status)
+            
+            history_data.append({
+                'timestamp': entry.get('timestamp'),
+                'changed_at': entry.get('timestamp'),  # Alias pour compatibilité
+                'change_type': entry.get('change_type', 'update'),
+                'changed_by': entry.get('changed_by', 'Unknown'),
+                'status': status,
+                'custom_status': custom_status,
+                'priority': entry.get('priority', 'normal'),
+                'notes': entry.get('notes', ''),
+                # Labels pour l'affichage
+                'display_status': display_status,
+                'priority_display': dict(ServerAnnotation.PRIORITY_CHOICES).get(
+                    entry.get('priority', 'normal'), 'Normal'
+                ),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'hostname': hostname,
+            'history': history_data,
+            'count': len(history_data)
+        })
+        
+    except ServerAnnotation.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Annotation non trouvée',
+            'history': []
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'history': []
+        }, status=500)
