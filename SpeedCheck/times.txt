@@ -1,0 +1,51 @@
+[TIMING] View start: 1762703106.888
+[TIMING] Parameters retrieved: 0.000s
+[TIMING] Filters applied: 0.000s
+[TIMING] Model fields: 0.000s
+[TIMING] Grouped mode selected
+[TIMING] Filtered hostnames query prepared: 0.000s
+[TIMING] Hostnames pagination: 0.016s
+[TIMING] Servers for page conversion (190 servers for 50 hostnames): 0.024s
+[TIMING] Grouping by hostname (50 groups): 0.000s
+[TIMING] Summaries retrieved (50 summaries, 0 missing): 0.004s
+[TIMING] Group analysis (missing summaries: 0): 0.000s
+[TIMING] Annotations for current page (1 annotations): 0.002s
+[TIMING] Total grouped mode: 0.048s
+[TIMING] Statistics calculation: 0.025s
+[TIMING] Filter statistics: 0.001s
+[TIMING] Context prepared: 0.000s
+[TIMING] TOTAL VIEW: 0.076s
+[TIMING] View start: 1762703182.277
+[TIMING] Parameters retrieved: 0.000s
+[TIMING] Filters applied: 0.000s
+[TIMING] Model fields: 0.000s
+[TIMING] Grouped mode selected
+[TIMING] Filtered hostnames query prepared: 0.000s
+[TIMING] Hostnames pagination: 0.023s
+[TIMING] Servers for page conversion (190 servers for 50 hostnames): 0.018s
+[TIMING] Grouping by hostname (50 groups): 0.000s
+[TIMING] Summaries retrieved (50 summaries, 0 missing): 0.004s
+[TIMING] Group analysis (missing summaries: 0): 0.000s
+[TIMING] Annotations for current page (1 annotations): 0.001s
+[TIMING] Total grouped mode: 0.047s
+[TIMING] Statistics calculation: 0.034s
+[TIMING] Filter statistics: 0.001s
+[TIMING] Context prepared: 0.000s
+[TIMING] TOTAL VIEW: 0.083s
+[TIMING] View start: 1762703200.830
+[TIMING] Parameters retrieved: 0.000s
+[TIMING] Filters applied: 0.000s
+[TIMING] Model fields: 0.000s
+[TIMING] Grouped mode selected
+[TIMING] Filtered hostnames query prepared: 0.000s
+[TIMING] Hostnames pagination: 0.023s
+[TIMING] Servers for page conversion (190 servers for 50 hostnames): 0.017s
+[TIMING] Grouping by hostname (50 groups): 0.000s
+[TIMING] Summaries retrieved (50 summaries, 0 missing): 0.005s
+[TIMING] Group analysis (missing summaries: 0): 0.000s
+[TIMING] Annotations for current page (2 annotations): 0.002s
+[TIMING] Total grouped mode: 0.050s
+[TIMING] Statistics calculation: 0.032s
+[TIMING] Filter statistics: 0.001s
+[TIMING] Context prepared: 0.000s
+[TIMING] TOTAL VIEW: 0.085s
