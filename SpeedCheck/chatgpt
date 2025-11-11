@@ -1,0 +1,27 @@
+from django.db.models import Q, Value
+from django.db.models.functions import Lower
+
+query_filter = Q()
+
+for field, values in mapped_filters.items():
+    if not values:
+        continue
+
+    has_wildcards = any('*' in v for v in values)
+
+    if has_wildcards:
+        or_conditions = Q()
+        for value in values:
+            value_pattern = value.replace('*', '.*')
+            or_conditions |= Q(**{f"{field}__iregex": f"^{value_pattern}$"})
+        query_filter &= or_conditions
+
+    else:
+        # ✅ Case-insensitive "IN" via annotation (Postgres)
+        lowered_values = [v.lower() for v in values]
+        query_filter &= Q(**{f"{field}__in": lowered_values})
+
+# Quand tu construis ton queryset :
+queryset = index_cls.objects.annotate(**{
+    f"{field}": Lower(field)
+}).filter(query_filter)
