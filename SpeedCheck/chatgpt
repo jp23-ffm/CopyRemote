@@ -25,3 +25,13 @@ for field, values in mapped_filters.items():
 queryset = index_cls.objects.annotate(**{
     f"{field}": Lower(field)
 }).filter(query_filter)
+
+
+
+---------------
+
+
+lowered_values = [v.lower() for v in values]
+query_filter &= Q(**{f"{field}__in": lowered_values})
+
+queryset = index_cls.objects.annotate(**{f"{field}": Lower(field)}).filter(query_filter)
