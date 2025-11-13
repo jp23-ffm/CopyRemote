@@ -1,0 +1,252 @@
+from django.conf import settings
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
+
+class Server(models.Model):
+    # Tous tes champs existants...
+    APM_DETAILS_APPDESCRIPTION = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_APPMANAGER = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_CRITICALITY = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_ITCLUSTER = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_OWNERBUSINESSLINE = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_PRODUCTIONDOMAINMANAGER = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_PRODUCTIONMANAGER = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_VITALAPP = models.CharField(max_length=100, null=True, blank=True)
+    APP_NAME_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    APM_LA_APPSUITE = models.CharField(max_length=100, null=True, blank=True)
+    BAMPLUS_APPMANAGERS_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    BAMPLUS_APPS_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    BAMPLUS_BUSINESSLINEMANAGER_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    BAMPLUS_DEVELOPMENTMANAGERS_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    BAMPLUS_INFRASTRUCTUREMANAGERS_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    CAPSULE_REF_SERVERS_DPI = models.CharField(max_length=100, null=True, blank=True)
+    CAPSULE_REF_SERVERS_ECOSYSTEM = models.CharField(max_length=100, null=True, blank=True)
+    CAPSULE_REF_SERVERS_OWNER = models.CharField(max_length=100, null=True, blank=True)
+    CAPSULE_REF_SERVERS_STAMP = models.CharField(max_length=100, null=True, blank=True)
+    K9_APPS_ITAPPSUPPORTGROUPS_K9_APPS_EMAIL = models.CharField(max_length=100, null=True, blank=True)
+    K9_APPS_ITAPPSUPPORTGROUPS_K9_APPS_NAME = models.CharField(max_length=100, null=True, blank=True)
+    OPENSTACK_FLAVOR_OPENSTACK_LINKS_OPENSTACK_HREF = models.CharField(max_length=100, null=True, blank=True)
+    OPENSTACK_KVM_HOST = models.CharField(max_length=100, null=True, blank=True)
+    OPENSTACK_KVM_VM_STATE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_AREA = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_ASSETGEN_CABINET = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_CITY = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_COUNTRY = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_DCOWNER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_ENVIRONMENT = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_FQDN = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_INFRASTRUCTURE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_IPADDRESS = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_LIVE_STATUS = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_MANUFACTURER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_MODEL = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_NETIF = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_NETMASK = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_NETWORKID = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_NETWORKNAME = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_OS = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_OSFAMILY = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_OSFULLVERSION = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_OSSHORTNAME = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PAAS_COMPONENT = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PAAS_PHASE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PAAS_REQUESTER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PERFORMER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PRODUCT = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PROVISIONINGREQ = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_SERIAL = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_SNOWITG_STATUS = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_SNOWITG_SUPPORTGROUP = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_SUBPERIMETER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_VMTYPE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_DATACENTER_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_ID = models.CharField(max_length=100, db_index=True)  # DÉJÀ INDEXÉ ✓
+    SERVER_IP_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_MACHINE_TYPE_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    SNOW_SERVER_FLAG_ORPHAN = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_CLUSTER_NAME = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_DATACENTER = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_DATASTORE_NAME = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_HOST_NAME = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_OWNER_UID = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_POWERSTATE = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_RESOURCEPOOL = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_VCNAME = models.CharField(max_length=100, null=True, blank=True)
+    VPIC_VMSOURCES = models.CharField(max_length=100, null=True, blank=True)
+    OBSO_MAP_HW_ENDOFEXTENDEDDATE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_MACHINE_TYPE_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_OBSO_HWPURCHASEDATE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PARKPLACEENDON = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_PARKPLACESTARTON = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_DATACENTER = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_ASSETGEN_ROOM = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_TECHFAMILY = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_SUBTECHFAMILY = models.CharField(max_length=100, null=True, blank=True)
+    APM_DETAILS_CONTINUITYCRICITYCALITY = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_APPLICATION_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_VPIC_CLUSTER = models.CharField(max_length=110, null=True, blank=True)
+    PAMELA_AFFINITY = models.CharField(max_length=110, null=True, blank=True)
+    PAMELA_SHORT_ENVIRONMENT = models.CharField(max_length=10, null=True, blank=True)
+    PAMELA_HYPERVISOR = models.CharField(max_length=110, null=True, blank=True)
+    PAMELA_OG_INFRA = models.CharField(max_length=110, null=True, blank=True)
+    OPENSTACK_KVM_VM_STATE = models.CharField(max_length=10, null=True, blank=True)
+    SERVER_RAM_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    SERVER_DISK_VALUE = models.CharField(max_length=100, null=True, blank=True)
+    PAMELA_CPULOGICALTHREAD = models.CharField(max_length=100, null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            # Index déjà présent dans ton code original
+            models.Index(fields=['SERVER_ID']),
+            models.Index(fields=['PAMELA_OSSHORTNAME']),
+            models.Index(fields=['PAMELA_SERIAL']),
+            models.Index(fields=['PAMELA_MODEL']),
+            models.Index(fields=['PAMELA_PRODUCT']),
+            models.Index(fields=['SERVER_DATACENTER_VALUE']),
+            
+            # ✨ NOUVEAUX INDEXES CRITIQUES ✨
+            # Index composé pour les filtres fréquents dans ta vue
+            models.Index(fields=['SERVER_ID', 'APP_NAME_VALUE'], name='srv_id_app_idx'),
+            
+            # Index pour les champs utilisés dans les filtres de ta vue principale
+            models.Index(fields=['PAMELA_ENVIRONMENT'], name='env_idx'),
+            models.Index(fields=['PAMELA_AREA'], name='area_idx'),
+            models.Index(fields=['PAMELA_DATACENTER'], name='dc_idx'),
+            models.Index(fields=['PAMELA_SNOWITG_STATUS'], name='status_idx'),
+            
+            # Index pour ORDER BY dans ta vue (ligne 682)
+            # Tu fais .order_by('SERVER_ID') partout, donc crucial !
+            # (Déjà présent avec db_index=True sur SERVER_ID, mais je le mentionne)
+        ]
+
+    def __str__(self):
+        return self.SERVER_ID
+
+
+class ServerGroupSummary(models.Model):
+    """
+    ⚠️ TABLE CRITIQUE À OPTIMISER ⚠️
+    Ici tu stockes des pré-calculs pour accélérer l'affichage groupé.
+    MAIS sans indexes, les requêtes sont lentes !
+    """
+    
+    # ✨ MODIFICATION IMPORTANTE : Ajout de db_index=True ✨
+    SERVER_ID = models.CharField(
+        max_length=255, 
+        unique=True,  # Déjà bon
+        db_index=True  # ⭐ AJOUTÉ - Index sur la clé primaire de recherche
+    )
+    
+    total_instances = models.PositiveIntegerField()
+    
+    # ✨ Ces champs sont utilisés dans les filtres/groupBy -> Indexes nécessaires ✨
+    constant_fields = models.JSONField(default=dict)  # Champs constants (JSON): {field_name: value}
+    variable_fields = models.JSONField(default=dict)  # Champs variables (JSON): {field_name: ["count": 3, "preview": "val1 | val2 | val3"]}
+    
+    last_updated = models.DateTimeField(auto_now=True)
+
+    @property
+    def servers(self):
+        """
+        ✨ OPTIMISATION : Utilise select_related/prefetch si nécessaire
+        """
+        return Server.objects.filter(hostname=self.SERVER_ID)  # Tous les serveurs
+
+    class Meta:
+        # ✨ INDEXES AJOUTÉS ✨
+        indexes = [
+            # Index principal sur SERVER_ID (déjà couvert par db_index=True ci-dessus)
+            
+            # Index sur last_updated pour les requêtes de "dernières mises à jour"
+            models.Index(fields=['last_updated'], name='summary_updated_idx'),
+            
+            # Index pour les requêtes qui filtrent par nombre d'instances
+            models.Index(fields=['total_instances'], name='summary_instances_idx'),
+            
+            # Index composé pour les requêtes courantes
+            models.Index(fields=['SERVER_ID', 'total_instances'], name='summary_compound_idx'),
+        ]
+        
+        # Ajout d'un nom lisible
+        verbose_name = "Server Group Summary"
+        verbose_name_plural = "Server Group Summaries"
+
+
+class ServerAnnotation(models.Model):
+    """
+    Cette table semble OK niveau indexes
+    """
+    SERVER_ID = models.CharField(
+        max_length=255, 
+        unique=True,  # ✓ Bon
+        db_index=True  # ✓ Bon
+    )
+    notes = models.TextField(blank=True, help_text="Current annotation")
+    type = models.CharField(max_length=50, null=True, blank=True, help_text="Type of annotation")
+    servicenow = models.CharField(max_length=255, blank=True, help_text="ServiceNow RITM number")
+    history = models.JSONField(default=list, help_text="Historical entries")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def add_entry(self, text, user, annotation_type, servicenow):
+        if not self.history:
+            self.history = []
+
+        self.history.append({
+            'text': text,
+            'user': user.username if user else 'Unknown',
+            'date': timezone.now().isoformat(),
+            'type': annotation_type,
+            'servicenow': servicenow
+        })
+
+        self.notes = text
+        self.type = annotation_type
+        self.servicenow = servicenow
+        self.save()
+
+    def get_history_display(self):
+        if not self.history:
+            return []
+        return sorted(self.history, key=lambda x: x['date'], reverse=True)
+
+    def __str__(self):
+        return f"{self.SERVER_ID} - {self.notes[:50] if self.notes else 'No annotation'}"
+
+    class Meta:
+        ordering = ['SERVER_ID']
+        verbose_name = "Server Annotation"
+        verbose_name_plural = "Server Annotations"
+        
+        # ✨ INDEXES ADDITIONNELS ✨
+        indexes = [
+            # Index sur type pour filtrer par type d'annotation
+            models.Index(fields=['type'], name='annotation_type_idx'),
+            
+            # Index sur updated_at pour trier par date
+            models.Index(fields=['updated_at'], name='annotation_date_idx'),
+            
+            # Index composé pour les recherches courantes
+            models.Index(fields=['SERVER_ID', 'type'], name='annotation_compound_idx'),
+        ]
+
+
+class ImportStatus(models.Model):
+    """
+    Cette table semble OK, peu de requêtes dessus
+    """
+    date_import = models.DateTimeField(auto_now_add=True)
+    success = models.BooleanField(default=False)
+    message = models.TextField(blank=True, null=True)
+    nb_entries_created = models.IntegerField(default=0)
+    nb_groups_created = models.IntegerField(default=0)
+    source_url = models.URLField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{'OK' if self.success else 'KO'} {self.date_import.strftime('%d.%m.%Y %H:%M')}"
+
+    class Meta:
+        # ✨ Index sur date_import pour trier chronologiquement ✨
+        indexes = [
+            models.Index(fields=['-date_import'], name='import_date_desc_idx'),
+        ]
