@@ -1,0 +1,24 @@
+# generate_rename_migration.py
+
+# Dictionnaire : ancien_nom → nouveau_nom
+RENAMES = {
+    'APM_DETAILS_APPDESCRIPTION': 'app_description',
+    'APM_DETAILS_APPMANAGER': 'app_manager',
+    'APM_DETAILS_CRITICALITY': 'criticality',
+    'PAMELA_OSSHORTNAME': 'os_short_name',
+    'PAMELA_DATACENTER': 'datacenter',
+    'PAMELA_ENVIRONMENT': 'environment',
+    'PAMELA_AREA': 'area',
+    'SERVER_DATACENTER_VALUE': 'datacenter_value',
+    'SERVER_ID': 'server_id',
+    'APP_NAME_VALUE': 'app_name',
+    # ... ajoute tous tes renommages
+}
+
+# Générer les RenameField
+for old_name, new_name in RENAMES.items():
+    print(f"""    migrations.RenameField(
+        model_name='server',
+        old_name='{old_name}',
+        new_name='{new_name}',
+    ),""")
