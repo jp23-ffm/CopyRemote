@@ -1,0 +1,109 @@
+┌─────────────────────────────────────────────────────────────────┐
+│                            USERS                                 │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │   F5 LB     │  Health check: /healthlb/
+                  │  (sticky)   │  Interval: ~5-10s
+                  └──────┬──────┘
+                         │
+           ┌─────────────┴─────────────┐
+           │                           │
+           ▼                           ▼
+    ┌────────────┐              ┌────────────┐
+    │  NODE A    │              │  NODE B    │
+    │            │              │   (off)    │
+    └────────────┘              └────────────┘
+           │                           │
+           ▼                           ▼
+    ┌────────────┐              ┌────────────┐
+    │  Nginx:80  │              │  Nginx:80  │
+    └──────┬─────┘              └──────┬─────┘
+           │                           │
+    /healthlb/ → localhost:8080/api/health/
+           │                           │
+           ▼                           ▼
+    ┌────────────┐              ┌────────────┐
+    │ Gunicorn   │              │ Gunicorn   │
+    │  :8080     │              │  :8080     │
+    └──────┬─────┘              └──────┬─────┘
+           │                           │
+           ▼                           ▼
+    ┌────────────┐              ┌────────────┐
+    │  Django    │              │  Django    │
+    │ + DRF      │              │ + DRF      │
+    │ /api/health│              │ /api/health│
+    └────────────┘              └────────────┘
+
+
+═══════════════════════════════════════════════════════════════════
+FAILURE SCENARIOS
+═══════════════════════════════════════════════════════════════════
+
+1️⃣  GUNICORN DOWN (Node A)
+    ┌─────┐  /healthlb/  ┌───────┐  proxy  ┌─────────┐
+    │ F5  │─────────────▶│ Nginx │────X────│Gunicorn │ 
+    └─────┘              └───────┘         └─────────┘
+                             │
+                             └─▶ 502 Bad Gateway
+    
+    Result: F5 marks Node A "down" → Traffic to Node B
+    Impact: Users on Node A → SSO re-login required
+
+
+2️⃣  NGINX DOWN (Node A)
+    ┌─────┐  /healthlb/  ┌───────┐
+    │ F5  │─────X────────│ Nginx │ (process stopped)
+    └─────┘              └───────┘
+         │
+         └─▶ Connection refused / Timeout
+    
+    Result: F5 marks Node A "down" → Traffic to Node B
+    Impact: Users on Node A → SSO re-login required
+
+
+3️⃣  SERVER DOWN (Node A entire host)
+    ┌─────┐  /healthlb/
+    │ F5  │─────X────▶ [Node A unreachable]
+    └─────┘
+         │
+         └─▶ Network timeout
+    
+    Result: F5 marks Node A "down" → Traffic to Node B
+    Impact: Users on Node A → SSO re-login required
+
+
+4️⃣  SERVICE RECOVERY (Node B powered on)
+    ┌─────┐  /healthlb/  ┌───────┐  ┌─────────┐  ┌────────┐
+    │ F5  │─────────────▶│ Nginx │─▶│Gunicorn │─▶│ Django │
+    └─────┘              └───────┘  └─────────┘  └────────┘
+         │                                            │
+         └◀───────────────── 200 OK ◀─────────────────┘
+    
+    Result: F5 reintegrates Node B into the pool
+    Impact: Sticky sessions maintained, new users 
+            can be routed to Node B
+
+
+═══════════════════════════════════════════════════════════════════
+KEY CONFIGURATION
+═══════════════════════════════════════════════════════════════════
+
+Nginx (location /healthlb/):
+  • proxy_pass http://localhost:8080/api/health/
+  • proxy_intercept_errors on
+  • error_page 502 503 504 (for custom error message)
+
+Django/DRF (/api/health/):
+  • Lightweight endpoint, returns 200 OK when healthy
+  • No heavy DB queries
+
+F5:
+  • Health check: GET /healthlb/
+  • Interval: ~5-10s
+  • Expected response: 200 OK
+  • Session persistence: Sticky (session affinity)
+
+⚠️  SSO IMPACT: No shared sessions (Redis/DB)
+    → Node failover = Re-login required
