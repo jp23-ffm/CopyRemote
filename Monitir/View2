@@ -1,0 +1,106 @@
+from django.http import JsonResponse
+from django.views import View
+from django.utils import timezone
+
+class ClusterStatusView(View):
+“”“Vue qui lit les statuts de tous les nodes depuis la DB.”””
+
+```
+STALE_THRESHOLD_SECONDS = 120
+
+def get(self, request, *args, **kwargs):
+    from api.models import NodeHealthStatus
+    
+    nodes = NodeHealthStatus.objects.all().order_by('node_name')
+    
+    if not nodes.exists():
+        return JsonResponse({
+            "cluster_status": "Unknown",
+            "message": "Aucun node n'a encore reporté son statut",
+            "timestamp": timezone.now().isoformat(),
+            "nodes": []
+        }, status=503)
+    
+    nodes_data = []
+    cluster_status = "OK"
+    stale_nodes = []
+    error_nodes = []
+    warning_nodes = []
+    
+    for node in nodes:
+        staleness = node.get_staleness_seconds()
+        is_stale = node.is_stale(self.STALE_THRESHOLD_SECONDS)
+        
+        if is_stale:
+            effective_status = "Stale"
+            stale_nodes.append(node.node_name)
+        else:
+            effective_status = node.status
+            if node.status == "Error":
+                error_nodes.append(node.node_name)
+            elif node.status == "Warning":
+                warning_nodes.append(node.node_name)
+        
+        node_info = {
+            "node_name": node.node_name,
+            "status": effective_status,
+            "reported_status": node.status,
+            "last_updated": node.last_updated.isoformat() if node.last_updated else None,
+            "staleness_seconds": round(staleness, 2) if staleness else None,
+            "is_stale": is_stale,
+            "hostname": node.hostname,
+            "ip_address": node.ip_address,
+            "version": node.version,
+            "checks_summary": {
+                "total": node.checks_data.get('total_checks', 0),
+                "ok": node.checks_data.get('ok_count', 0),
+                "warning": node.checks_data.get('warning_count', 0),
+                "error": node.checks_data.get('error_count', 0),
+            },
+            # ✅ CORRECTION: Toujours inclure les checks pour que le HTML puisse les afficher
+            "checks": node.checks_data.get('checks', [])
+        }
+        
+        nodes_data.append(node_info)
+    
+    # Statut global
+    if stale_nodes:
+        cluster_status = "Degraded" if len(stale_nodes) < nodes.count() else "Critical"
+    elif error_nodes:
+        cluster_status = "Degraded" if len(error_nodes) < nodes.count() else "Critical"
+    elif warning_nodes:
+        cluster_status = "Warning"
+    else:
+        cluster_status = "OK"
+    
+    response = {
+        "cluster_status": cluster_status,
+        "timestamp": timezone.now().isoformat(),
+        "summary": {
+            "total_nodes": nodes.count(),
+            "healthy_nodes": nodes.count() - len(stale_nodes) - len(error_nodes),
+            "stale_nodes": len(stale_nodes),
+            "error_nodes": len(error_nodes),
+            "warning_nodes": len(warning_nodes),
+        },
+        "nodes": nodes_data
+    }
+    
+    if stale_nodes or error_nodes:
+        response["issues"] = []
+        if stale_nodes:
+            response["issues"].append({
+                "type": "stale",
+                "message": f"Node(s) n'ont pas reporté depuis {self.STALE_THRESHOLD_SECONDS}s",
+                "affected_nodes": stale_nodes
+            })
+        if error_nodes:
+            response["issues"].append({
+                "type": "error",
+                "message": "Node(s) en erreur",
+                "affected_nodes": error_nodes
+            })
+    
+    http_status = 503 if cluster_status in ["Critical", "Degraded"] else 200
+    return JsonResponse(response, status=http_status, json_dumps_params={'indent': 2})
+```
