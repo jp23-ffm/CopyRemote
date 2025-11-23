@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cluster Status</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #1a202c;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Header compact */
+        header {
+            background: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1a202c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .cluster-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .cluster-badge.ok { background: #d4edda; color: #155724; }
+        .cluster-badge.warning { background: #fff3cd; color: #856404; }
+        .cluster-badge.degraded { background: #f8d7da; color: #721c24; }
+        .cluster-badge.critical { background: #f8d7da; color: #721c24; }
+        
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .refresh-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+        }
+        
+        .auto-refresh {
+            font-size: 13px;
+            color: #718096;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        /* Summary compact */
+        .summary {
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .summary-stats {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .stat-label {
+            font-size: 13px;
+            color: #718096;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .stat-value.healthy { color: #38a169; }
+        .stat-value.warning { color: #d69e2e; }
+        .stat-value.error { color: #e53e3e; }
+        
+        /* Nodes grid - plus compact */
+        .nodes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .node-card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            transition: all 0.2s;
+        }
+        
+        .node-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0,0,0,0.1);
+        }
+        
+        .node-header {
+            padding: 16px 20px;
+            border-left: 4px solid #cbd5e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .node-header.ok { border-left-color: #38a169; background: linear-gradient(135deg, #f0fff4 0%, #ffffff 100%); }
+        .node-header.warning { border-left-color: #d69e2e; background: linear-gradient(135deg, #fffaf0 0%, #ffffff 100%); }
+        .node-header.error { border-left-color: #e53e3e; background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%); }
+        .node-header.stale { border-left-color: #e53e3e; background: linear-gradient(135deg, #fff5f5 0%, #ffffff 100%); }
+        
+        .node-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1a202c;
+        }
+        
+        .node-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .node-badge.ok { background: #c6f6d5; color: #22543d; }
+        .node-badge.warning { background: #feebc8; color: #7c2d12; }
+        .node-badge.error { background: #fed7d7; color: #742a2a; }
+        .node-badge.stale { background: #fed7d7; color: #742a2a; }
+        
+        .node-info {
+            padding: 16px 20px;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            font-size: 12px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .info-label {
+            color: #a0aec0;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-value {
+            color: #2d3748;
+            font-weight: 500;
+        }
+        
+        .checks-badges {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .check-badge {
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .check-badge.ok { background: #c6f6d5; color: #22543d; }
+        .check-badge.warning { background: #feebc8; color: #7c2d12; }
+        .check-badge.error { background: #fed7d7; color: #742a2a; }
+        
+        /* Section détails checks - plus moderne */
+        .checks-details {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .checks-details-header {
+            cursor: pointer;
+            padding: 10px;
+            background: #f7fafc;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4a5568;
+            transition: all 0.2s;
+        }
+        
+        .checks-details-header:hover {
+            background: #edf2f7;
+        }
+        
+        .expand-icon {
+            transition: transform 0.3s;
+            font-size: 10px;
+            color: #a0aec0;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(180deg);
+        }
+        
+        .checks-table-container {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .checks-table-container.expanded {
+            max-height: 800px;
+            padding-top: 10px;
+        }
+        
+        .checks-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        
+        .checks-table th {
+            background: #f7fafc;
+            padding: 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .checks-table td {
+            padding: 8px;
+            border-bottom: 1px solid #f7fafc;
+            vertical-align: top;
+        }
+        
+        .checks-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .check-status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .check-status-badge.ok { background: #c6f6d5; color: #22543d; }
+        .check-status-badge.warning { background: #feebc8; color: #7c2d12; }
+        .check-status-badge.error { background: #fed7d7; color: #742a2a; }
+        
+        /* Section globale - design moderne */
+        .global-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            margin-bottom: 20px;
+        }
+        
+        .global-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .global-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1a202c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .global-status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        
+        .global-status-badge.ok { background: #d4edda; color: #155724; }
+        .global-status-badge.warning { background: #fff3cd; color: #856404; }
+        .global-status-badge.error { background: #f8d7da; color: #721c24; }
+        .global-status-badge.stale { background: #e2e8f0; color: #4a5568; }
+        
+        .global-meta {
+            font-size: 12px;
+            color: #718096;
+            margin-bottom: 15px;
+        }
+        
+        .timestamp {
+            text-align: center;
+            color: #a0aec0;
+            font-size: 12px;
+            margin-top: 20px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .error-message {
+            background: #fed7d7;
+            color: #742a2a;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nodes-grid {
+                grid-template-columns: 1fr;
+            }
+            .summary {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            .summary-stats {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <span>🖥️</span>
+                <span>Cluster Status</span>
+            </h1>
+            <div class="header-right">
+                <div id="cluster-status-badge"></div>
+                <button class="refresh-btn" onclick="loadStatus()">🔄 Rafraîchir</button>
+                <label class="auto-refresh">
+                    <input type="checkbox" id="auto-refresh" checked>
+                    <span>Auto (30s)</span>
+                </label>
+            </div>
+        </header>
+        
+        <div id="content">
+            <div class="loading">Chargement...</div>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+
+        function loadStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    displayStatus(data);
+                })
+                .catch(error => {
+                    document.getElementById('content').innerHTML = `
+                        <div class="error-message">
+                            ❌ Erreur lors du chargement: ${error.message}
+                        </div>
+                    `;
+                });
+        }
+
+        function displayStatus(data) {
+            const clusterStatus = data.cluster_status || 'Unknown';
+            const statusClass = clusterStatus.toLowerCase();
+            
+            // Cluster status badge
+            document.getElementById('cluster-status-badge').innerHTML = `
+                <span class="cluster-badge ${statusClass}">
+                    ${clusterStatus}
+                </span>
+            `;
+            
+            let html = '';
+            
+            // Summary
+            if (data.summary) {
+                html += `
+                    <div class="summary">
+                        <div class="summary-stats">
+                            <div class="stat">
+                                <span class="stat-label">Nodes</span>
+                                <span class="stat-value">${data.summary.total_nodes || 0}</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Healthy</span>
+                                <span class="stat-value healthy">${data.summary.healthy_nodes || 0}</span>
+                            </div>
+                            ${data.summary.stale_nodes > 0 ? `
+                                <div class="stat">
+                                    <span class="stat-label">Stale</span>
+                                    <span class="stat-value error">${data.summary.stale_nodes}</span>
+                                </div>
+                            ` : ''}
+                            ${data.summary.error_nodes > 0 ? `
+                                <div class="stat">
+                                    <span class="stat-label">Error</span>
+                                    <span class="stat-value error">${data.summary.error_nodes}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Nodes
+            if (data.nodes && data.nodes.length > 0) {
+                html += '<div class="nodes-grid">';
+                
+                data.nodes.forEach((node, index) => {
+                    const nodeStatus = node.status || 'Unknown';
+                    const statusClass = nodeStatus.toLowerCase();
+                    const checks = node.checks_summary || {};
+                    const detailsId = `checks-${index}`;
+                    const checksArray = node.checks || [];
+                    
+                    html += `
+                        <div class="node-card">
+                            <div class="node-header ${statusClass}">
+                                <div class="node-name">${node.node_name}</div>
+                                <span class="node-badge ${statusClass}">${nodeStatus}</span>
+                            </div>
+                            <div class="node-info">
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <span class="info-label">Hostname</span>
+                                        <span class="info-value">${node.hostname || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">IP</span>
+                                        <span class="info-value">${node.ip_address || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Version</span>
+                                        <span class="info-value">${node.version || 'N/A'}</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <span class="info-label">Dernière maj</span>
+                                        <span class="info-value">${formatStaleness(node.staleness_seconds)}</span>
+                                    </div>
+                                </div>
+                                <div class="checks-badges">
+                                    ${checks.ok > 0 ? `<span class="check-badge ok">✓ ${checks.ok}</span>` : ''}
+                                    ${checks.warning > 0 ? `<span class="check-badge warning">⚠ ${checks.warning}</span>` : ''}
+                                    ${checks.error > 0 ? `<span class="check-badge error">✗ ${checks.error}</span>` : ''}
+                                </div>
+                                
+                                ${checksArray.length > 0 ? `
+                                    <div class="checks-details">
+                                        <div class="checks-details-header" onclick="toggleChecks('${detailsId}')">
+                                            <span>📋 Détails (${checksArray.length})</span>
+                                            <span class="expand-icon" id="icon-${detailsId}">▼</span>
+                                        </div>
+                                        <div class="checks-table-container" id="${detailsId}">
+                                            <table class="checks-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Check</th>
+                                                        <th style="width: 80px;">Status</th>
+                                                        <th>Détails</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${checksArray.map(check => `
+                                                        <tr>
+                                                            <td><strong>${check.Name || 'Unknown'}</strong></td>
+                                                            <td>
+                                                                <span class="check-status-badge ${(check.Status || 'unknown').toLowerCase()}">
+                                                                    ${check.Status || 'Unknown'}
+                                                                </span>
+                                                            </td>
+                                                            <td>${check.Details || check.Error || '-'}</td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+            }
+            
+            // Global checks
+            if (data.global_checks) {
+                const gc = data.global_checks;
+                const gcStatusClass = gc.status.toLowerCase();
+                const gcChecks = gc.checks || [];
+                const gcSummary = gc.checks_summary || {};
+                
+                html += `
+                    <div class="global-section">
+                        <div class="global-header">
+                            <div class="global-title">
+                                <span>📋</span>
+                                <span>Checks Globaux</span>
+                            </div>
+                            <span class="global-status-badge ${gcStatusClass}">${gc.status}</span>
+                        </div>
+                        <div class="global-meta">
+                            Dernière mise à jour: ${formatStaleness(gc.staleness_seconds)} 
+                            ${gc.is_stale ? '<span style="color: #e53e3e;">⚠️ Périmé</span>' : ''}
+                        </div>
+                        <div class="checks-badges">
+                            ${gcSummary.ok > 0 ? `<span class="check-badge ok">✓ ${gcSummary.ok} OK</span>` : ''}
+                            ${gcSummary.warning > 0 ? `<span class="check-badge warning">⚠ ${gcSummary.warning} Warning</span>` : ''}
+                            ${gcSummary.error > 0 ? `<span class="check-badge error">✗ ${gcSummary.error} Error</span>` : ''}
+                        </div>
+                        
+                        ${gcChecks.length > 0 ? `
+                            <div class="checks-details">
+                                <div class="checks-details-header" onclick="toggleChecks('global-checks')">
+                                    <span>📋 Détails (${gcChecks.length})</span>
+                                    <span class="expand-icon" id="icon-global-checks">▼</span>
+                                </div>
+                                <div class="checks-table-container" id="global-checks">
+                                    <table class="checks-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Check</th>
+                                                <th style="width: 80px;">Status</th>
+                                                <th>Détails</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${gcChecks.map(check => `
+                                                <tr>
+                                                    <td><strong>${check.Name || 'Unknown'}</strong></td>
+                                                    <td>
+                                                        <span class="check-status-badge ${(check.Status || 'unknown').toLowerCase()}">
+                                                            ${check.Status || 'Unknown'}
+                                                        </span>
+                                                    </td>
+                                                    <td>${check.Details || check.Error || '-'}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            // Timestamp
+            html += `
+                <div class="timestamp">
+                    Dernière actualisation: ${new Date().toLocaleString('fr-FR')}
+                </div>
+            `;
+            
+            document.getElementById('content').innerHTML = html;
+        }
+
+        function formatStaleness(seconds) {
+            if (!seconds) return 'N/A';
+            
+            if (seconds < 60) {
+                return `${Math.round(seconds)}s`;
+            } else if (seconds < 3600) {
+                return `${Math.round(seconds / 60)} min`;
+            } else {
+                return `${(seconds / 3600).toFixed(1)} h`;
+            }
+        }
+
+        function toggleChecks(id) {
+            const container = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (container.classList.contains('expanded')) {
+                container.classList.remove('expanded');
+                icon.classList.remove('expanded');
+            } else {
+                container.classList.add('expanded');
+                icon.classList.add('expanded');
+            }
+        }
+
+        function setupAutoRefresh() {
+            const checkbox = document.getElementById('auto-refresh');
+            
+            checkbox.addEventListener('change', function() {
+                if (this.checked) {
+                    autoRefreshInterval = setInterval(loadStatus, 30000);
+                } else {
+                    if (autoRefreshInterval) {
+                        clearInterval(autoRefreshInterval);
+                        autoRefreshInterval = null;
+                    }
+                }
+            });
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(loadStatus, 30000);
+            }
+        }
+
+        loadStatus();
+        setupAutoRefresh();
+    </script>
+</body>
+</html>

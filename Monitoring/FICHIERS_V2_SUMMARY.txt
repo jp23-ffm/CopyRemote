@@ -1,0 +1,113 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                                                                               ║
+║                   📦 FICHIERS VERSION 2 - AVEC CHECKS GLOBAUX                ║
+║                                                                               ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+
+🎯 COMMENCE PAR LÀ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  📘 GUIDE_INSTALLATION_V2.txt
+     → Lis ce fichier en premier !
+     → Installation pas à pas complète
+
+
+📄 MODÈLES DJANGO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  global_health_model.py
+    → Nouveau modèle GlobalHealthStatus
+    → À ajouter dans api/models.py
+    → Stocke les checks globaux (tables, imports, certificat)
+
+  migration_global_health.py
+    → Migration Django pour créer la table
+    → Exemple de migration (adapter le numéro)
+
+
+💻 COMMANDES MANAGEMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  update_node_health_v2.py
+    → REMPLACE update_node_health.py
+    → Checks SPÉCIFIQUES AU HOST uniquement:
+      • Database
+      • Disk
+      • Django processes
+    → Cron: toutes les minutes sur CHAQUE host
+
+  update_global_health.py
+    → NOUVEAU fichier
+    → Checks GLOBAUX (partagés):
+      • Tables (reportapp, businesscontinuity, inventory)
+      • Imports (BC, Inventory)
+      • Certificat SSL
+    → Cron: toutes les heures sur UN SEUL host
+
+
+🌐 VUE API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  cluster_view_with_global.py
+    → REMPLACE ClusterStatusView dans api/views.py
+    → Retourne nodes + global_checks
+    → Calcule le statut global du cluster
+
+
+🎨 DASHBOARD WEB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  cluster_status_MODERN.html
+    → REMPLACE templates/cluster_status.html
+    → Design moderne:
+      ✓ Gradient background violet
+      ✓ Cards compactes
+      ✓ Section globale en bas
+      ✓ Animations fluides
+      ✓ Plus petit et plus lisible
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+📋 CHECKLIST D'INSTALLATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ☐ 1. Ajouter GlobalHealthStatus dans api/models.py
+  ☐ 2. python manage.py makemigrations && migrate
+  ☐ 3. Remplacer update_node_health.py
+  ☐ 4. Créer update_global_health.py
+  ☐ 5. Remplacer ClusterStatusView dans api/views.py
+  ☐ 6. Remplacer cluster_status.html
+  ☐ 7. Tester: python manage.py update_node_health
+  ☐ 8. Tester: python manage.py update_global_health
+  ☐ 9. Configurer cron (nodes: toutes les minutes)
+  ☐ 10. Configurer cron (global: toutes les heures, 1 seul host)
+  ☐ 11. Ouvrir le dashboard et admirer ! 🎉
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+
+🔄 DIFFÉRENCES CLÉS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  AVANT (V1):
+    • 1 table: NodeHealthStatus
+    • 1 commande: update_node_health
+    • Tous les checks par tous les hosts
+    • Checks tables exécutés 2x par minute (doublons!)
+
+  MAINTENANT (V2):
+    • 2 tables: NodeHealthStatus + GlobalHealthStatus
+    • 2 commandes: update_node_health + update_global_health
+    • Checks séparés (host vs global)
+    • Checks tables 1x par heure (efficace!)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+
+                    Tout est prêt pour l'installation ! 🚀
+
+═══════════════════════════════════════════════════════════════════════════════
