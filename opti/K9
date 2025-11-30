@@ -1,200 +1,89 @@
-import pandas as pd
-import json
-from datetime import datetime
-
-def consolidate_servers_with_k9(csv_file_path):
+def consolidate_k9_streaming(csv_file_path):
     """
-    Regroupe les serveurs dupliqués à cause des arrays K9-APPLICATIONS
-    et concatène les valeurs multiples proprement
+    Streaming consolidation with memory cleanup
     """
     
-    write_log(f"[{datetime.now()}] Starting consolidation of duplicated servers...")
+    write_log(f"[{datetime.now()}] Starting streaming consolidation...")
     
-    # Charger le CSV avec chunking pour gérer les gros fichiers
-    chunk_size = 50000
-    chunks = []
+    # Dictionary to store groups
+    groups = defaultdict(lambda: {'non_k9': {}, 'k9_values': defaultdict(set)})
     
-    for chunk in pd.read_csv(csv_file_path, chunksize=chunk_size, low_memory=False):
-        chunks.append(chunk)
+    k9_prefixes = ['K9-APPLICATIONS']
     
-    df = pd.concat(chunks, ignore_index=True)
-    
-    write_log(f"[{datetime.now()}] Loaded {len(df)} rows from CSV")
-    
-    # Identifier les colonnes K9 qui sont des arrays
-    k9_array_columns = [
-        'K9-APPLICATIONS__ITAPPLICATIONSUPPORTGROUPS.K9-APPLICATIONS__EMAIL',
-        'K9-APPLICATIONS__ITAPPLICATIONSUPPORTGROUPS.K9-APPLICATIONS__NAME',
-        'K9-APPLICATIONS__ITAPPLICATIONSUPPORTGROUPS.K9-APPLICATIONS__LOCATION'
-    ]
-    
-    # Autres colonnes qui peuvent avoir des valeurs multiples
-    other_array_columns = [
-        'SERVER_APM_SERVICES__VITALAPPLICATION',
-        'SNOW_SERVER__SUPPORT_GROUP',
-        # Ajoute d'autres si nécessaire
-    ]
-    
-    all_array_columns = k9_array_columns + other_array_columns
-    
-    # Fonction d'agrégation pour concaténer les valeurs uniques
-    def aggregate_array_values(series):
-        """Concatène les valeurs uniques non-nulles avec pipe separator"""
-        # Retirer les NaN et valeurs vides
-        values = series.dropna().astype(str)
-        values = [v.strip() for v in values if v.strip() and v.strip().upper() not in ['N/A', 'NAN', 'NONE', '']]
+    # ===== PHASE 1: READ AND GROUP =====
+    with open(csv_file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        fieldnames = reader.fieldnames
         
-        if len(values) == 0:
-            return None
+        k9_cols = [col for col in fieldnames if any(prefix in col for prefix in k9_prefixes)]
+        non_k9_cols = [col for col in fieldnames if col not in k9_cols]
         
-        # Retirer les doublons et trier
-        unique_values = sorted(set(values))
+        write_log(f"[{datetime.now()}] Found {len(k9_cols)} K9 columns and {len(non_k9_cols)} non-K9 columns")
         
-        # Joindre avec pipe (plus facile à split après si besoin)
-        return ' | '.join(unique_values)
+        row_count = 0
+        
+        for row in reader:
+            row_count += 1
+            
+            if row_count % 10000 == 0:
+                write_log(f"[{datetime.now()}] Processed {row_count} rows, {len(groups)} unique groups")
+            
+            group_key_parts = [row.get(col, '') for col in non_k9_cols]
+            group_key = '|||'.join(group_key_parts)
+            
+            if not groups[group_key]['non_k9']:
+                groups[group_key]['non_k9'] = {col: row.get(col, '') for col in non_k9_cols}
+            
+            for k9_col in k9_cols:
+                value = row.get(k9_col, '').strip()
+                if value and value.upper() not in ['N/A', 'NAN', 'NONE', '']:
+                    groups[group_key]['k9_values'][k9_col].add(value)
     
-    # Fonction pour prendre la première valeur non-nulle
-    def first_non_null(series):
-        """Retourne la première valeur non-nulle"""
-        non_null = series.dropna()
-        if len(non_null) > 0:
-            return non_null.iloc[0]
-        return None
+    write_log(f"[{datetime.now()}] Grouping complete: {row_count} rows → {len(groups)} groups")
     
-    # Construire le dictionnaire d'agrégation
-    agg_dict = {}
-    
-    for col in df.columns:
-        if col == 'SERVER_ID':
-            continue  # On groupe par cette colonne
-        elif col in all_array_columns:
-            agg_dict[col] = aggregate_array_values
-        else:
-            # Pour les autres colonnes (attributs du serveur), prendre la première valeur
-            agg_dict[col] = first_non_null
-    
-    # Grouper par SERVER_ID et agréger
-    write_log(f"[{datetime.now()}] Consolidating by SERVER_ID...")
-    df_consolidated = df.groupby('SERVER_ID', as_index=False).agg(agg_dict)
-    
-    write_log(f"[{datetime.now()}] Original rows: {len(df)}")
-    write_log(f"[{datetime.now()}] Consolidated rows: {len(df_consolidated)}")
-    write_log(f"[{datetime.now()}] Reduction: {len(df) - len(df_consolidated)} duplicate rows removed")
-    
-    # Sauvegarder le fichier consolidé
+    # ===== PHASE 2: WRITE AND CLEANUP =====
     output_path = csv_file_path.replace('.csv', '_consolidated.csv')
     
-    # Écrire par chunks pour éviter les problèmes de mémoire
-    df_consolidated.to_csv(output_path, index=False, chunksize=10000)
+    write_log(f"[{datetime.now()}] Writing consolidated data to {output_path}...")
     
-    write_log(f"[{datetime.now()}] Consolidated file saved to: {output_path}")
-    
-    return output_path, len(df), len(df_consolidated)
-
-
-def import_from_csv_file_with_consolidation(verbose=True):
-    """
-    Version complète avec import + consolidation
-    """
-    start_time = datetime.now()
-    write_log(f"[{start_time}] Start import of the servers...")
-    
-    try:
-        # Backup du fichier existant si nécessaire
-        if os.path.exists(DPR_FILE_PATH_CSV):
-            write_log(f"[{start_time}] Backing up the existing CSV file...")
-            backup_path = f"{DPR_FILE_PATH_CSV}.bak"
-            if os.path.exists(backup_path):
-                os.remove(backup_path)
-            os.rename(DPR_FILE_PATH_CSV, backup_path)
-            write_log(f"[{datetime.now()}] Backup created: {backup_path}")
+    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
         
-        write_log(f"[{start_time}] Getting the csv from DPR...")
+        written_count = 0
         
-        # Charger la config JSON
-        with open(DPR_CONFIG_JSON_PATH, 'r') as file:
-            json_data = json.load(file)
-        
-        # Créer une session avec TLS adapter
-        session = requests.Session()
-        session.mount('https://', TLSAdapter())
-        
-        # Fonction pour faire une requête et écrire en streaming
-        def fetch_and_append(filter_query, is_first=True):
-            """Récupère les données et les écrit en streaming"""
-            json_data_copy = json_data.copy()
-            json_data_copy['filter'] = filter_query
+        for group_data in groups.values():
+            row_out = group_data['non_k9'].copy()
             
-            write_log(f"[{datetime.now()}] Fetching data with filter: {filter_query[:100]}...")
+            for k9_col in k9_cols:
+                values = group_data['k9_values'].get(k9_col, set())
+                if values:
+                    row_out[k9_col] = ' | '.join(sorted(values))
+                else:
+                    row_out[k9_col] = ''
             
-            response = session.post(
-                DPR_API_URL, 
-                json=json_data_copy, 
-                headers={'Content-Type': 'application/json'},
-                stream=True,
-                timeout=600
-            )
+            writer.writerow(row_out)
+            written_count += 1
             
-            if response.status_code == 200:
-                with open(DPR_FILE_PATH_CSV, 'ab' if not is_first else 'wb') as csv_file:
-                    line_count = 0
-                    for line in response.iter_lines():
-                        if line:
-                            # Skip header pour les requêtes suivantes
-                            if not is_first and line_count == 0:
-                                line_count += 1
-                                continue
-                            csv_file.write(line + b'\n')
-                            line_count += 1
-                    
-                    write_log(f"[{datetime.now()}] Wrote {line_count} lines for this query")
-                return True
-            else:
-                write_log(f"[{datetime.now()}] Error during API call: HTTP {response.status_code}")
-                return False
-        
-        # Première requête : PROD
-        filter_prod = "PAMELA__LIVE_STATUS:ALIVE AND PAMELA__ENVIRONMENT:PRD AND NOT DB_SNOW_DATABASE__OPERATIONAL_STATUS:6*"
-        success_prod = fetch_and_append(filter_prod, is_first=True)
-        
-        if not success_prod:
-            return False, "Failed to retrieve PROD data"
-        
-        write_log(f"[{datetime.now()}] PROD data successfully retrieved")
-        
-        # Deuxième requête : NON-PROD
-        filter_non_prod = "PAMELA__LIVE_STATUS:ALIVE AND NOT PAMELA__ENVIRONMENT:PRD AND NOT DB_SNOW_DATABASE__OPERATIONAL_STATUS:6*"
-        success_non_prod = fetch_and_append(filter_non_prod, is_first=False)
-        
-        if not success_non_prod:
-            return False, "Failed to retrieve NON-PROD data"
-        
-        write_log(f"[{datetime.now()}] NON-PROD data successfully retrieved")
-        write_log(f"[{datetime.now()}] CSV file successfully retrieved and merged")
-        
-        # ===== CONSOLIDATION DES DOUBLONS =====
-        write_log(f"[{datetime.now()}] Starting post-processing to consolidate duplicates...")
-        
-        consolidated_path, original_count, consolidated_count = consolidate_servers_with_k9(DPR_FILE_PATH_CSV)
-        
-        # Remplacer le fichier original par le consolidé
-        os.remove(DPR_FILE_PATH_CSV)
-        os.rename(consolidated_path, DPR_FILE_PATH_CSV)
-        
-        write_log(f"[{datetime.now()}] Consolidation complete!")
-        write_log(f"[{datetime.now()}] Final file: {DPR_FILE_PATH_CSV}")
-        write_log(f"[{datetime.now()}] Servers consolidated: {original_count} → {consolidated_count}")
-        
-    except Exception as e:
-        msg = f"Error during the API import: {e}"
-        write_log(f"[{datetime.now()}] {msg}")
-        return False, msg
+            if written_count % 10000 == 0:
+                write_log(f"[{datetime.now()}] Written {written_count} rows")
     
-    return True, f"Import successful - {consolidated_count} unique servers imported"
-
-
-# Utilisation
-if __name__ == "__main__":
-    success, message = import_from_csv_file_with_consolidation(verbose=True)
-    print(f"Status: {'SUCCESS' if success else 'FAILED'}")
-    print(f"Message: {message}")
+    consolidated_count = len(groups)
+    
+    write_log(f"[{datetime.now()}] File written successfully")
+    
+    # ===== PHASE 3: FREE MEMORY =====
+    write_log(f"[{datetime.now()}] Freeing memory...")
+    
+    # Clear the dictionary
+    groups.clear()
+    
+    # Force garbage collection to reclaim memory immediately
+    import gc
+    gc.collect()
+    
+    write_log(f"[{datetime.now()}] Memory freed")
+    write_log(f"[{datetime.now()}] Original rows: {row_count}")
+    write_log(f"[{datetime.now()}] Consolidated rows: {consolidated_count}")
+    
+    return output_path, row_count, consolidated_count
