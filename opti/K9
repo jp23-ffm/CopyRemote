@@ -1,6 +1,18 @@
+import csv
+from collections import defaultdict
+import os
+import gc
+
 def consolidate_k9_streaming(csv_file_path):
     """
-    Streaming consolidation with memory cleanup
+    Streaming consolidation with semicolon delimiter and proper quoting
+    Groups rows where only K9 fields differ and concatenates those K9 values
+    
+    Args:
+        csv_file_path: Path to the CSV file to consolidate
+        
+    Returns:
+        tuple: (output_path, original_row_count, consolidated_row_count)
     """
     
     write_log(f"[{datetime.now()}] Starting streaming consolidation...")
@@ -8,56 +20,83 @@ def consolidate_k9_streaming(csv_file_path):
     # Dictionary to store groups
     groups = defaultdict(lambda: {'non_k9': {}, 'k9_values': defaultdict(set)})
     
+    # Prefixes to identify K9 columns
     k9_prefixes = ['K9-APPLICATIONS']
     
     # ===== PHASE 1: READ AND GROUP =====
     with open(csv_file_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
+        # Use semicolon delimiter with proper quote handling
+        reader = csv.DictReader(f, delimiter=';', quotechar='"', quoting=csv.QUOTE_ALL)
         fieldnames = reader.fieldnames
         
+        # Clean fieldnames (remove quotes if present)
+        fieldnames = [field.strip('"').strip() for field in fieldnames]
+        
+        # Identify K9 and non-K9 columns
         k9_cols = [col for col in fieldnames if any(prefix in col for prefix in k9_prefixes)]
         non_k9_cols = [col for col in fieldnames if col not in k9_cols]
         
         write_log(f"[{datetime.now()}] Found {len(k9_cols)} K9 columns and {len(non_k9_cols)} non-K9 columns")
+        write_log(f"[{datetime.now()}] K9 columns: {k9_cols}")
+        write_log(f"[{datetime.now()}] Processing rows...")
         
         row_count = 0
         
         for row in reader:
             row_count += 1
             
+            # Log progress every 10k rows
             if row_count % 10000 == 0:
-                write_log(f"[{datetime.now()}] Processed {row_count} rows, {len(groups)} unique groups")
+                write_log(f"[{datetime.now()}] Processed {row_count} rows, {len(groups)} unique groups so far")
             
-            group_key_parts = [row.get(col, '') for col in non_k9_cols]
+            # Create a group key based on ALL non-K9 fields
+            # Strip quotes and whitespace from values
+            group_key_parts = []
+            for col in non_k9_cols:
+                value = row.get(col, '').strip('"').strip()
+                group_key_parts.append(value)
+            
             group_key = '|||'.join(group_key_parts)
             
+            # Store non-K9 values (only from first occurrence)
             if not groups[group_key]['non_k9']:
-                groups[group_key]['non_k9'] = {col: row.get(col, '') for col in non_k9_cols}
+                groups[group_key]['non_k9'] = {col: row.get(col, '').strip('"').strip() for col in non_k9_cols}
             
+            # Accumulate unique K9 values for each K9 column
             for k9_col in k9_cols:
-                value = row.get(k9_col, '').strip()
-                if value and value.upper() not in ['N/A', 'NAN', 'NONE', '']:
+                value = row.get(k9_col, '').strip('"').strip()
+                # Only add non-empty and non-N/A values
+                if value and value.upper() not in ['N/A', 'NAN', 'NONE', 'NULL', '']:
                     groups[group_key]['k9_values'][k9_col].add(value)
+            
+            # Debug: log first few groups to verify grouping logic
+            if row_count <= 20:
+                write_log(f"[DEBUG] Row {row_count}: Group key hash = {hash(group_key) % 10000}, K9 values = {dict(groups[group_key]['k9_values'])}")
     
-    write_log(f"[{datetime.now()}] Grouping complete: {row_count} rows → {len(groups)} groups")
+    write_log(f"[{datetime.now()}] Processed {row_count} rows into {len(groups)} unique groups")
+    write_log(f"[{datetime.now()}] Reduction: {row_count - len(groups)} duplicate K9 entries removed")
     
-    # ===== PHASE 2: WRITE AND CLEANUP =====
+    # ===== PHASE 2: WRITE CONSOLIDATED RESULTS =====
     output_path = csv_file_path.replace('.csv', '_consolidated.csv')
     
     write_log(f"[{datetime.now()}] Writing consolidated data to {output_path}...")
     
     with open(output_path, 'w', encoding='utf-8', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        # Use semicolon delimiter with quotes around all fields
+        writer = csv.DictWriter(f, fieldnames=fieldnames, delimiter=';', quotechar='"', quoting=csv.QUOTE_ALL)
         writer.writeheader()
         
         written_count = 0
         
-        for group_data in groups.values():
+        for group_key, group_data in groups.items():
+            # Build consolidated row
             row_out = group_data['non_k9'].copy()
             
+            # Add concatenated K9 values
             for k9_col in k9_cols:
                 values = group_data['k9_values'].get(k9_col, set())
                 if values:
+                    # Join multiple values with pipe separator, sorted for consistency
                     row_out[k9_col] = ' | '.join(sorted(values))
                 else:
                     row_out[k9_col] = ''
@@ -65,8 +104,13 @@ def consolidate_k9_streaming(csv_file_path):
             writer.writerow(row_out)
             written_count += 1
             
+            # Log progress every 10k rows
             if written_count % 10000 == 0:
-                write_log(f"[{datetime.now()}] Written {written_count} rows")
+                write_log(f"[{datetime.now()}] Written {written_count} consolidated rows")
+            
+            # Debug: log first few consolidated rows
+            if written_count <= 5:
+                write_log(f"[DEBUG] Consolidated row {written_count}: {row_out.get('SERVER_ID', 'N/A')} - K9_NAME count: {len(group_data['k9_values'].get('K9-APPLICATIONS__ITAPPLICATIONSUPPORTGROUPS.K9-APPLICATIONS__NAME', set()))}")
     
     consolidated_count = len(groups)
     
@@ -74,15 +118,11 @@ def consolidate_k9_streaming(csv_file_path):
     
     # ===== PHASE 3: FREE MEMORY =====
     write_log(f"[{datetime.now()}] Freeing memory...")
-    
-    # Clear the dictionary
     groups.clear()
-    
-    # Force garbage collection to reclaim memory immediately
-    import gc
     gc.collect()
-    
     write_log(f"[{datetime.now()}] Memory freed")
+    
+    write_log(f"[{datetime.now()}] Consolidation complete!")
     write_log(f"[{datetime.now()}] Original rows: {row_count}")
     write_log(f"[{datetime.now()}] Consolidated rows: {consolidated_count}")
     
