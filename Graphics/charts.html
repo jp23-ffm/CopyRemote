@@ -1,0 +1,111 @@
+chartsData.forEach((chartData, index) => {
+    const container = document.createElement('div');
+    container.className = 'chart-container';
+    
+    const title = document.createElement('div');
+    title.className = 'chart-title';
+    title.textContent = `${chartData.field}`;
+    
+    const canvas = document.createElement('canvas');
+    canvas.id = `chart-${index}`;
+    
+    // NOUVEAU : Bouton Export CSV
+    const exportBtn = document.createElement('button');
+    exportBtn.className = 'export-table-btn';
+    exportBtn.textContent = '📥 Export Full Data (CSV)';
+    exportBtn.onclick = () => exportTableToCSV(chartData, index);
+    
+    // Table récapitulative (avec les données de la table, pas du graphique)
+    const table = document.createElement('table');
+    table.className = 'chart-summary-table';
+    table.id = `table-${index}`;
+    
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>${chartData.field}</th>
+            <th style="text-align: right;">Count</th>
+            <th style="text-align: right;">Percentage</th>
+        </tr>
+    `;
+    
+    const tbody = document.createElement('tbody');
+    const total = chartData.table_values.reduce((a, b) => a + b, 0);
+    
+    // UTILISER table_labels et table_values pour la table (100 entrées)
+    chartData.table_labels.forEach((label, i) => {
+        const count = chartData.table_values[i];
+        const percentage = ((count / total) * 100).toFixed(1);
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${label}</td>
+            <td style="text-align: right; font-weight: 600;">${count}</td>
+            <td style="text-align: right; color: var(--text-secondary);">${percentage}%</td>
+        `;
+        tbody.appendChild(row);
+    });
+    
+    // Ligne de total
+    const totalRow = document.createElement('tr');
+    totalRow.className = 'total-row';
+    totalRow.innerHTML = `
+        <td><strong>Total (showing top ${chartData.table_labels.length})</strong></td>
+        <td style="text-align: right;"><strong>${total}</strong></td>
+        <td style="text-align: right;"><strong>${((total / chartData.total) * 100).toFixed(1)}%</strong></td>
+    `;
+    tbody.appendChild(totalRow);
+    
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    
+    // Assemblage
+    container.appendChild(title);
+    container.appendChild(canvas);
+    container.appendChild(exportBtn);  // NOUVEAU
+    container.appendChild(table);
+    chartsGrid.appendChild(container);
+    
+    // Créer le graphique (utiliser labels et values pour le graphique)
+    new Chart(canvas, {
+        type: chartData.type,
+        data: {
+            labels: chartData.labels,  // 20 entrées + Others
+            datasets: [{
+                label: 'Number of servers',
+                data: chartData.values,  // 20 entrées + Others
+                backgroundColor: colorPalette,
+                borderColor: isDarkMode ? '#1a1a1a' : '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        // ... options Chart.js inchangées ...
+    });
+});
+
+// NOUVELLE FONCTION : Export CSV
+function exportTableToCSV(chartData, index) {
+    let csv = `${chartData.field},Count,Percentage\n`;
+    
+    const total = chartData.table_values.reduce((a, b) => a + b, 0);
+    
+    chartData.table_labels.forEach((label, i) => {
+        const count = chartData.table_values[i];
+        const percentage = ((count / total) * 100).toFixed(1);
+        csv += `"${label}",${count},${percentage}%\n`;
+    });
+    
+    csv += `Total,${total},100%\n`;
+    
+    // Télécharger le fichier
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${chartData.field.replace(/\s+/g, '_')}_data.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
