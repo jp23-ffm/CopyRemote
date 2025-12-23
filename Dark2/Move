@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  table {
+    border-collapse: collapse;
+  }
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+  }
+  th {
+    background-color: #f2f2f2;
+    cursor: move;
+    user-select: none;
+  }
+  th.dragging {
+    opacity: 0.5;
+  }
+  th.drag-over {
+    border-left: 3px solid #4CAF50;
+  }
+</style>
+</head>
+<body>
+
+<table id="myTable">
+  <thead>
+    <tr>
+      <th draggable="true">Nom</th>
+      <th draggable="true">Prénom</th>
+      <th draggable="true">Âge</th>
+      <th draggable="true">Ville</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dupont</td>
+      <td>Jean</td>
+      <td>35</td>
+      <td>Paris</td>
+    </tr>
+    <tr>
+      <td>Martin</td>
+      <td>Marie</td>
+      <td>28</td>
+      <td>Lyon</td>
+    </tr>
+  </tbody>
+</table>
+
+<script>
+  let draggedColumnIndex = null;
+  const headers = document.querySelectorAll('#myTable th');
+
+  headers.forEach((header, index) => {
+    header.addEventListener('dragstart', function() {
+      draggedColumnIndex = index;
+      this.classList.add('dragging');
+    });
+
+    header.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      headers.forEach(h => h.classList.remove('drag-over'));
+    });
+
+    header.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      this.classList.add('drag-over');
+    });
+
+    header.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+
+    header.addEventListener('drop', function(e) {
+      e.preventDefault();
+      const targetIndex = index;
+      
+      if (draggedColumnIndex !== targetIndex) {
+        moveColumn(draggedColumnIndex, targetIndex);
+      }
+    });
+  });
+
+  function moveColumn(fromIndex, toIndex) {
+    const table = document.getElementById('myTable');
+    const rows = table.rows;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const cells = Array.from(row.cells);
+      const movedCell = cells[fromIndex];
+      
+      row.deleteCell(fromIndex);
+      row.insertBefore(movedCell, cells[toIndex]);
+    }
+  }
+</script>
+
+</body>
+</html>
