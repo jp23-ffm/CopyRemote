@@ -1,0 +1,25 @@
+Option 1 : Si servers est un QuerySet Django
+
+  # Après get_filtered_servers
+servers = get_filtered_servers(requestfilters, permanent_filter_selection)
+
+# Ne garder que SERVER_ID + les champs sélectionnés, puis distinct
+fields_to_keep = ['SERVER_ID'] + list(selected_fields.keys())
+servers = servers.values(*fields_to_keep).distinct('SERVER_ID')
+
+
+
+ Option 2 : Si servers est déjà une liste de dictionnaires
+
+   # Réduire aux champs nécessaires et dédupliquer
+fields_to_keep = ['SERVER_ID'] + list(selected_fields.keys())
+
+unique_servers = {}
+for server in servers:
+    server_id = server.get('SERVER_ID')
+    if server_id not in unique_servers:
+        # Ne garder que les champs voulus
+        reduced_server = {field: server.get(field) for field in fields_to_keep}
+        unique_servers[server_id] = reduced_server
+
+servers = list(unique_servers.values())
