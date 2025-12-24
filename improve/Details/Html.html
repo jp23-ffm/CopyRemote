@@ -1,0 +1,44 @@
+<!-- Menu contextuel (caché par défaut) -->
+<div id="contextMenu" class="context-menu" style="display: none;">
+    <div class="context-menu-item" onclick="showServerDetails()">
+        <span class="icon">📋</span> View All Properties
+    </div>
+    <div class="context-menu-item" onclick="copyHostname()">
+        <span class="icon">📄</span> Copy Hostname
+    </div>
+    <div class="context-menu-item" onclick="copyIP()">
+        <span class="icon">🌐</span> Copy IP Address
+    </div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" onclick="openInNewTab()">
+        <span class="icon">🔗</span> Open in New Tab
+    </div>
+</div>
+
+<!-- Modal pour afficher tous les détails -->
+<div id="serverDetailsModal" class="modal" style="display: none;">
+    <div class="modal-dialog modal-large">
+        <div class="modal-header">
+            <h5 id="serverDetailsTitle">Server Details</h5>
+            <button class="modal-close" onclick="closeServerDetails()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Barre de recherche -->
+            <input type="text" id="detailsSearch" class="form-control" 
+                   placeholder="🔍 Search fields..." 
+                   oninput="filterDetails(this.value)">
+            
+            <div id="serverDetailsContent" class="server-details-grid">
+                <!-- Contenu généré dynamiquement -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="exportServerDetails()">
+                📥 Export to JSON
+            </button>
+            <button class="btn btn-primary" onclick="closeServerDetails()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
