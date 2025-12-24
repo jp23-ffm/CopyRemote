@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modal Settings avec Dark Mode</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --modal-bg: #ffffff;
+            --modal-border: #dddddd;
+            --toggle-bg: #ccc;
+            --toggle-active: #4CAF50;
+            --shadow: rgba(0, 0, 0, 0.2);
+        }
+
+```
+    [data-theme="dark"] {
+        --bg-color: #1a1a1a;
+        --text-color: #e0e0e0;
+        --modal-bg: #2d2d2d;
+        --modal-border: #444444;
+        --toggle-bg: #555;
+        --toggle-active: #66bb6a;
+        --shadow: rgba(0, 0, 0, 0.5);
+    }
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        padding: 40px;
+        min-height: 100vh;
+    }
+
+    .demo-button {
+        padding: 12px 24px;
+        font-size: 16px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+
+    .demo-button:hover {
+        background-color: #45a049;
+    }
+
+    /* Modal Styles */
+    #permissionModal {
+        display: none;
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background-color: var(--modal-bg);
+        border: 1px solid var(--modal-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 20px var(--shadow);
+        z-index: 1000;
+        padding: 24px;
+        width: 400px;
+        max-width: 90vw;
+    }
+
+    #permissionModal.show {
+        display: block;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--modal-border);
+    }
+
+    .modal-header h2 {
+        font-size: 20px;
+        font-weight: 600;
+    }
+
+    .close {
+        cursor: pointer;
+        font-size: 24px;
+        color: var(--text-color);
+        opacity: 0.6;
+        transition: opacity 0.2s;
+        background: none;
+        border: none;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close:hover {
+        opacity: 1;
+    }
+
+    .modal-content {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .setting-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+    }
+
+    .setting-label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .setting-label strong {
+        font-size: 15px;
+    }
+
+    .setting-label span {
+        font-size: 13px;
+        opacity: 0.7;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+        position: relative;
+        width: 50px;
+        height: 26px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--toggle-bg);
+        transition: 0.3s;
+        border-radius: 26px;
+    }
+
+    .slider:before {
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: 0.3s;
+        border-radius: 50%;
+    }
+
+    input:checked + .slider {
+        background-color: var(--toggle-active);
+    }
+
+    input:checked + .slider:before {
+        transform: translateX(24px);
+    }
+
+    .modal-divider {
+        height: 1px;
+        background-color: var(--modal-border);
+        margin: 8px 0;
+    }
+
+    .wiki-link {
+        display: inline-block;
+        color: #4CAF50;
+        text-decoration: none;
+        padding: 8px 0;
+        font-size: 14px;
+    }
+
+    .wiki-link:hover {
+        text-decoration: underline;
+    }
+
+    [data-theme="dark"] .wiki-link {
+        color: #66bb6a;
+    }
+
+    /* Backdrop for modal */
+    #modalBackdrop {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.3);
+        z-index: 999;
+    }
+
+    #modalBackdrop.show {
+        display: block;
+    }
+
+    .demo-content {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .demo-content h1 {
+        margin-bottom: 20px;
+    }
+
+    .demo-content p {
+        line-height: 1.6;
+        margin-bottom: 16px;
+    }
+</style>
+```
+
+</head>
+<body>
+    <!-- Backdrop -->
+    <div id="modalBackdrop"></div>
+
+```
+<!-- Demo content -->
+<div class="demo-content">
+    <h1>Demo Modal Settings avec Dark Mode</h1>
+    <p>Cliquez sur le bouton ci-dessous pour ouvrir le modal des paramètres.</p>
+    <button class="demo-button" onclick="openModal()">Ouvrir les Paramètres</button>
+    
+    <p style="margin-top: 20px;">
+        Le modal peut être fermé de plusieurs façons :<br>
+        • En cliquant sur le bouton X<br>
+        • En cliquant en dehors du modal<br>
+        • En appuyant sur la touche Escape
+    </p>
+</div>
+
+<!-- Modal -->
+<div id="permissionModal">
+    <div class="modal-header">
+        <h2>Paramètres</h2>
+        <button class="close" onclick="closeModal()">&times;</button>
+    </div>
+    
+    <div class="modal-content">
+        <div class="setting-item">
+            <div class="setting-label">
+                <strong>Mode sombre</strong>
+                <span>Activer le thème sombre</span>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <div class="setting-item" style="flex-direction: column; align-items: flex-start;">
+            <div class="setting-label" style="margin-bottom: 8px;">
+                <strong>Documentation</strong>
+                <span>Accéder à la documentation Wiki</span>
+            </div>
+            <a href="https://wiki.cib.echonet/pages/viewpage.action?pageId=374216092" 
+               target="_blank" 
+               class="wiki-link">
+                📚 Accéder à la documentation
+            </a>
+            <div style="font-size: 12px; opacity: 0.6; margin-top: 4px;">
+                Wiki access MyIAM entitlement: wikicib_czchimera_readonly
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Initialisation au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        initDarkMode();
+    });
+
+    // Initialiser le dark mode depuis localStorage
+    function initDarkMode() {
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+        const toggle = document.getElementById('darkModeToggle');
+        
+        if (isDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            toggle.checked = true;
+        }
+    }
+
+    // Basculer le dark mode
+    function toggleDarkMode() {
+        const toggle = document.getElementById('darkModeToggle');
+        const isDarkMode = toggle.checked;
+        
+        if (isDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('darkMode', 'true');
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('darkMode', 'false');
+        }
+    }
+
+    // Ouvrir le modal
+    function openModal() {
+        const modal = document.getElementById('permissionModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        
+        modal.classList.add('show');
+        backdrop.classList.add('show');
+    }
+
+    // Fermer le modal
+    function closeModal() {
+        const modal = document.getElementById('permissionModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        
+        modal.classList.remove('show');
+        backdrop.classList.remove('show');
+    }
+
+    // Fermer le modal en cliquant sur le backdrop
+    document.getElementById('modalBackdrop').addEventListener('click', function() {
+        closeModal();
+    });
+
+    // Fermer le modal avec la touche Escape
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            const modal = document.getElementById('permissionModal');
+            if (modal.classList.contains('show')) {
+                closeModal();
+            }
+        }
+    });
+</script>
+```
+
+</body>
+</html>
