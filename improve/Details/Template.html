@@ -1,0 +1,10 @@
+<!-- Dans ta table de serveurs -->
+<tbody>
+    {% for server in servers %}
+    <tr data-server-id="{{ server.id }}" 
+        data-server-data='{{ server|server_to_json }}'>
+        <td>{{ server.hostname }}</td>
+        <!-- ... autres colonnes ... -->
+    </tr>
+    {% endfor %}
+</tbody>
