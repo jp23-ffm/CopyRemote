@@ -1,0 +1,95 @@
+/* ========================================
+   VARIABLES CSS POUR LES THÈMES
+   ======================================== */
+
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --modal-bg: #ffffff;
+    --modal-border: #dddddd;
+    --toggle-bg: #ccc;
+    --toggle-active: #4CAF50;
+    --shadow: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --modal-bg: #2d2d2d;
+    --modal-border: #444444;
+    --toggle-bg: #555;
+    --toggle-active: #66bb6a;
+    --shadow: rgba(0, 0, 0, 0.5);
+}
+
+/* ========================================
+   STYLES DE BASE
+   ======================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    padding: 40px;
+    min-height: 100vh;
+}
+
+/* ========================================
+   DEMO CONTENT
+   ======================================== */
+
+.demo-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.demo-content h1 {
+    margin-bottom: 20px;
+}
+
+.demo-content p {
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+.demo-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.demo-button:hover {
+    background-color: #45a049;
+}
+
+/* ========================================
+   LIENS
+   ======================================== */
+
+.wiki-link {
+    display: inline-block;
+    color: #4CAF50;
+    text-decoration: none;
+    padding: 8px 0;
+    font-size: 14px;
+}
+
+.wiki-link:hover {
+    text-decoration: underline;
+}
+
+[data-theme="dark"] .wiki-link {
+    color: #66bb6a;
+}
