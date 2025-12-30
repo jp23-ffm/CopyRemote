@@ -1,0 +1,191 @@
+// Dans chart-modal.js
+
+// Ajouter dans le modal HTML
+function addSavedChartsSection() {
+    return `
+        <div class="saved-charts-section" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
+            <h6 style="margin-bottom: 10px; color: var(--text-primary);">💾 Saved Chart Views</h6>
+            
+            <select id="savedChartSelect" class="form-control" style="margin-bottom: 10px;">
+                <option value="">-- Select a saved view --</option>
+            </select>
+            
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn btn-secondary" onclick="loadSavedChart()" style="flex: 1;">
+                    📂 Load
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="saveCurrentChart()" style="flex: 1;">
+                    💾 Save
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="deleteSelectedChart()" style="flex: 0 0 auto;">
+                    🗑️
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Charger les saved charts
+async function loadSavedChartsList() {
+    try {
+        const response = await fetch('/api/charts/list/');
+        const data = await response.json();
+        
+        if (data.success) {
+            const select = document.getElementById('savedChartSelect');
+            select.innerHTML = '<option value="">-- Select a saved view --</option>';
+            
+            data.charts.forEach(chart => {
+                const option = document.createElement('option');
+                option.value = chart.id;
+                option.textContent = chart.name;
+                option.dataset.filters = JSON.stringify(chart.filters);
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading saved charts:', error);
+    }
+}
+
+// Charger un saved chart
+function loadSavedChart() {
+    const select = document.getElementById('savedChartSelect');
+    const option = select.options[select.selectedIndex];
+    
+    if (!option.value) {
+        alert('Please select a saved view');
+        return;
+    }
+    
+    const filters = JSON.parse(option.dataset.filters);
+    
+    // Reconstruire l'URL
+    const params = new URLSearchParams();
+    
+    // Ajouter les fields et types
+    if (filters.fields) {
+        filters.fields.forEach(field => params.append('fields', field));
+    }
+    if (filters.types) {
+        filters.types.forEach(type => params.append('types', type));
+    }
+    
+    // Ajouter tous les autres filtres
+    Object.entries(filters).forEach(([key, value]) => {
+        if (key !== 'fields' && key !== 'types') {
+            params.append(key, value);
+        }
+    });
+    
+    // Ouvrir
+    window.open(`/charts/?${params.toString()}`, '_blank');
+    closeChartModal();
+}
+
+// Sauvegarder la vue actuelle
+function saveCurrentChart() {
+    const name = prompt('Enter a name for this chart view:');
+    if (!name) return;
+    
+    // Récupérer tous les paramètres actuels
+    const params = new URLSearchParams(window.location.search);
+    
+    // Ajouter les champs du formulaire
+    const formData = new FormData(document.getElementById('chartForm'));
+    for (let [key, value] of formData.entries()) {
+        params.append(key, value);
+    }
+    
+    // Construire l'objet filters
+    const filters = {};
+    for (let [key, value] of params.entries()) {
+        if (key === 'fields' || key === 'types') {
+            if (!filters[key]) filters[key] = [];
+            filters[key].push(value);
+        } else {
+            filters[key] = value;
+        }
+    }
+    
+    // Sauvegarder
+    fetch('/api/charts/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            name: name,
+            filters: filters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Chart view "${name}" saved!`);
+            loadSavedChartsList();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving chart view');
+    });
+}
+
+// Supprimer un saved chart
+async function deleteSelectedChart() {
+    const select = document.getElementById('savedChartSelect');
+    const option = select.options[select.selectedIndex];
+    
+    if (!option.value) {
+        alert('Please select a view to delete');
+        return;
+    }
+    
+    if (!confirm(`Delete "${option.textContent}"?`)) return;
+    
+    try {
+        const response = await fetch(`/api/charts/${option.value}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            loadSavedChartsList();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting chart view');
+    }
+}
+
+// Appeler au chargement du modal
+function openChartModal() {
+    // ... ton code existant ...
+    
+    loadSavedChartsList();
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
