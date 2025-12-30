@@ -1,0 +1,65 @@
+function deleteSelectedChartInline(event) {
+    event.stopPropagation(); // Empêcher la propagation
+    
+    const select = document.getElementById('savedChartSelect');
+    
+    if (!select.value) return;
+    
+    const option = select.options[select.selectedIndex];
+    
+    if (!confirm(`Delete "${option.textContent}"?`)) return;
+    
+    fetch(`/api/charts/${select.value}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            select.value = '';
+            loadSavedChartsList();
+            showSimpleToast(`View deleted`);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// Afficher/cacher le × selon la sélection
+function loadSavedChartAuto() {
+    const select = document.getElementById('savedChartSelect');
+    const deleteBtn = document.getElementById('deleteChartBtn');
+    
+    if (!select.value) {
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        return;
+    }
+    
+    // Charger immédiatement
+    const option = select.options[select.selectedIndex];
+    const filters = JSON.parse(option.dataset.filters);
+    
+    const params = new URLSearchParams();
+    
+    if (filters.fields) {
+        filters.fields.forEach(field => params.append('fields', field));
+    }
+    if (filters.types) {
+        filters.types.forEach(type => params.append('types', type));
+    }
+    
+    Object.entries(filters).forEach(([key, value]) => {
+        if (key !== 'fields' && key !== 'types') {
+            params.append(key, value);
+        }
+    });
+    
+    window.open(`/charts/?${params.toString()}`, '_blank');
+    
+    // Reset
+    setTimeout(() => {
+        select.value = '';
+        if (deleteBtn) deleteBtn.style.display = 'none';
+    }, 100);
+}
