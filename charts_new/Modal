@@ -1,4 +1,5 @@
-<!-- À ajouter juste après le bouton "Add Another Chart" -->
+<!-- Dans ton template principal, dans le modal chartModal -->
+
 <div class="saved-charts-section" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
     <h6 style="margin-bottom: 10px; color: var(--text-primary); font-size: 14px; font-weight: 600;">
         💾 Saved Chart Views
@@ -10,13 +11,14 @@
     
     <div style="display: flex; gap: 10px;">
         <button type="button" class="btn btn-secondary" onclick="loadSavedChart()" style="flex: 1;">
-            📂 Load
-        </button>
-        <button type="button" class="btn btn-secondary" onclick="saveCurrentChart()" style="flex: 1;">
-            💾 Save
+            📂 Load View
         </button>
         <button type="button" class="btn btn-secondary" onclick="deleteSelectedChart()" style="padding: 10px 15px;">
-            🗑️
+            🗑️ Delete
         </button>
     </div>
+    
+    <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px; font-style: italic;">
+        💡 Tip: Generate charts, then save the view from the results page
+    </p>
 </div>
