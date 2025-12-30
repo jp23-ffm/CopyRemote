@@ -1,37 +1,17 @@
-# models.py
-from django.db import models
-from django.contrib.auth.models import User
-from django.utils import timezone
+# models.py - AJOUTER à tes modèles existants
 
-class SavedChartQuery(models.Model):
+class SavedChart(models.Model):
     """
-    Sauvegarde des requêtes de graphiques pour réutilisation rapide.
+    Sauvegarde des vues de graphiques.
+    Suit le même pattern que SavedSearch.
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='saved_chart_queries')
-    name = models.CharField(max_length=200, help_text="Nom de la vue sauvegardée")
-    description = models.TextField(blank=True, help_text="Description optionnelle")
-    
-    # La query string complète (tout ce qui est après le ?)
-    query_string = models.TextField(help_text="Query string complète: fields=X&types=Y&filter=Z")
-    
-    # Métadonnées pour affichage
-    chart_count = models.IntegerField(default=0, help_text="Nombre de graphiques")
-    filters_count = models.IntegerField(default=0, help_text="Nombre de filtres appliqués")
-    
-    # Dates
-    created_at = models.DateTimeField(auto_now_add=True)
-    last_used = models.DateTimeField(default=timezone.now)
-    use_count = models.IntegerField(default=0, help_text="Nombre de fois utilisée")
-    
-    class Meta:
-        ordering = ['-last_used']
-        unique_together = ['user', 'name']
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='saved_charts')
+    name = models.CharField(max_length=100)
+    filters = models.JSONField()  # Stocke toute la query: {fields: [...], types: [...], filters: {...}}
+    view = models.CharField(max_length=100, default='')  # Optionnel, pour catégoriser
     
     def __str__(self):
-        return f"{self.user.username} - {self.name}"
+        return f"{self.user_profile.user.username} - {self.name}"
     
-    def increment_usage(self):
-        """Incrémenter le compteur d'utilisation"""
-        self.use_count += 1
-        self.last_used = timezone.now()
-        self.save(update_fields=['use_count', 'last_used'])
+    class Meta:
+        ordering = ['name']
