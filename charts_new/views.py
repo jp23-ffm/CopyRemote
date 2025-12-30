@@ -1,43 +1,30 @@
 # views.py
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST, require_http_methods
-import json
 
 @login_required
 @require_POST
-def save_chart_query(request):
-    """Sauvegarder une requête de graphiques"""
+def save_chart_view(request):
+    """Sauvegarder une vue de graphiques"""
     try:
         data = json.loads(request.body)
         name = data.get('name', '').strip()
-        description = data.get('description', '').strip()
-        query_string = data.get('queryString', '').strip()
+        filters = data.get('filters', {})  # Le JSON complet
         
-        if not name or not query_string:
-            return JsonResponse({'success': False, 'error': 'Name and query are required'}, status=400)
+        if not name:
+            return JsonResponse({'success': False, 'error': 'Name is required'}, status=400)
         
-        # Compter les graphiques et filtres
-        params = dict(item.split('=') for item in query_string.split('&') if '=' in item)
-        chart_count = len([v for k, v in params.items() if k == 'fields'])
-        filters_count = len([k for k in params.keys() if k not in ['fields', 'types', 'page']])
+        # Récupérer le UserProfile
+        user_profile = request.user.userprofile
         
         # Créer ou mettre à jour
-        saved_query, created = SavedChartQuery.objects.update_or_create(
-            user=request.user,
+        saved_chart, created = SavedChart.objects.update_or_create(
+            user_profile=user_profile,
             name=name,
-            defaults={
-                'description': description,
-                'query_string': query_string,
-                'chart_count': chart_count,
-                'filters_count': filters_count,
-            }
+            defaults={'filters': filters}
         )
         
         return JsonResponse({
             'success': True,
-            'message': f"Query '{name}' saved successfully",
-            'id': saved_query.id,
+            'message': f"Chart view '{name}' saved successfully",
             'created': created
         })
         
@@ -46,46 +33,31 @@ def save_chart_query(request):
 
 
 @login_required
-def list_saved_queries(request):
-    """Lister les requêtes sauvegardées de l'utilisateur"""
-    queries = SavedChartQuery.objects.filter(user=request.user).values(
-        'id', 'name', 'description', 'query_string', 
-        'chart_count', 'filters_count', 'created_at', 'last_used', 'use_count'
-    )
+def list_saved_charts(request):
+    """Lister les vues sauvegardées"""
+    user_profile = request.user.userprofile
+    charts = SavedChart.objects.filter(user_profile=user_profile).values('id', 'name', 'filters')
     
     return JsonResponse({
         'success': True,
-        'queries': list(queries)
+        'charts': list(charts)
     })
 
 
 @login_required
 @require_POST
-def delete_saved_query(request, query_id):
-    """Supprimer une requête sauvegardée"""
+def delete_saved_chart(request, chart_id):
+    """Supprimer une vue sauvegardée"""
     try:
-        query = SavedChartQuery.objects.get(id=query_id, user=request.user)
-        query_name = query.name
-        query.delete()
+        user_profile = request.user.userprofile
+        chart = SavedChart.objects.get(id=chart_id, user_profile=user_profile)
+        chart_name = chart.name
+        chart.delete()
         
         return JsonResponse({
             'success': True,
-            'message': f"Query '{query_name}' deleted successfully"
+            'message': f"Chart view '{chart_name}' deleted"
         })
-    except SavedChartQuery.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Query not found'}, status=404)
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+    except SavedChart.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Chart not found'}, status=404)
 
-
-@login_required
-def load_saved_query(request, query_id):
-    """Charger et rediriger vers une requête sauvegardée"""
-    try:
-        query = SavedChartQuery.objects.get(id=query_id, user=request.user)
-        query.increment_usage()
-        
-        # Rediriger vers la page de charts avec la query string
-        return redirect(f"/charts/?{query.query_string}")
-    except SavedChartQuery.DoesNotExist:
-        return HttpResponse("Query not found", status=404)
