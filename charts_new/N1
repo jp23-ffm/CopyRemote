@@ -1,22 +1,25 @@
+<!-- Dans ton modal chartModal, remplace le modal-footer par : -->
+
 <div class="modal-footer" style="display: flex; align-items: center; gap: 15px;">
-    <!-- Saved views avec hover pour delete -->
-    <div class="saved-chart-wrapper" style="flex: 1; position: relative;">
+    <!-- Saved views à gauche -->
+    <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
         <select id="savedChartSelect" 
                 onchange="loadSavedChartAuto()" 
-                style="width: 100%; padding: 10px; padding-right: 40px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-input); color: var(--text-secondary); font-size: 14px;">
+                style="flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-input); color: var(--text-secondary); font-size: 14px;">
             <option value="">📂 Load saved view...</option>
         </select>
         
         <button type="button" 
                 id="deleteChartBtn" 
-                onclick="deleteSelectedChartInline(event)" 
-                style="display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: var(--text-muted); font-size: 18px; cursor: pointer; padding: 5px; line-height: 1; transition: color 0.2s;"
-                title="Delete this view">
+                class="btn-icon-delete" 
+                onclick="deleteSelectedChart()" 
+                style="display: none; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; transition: all 0.2s;"
+                title="Delete selected view">
             ✕
         </button>
     </div>
     
-    <!-- Boutons -->
+    <!-- Boutons à droite -->
     <div style="display: flex; gap: 10px;">
         <button type="button" class="btn btn-secondary" onclick="closeChartModal()">
             Cancel
@@ -26,13 +29,3 @@
         </button>
     </div>
 </div>
-
-<style>
-.saved-chart-wrapper:hover #deleteChartBtn {
-    display: block !important;
-}
-
-#deleteChartBtn:hover {
-    color: var(--alert-serious);
-}
-</style>
