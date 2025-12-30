@@ -1,0 +1,22 @@
+<!-- À ajouter juste après le bouton "Add Another Chart" -->
+<div class="saved-charts-section" style="margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border-color);">
+    <h6 style="margin-bottom: 10px; color: var(--text-primary); font-size: 14px; font-weight: 600;">
+        💾 Saved Chart Views
+    </h6>
+    
+    <select id="savedChartSelect" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-input); color: var(--text-primary); margin-bottom: 10px;">
+        <option value="">-- Select a saved view --</option>
+    </select>
+    
+    <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="loadSavedChart()" style="flex: 1;">
+            📂 Load
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="saveCurrentChart()" style="flex: 1;">
+            💾 Save
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="deleteSelectedChart()" style="padding: 10px 15px;">
+            🗑️
+        </button>
+    </div>
+</div>
