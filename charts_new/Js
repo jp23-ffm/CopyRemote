@@ -1,48 +1,62 @@
-async function loadSavedChartsList() {
-    try {
-        const response = await fetch('/api/charts/list/');
-        
-        // Vérifier que la réponse est OK
-        if (!response.ok) {
-            console.error('HTTP error:', response.status);
-            return;
-        }
-        
-        const data = await response.json();
-        
-        const select = document.getElementById('savedChartSelect');
-        if (!select) {
-            console.error('savedChartSelect not found');
-            return;
-        }
-        
-        select.innerHTML = '<option value="">-- Select a saved view --</option>';
-        
-        // Vérifier que data.charts existe et est un tableau
-        if (data.success && Array.isArray(data.charts)) {
-            if (data.charts.length === 0) {
-                // Pas de charts sauvegardés
-                const option = document.createElement('option');
-                option.value = '';
-                option.textContent = '(No saved views yet)';
-                option.disabled = true;
-                select.appendChild(option);
-            } else {
-                // Ajouter les charts
-                data.charts.forEach(chart => {
-                    const option = document.createElement('option');
-                    option.value = chart.id;
-                    option.textContent = chart.name;
-                    option.dataset.filters = JSON.stringify(chart.filters);
-                    select.appendChild(option);
-                });
-            }
+// À ajouter dans charts.html, dans le <script>
+
+function saveThisChartView() {
+    const name = prompt('Enter a name for this chart view:');
+    if (!name) return;
+    
+    // Récupérer tous les paramètres de l'URL actuelle
+    const params = new URLSearchParams(window.location.search);
+    
+    // Construire l'objet filters
+    const filters = {};
+    for (let [key, value] of params.entries()) {
+        if (key === 'fields' || key === 'types') {
+            if (!filters[key]) filters[key] = [];
+            filters[key].push(value);
         } else {
-            console.error('Invalid data format:', data);
+            filters[key] = value;
         }
-        
-    } catch (error) {
-        console.error('Error loading saved charts:', error);
-        // Ne pas bloquer l'interface si ça échoue
     }
+    
+    // Sauvegarder
+    fetch('/api/charts/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            name: name,
+            filters: filters
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`✅ Chart view "${name}" saved successfully!`);
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error saving chart view');
+    });
 }
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// La fonction showToast existe déjà dans ton charts.html
