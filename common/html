@@ -1,0 +1,51 @@
+// common/templates/common/charts.html
+
+function saveThisChartView() {
+    const name = prompt('Enter a name for this chart view:');
+    if (!name) return;
+    
+    // Récupérer tous les paramètres de l'URL actuelle
+    const params = new URLSearchParams(window.location.search);
+    
+    // Extraire le nom de l'app
+    const appName = params.get('app') || 'inventory';  // ← RÉCUPÉRER app
+    
+    // Construire l'objet filters
+    const filters = {};
+    for (let [key, value] of params.entries()) {
+        if (key === 'app') continue;  // Ne pas stocker 'app' dans filters
+        
+        if (key === 'fields' || key === 'types') {
+            if (!filters[key]) filters[key] = [];
+            filters[key].push(value);
+        } else {
+            filters[key] = value;
+        }
+    }
+    
+    // Sauvegarder
+    fetch('/common/api/charts/save/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            name: name,
+            filters: filters,
+            app_name: appName  // ← ENVOYER app_name
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`✅ Chart view "${name}" saved successfully!`);
+        } else {
+            alert('❌ Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error saving chart view');
+    });
+}
