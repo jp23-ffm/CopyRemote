@@ -1,50 +1,31 @@
-// common/templates/common/charts.html
+<!-- Dans ton template principal (inventory/server_list.html) -->
 
-function saveThisChartView() {
-    const name = prompt('Enter a name for this chart view:');
-    if (!name) return;
+<div class="modal-footer">
+    <!-- Saved views à gauche -->
+    <div style="flex: 1; display: flex; align-items: center; gap: 8px;">
+        <select id="savedChartSelect" 
+                onfocus="onSavedChartSelectFocus()"
+                onchange="loadSavedChartAuto()" 
+                style="flex: 1; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-input); color: var(--text-secondary); font-size: 14px;">
+            <option value="">📂 Load saved view...</option>
+        </select>
+        
+        <button type="button" 
+                id="deleteChartBtn" 
+                class="btn-icon-delete"
+                onclick="deleteSelectedChart()" 
+                title="Delete selected view">
+            ✕
+        </button>
+    </div>
     
-    // Récupérer tous les paramètres de l'URL actuelle
-    const params = new URLSearchParams(window.location.search);
-    
-    // Construire l'objet filters
-    const filters = {};
-    for (let [key, value] of params.entries()) {
-        if (key === 'fields' || key === 'types') {
-            if (!filters[key]) filters[key] = [];
-            filters[key].push(value);
-        } else {
-            filters[key] = value;
-        }
-    }
-    
-    // Déterminer l'app depuis l'URL (inventory ou businesscontinuity)
-    const pathParts = window.location.pathname.split('/');
-    const appName = pathParts[1] || 'inventory';  // Ex: /inventory/charts/ → 'inventory'
-    
-    // Sauvegarder
-    fetch('/common/api/charts/save/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': getCookie('csrftoken')
-        },
-        body: JSON.stringify({
-            name: name,
-            filters: filters,
-            app_name: appName  // ← ENVOYER app_name
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast(`✅ Chart view "${name}" saved successfully!`);
-        } else {
-            alert('❌ Error: ' + data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('❌ Error saving chart view');
-    });
-}
+    <!-- Boutons à droite -->
+    <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn btn-secondary" onclick="closeChartModal()">
+            Cancel
+        </button>
+        <button type="submit" class="btn btn-success">
+            Generate Charts
+        </button>
+    </div>
+</div>
