@@ -1,0 +1,24 @@
+// Dans common/static/common/js/chart-modal.js
+
+async function loadSavedChartsList(appName) {
+    try {
+        const response = await fetch(`/api/charts/list/?app=${appName}`);
+        // ... reste du code
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// Dans inventory/templates - appel
+<script>
+    const jsonData = {{ json_data|safe }};
+    initChartModal(jsonData);
+    loadSavedChartsList('inventory');  // ← Spécifier l'app
+</script>
+
+// Dans businesscontinuity/templates - appel
+<script>
+    const jsonData = {{ json_data|safe }};
+    initChartModal(jsonData);
+    loadSavedChartsList('businesscontinuity');  // ← Spécifier l'app
+</script>
