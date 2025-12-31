@@ -7,14 +7,9 @@ function saveThisChartView() {
     // Récupérer tous les paramètres de l'URL actuelle
     const params = new URLSearchParams(window.location.search);
     
-    // Extraire le nom de l'app
-    const appName = params.get('app') || 'inventory';  // ← RÉCUPÉRER app
-    
     // Construire l'objet filters
     const filters = {};
     for (let [key, value] of params.entries()) {
-        if (key === 'app') continue;  // Ne pas stocker 'app' dans filters
-        
         if (key === 'fields' || key === 'types') {
             if (!filters[key]) filters[key] = [];
             filters[key].push(value);
@@ -22,6 +17,10 @@ function saveThisChartView() {
             filters[key] = value;
         }
     }
+    
+    // Déterminer l'app depuis l'URL (inventory ou businesscontinuity)
+    const pathParts = window.location.pathname.split('/');
+    const appName = pathParts[1] || 'inventory';  // Ex: /inventory/charts/ → 'inventory'
     
     // Sauvegarder
     fetch('/common/api/charts/save/', {
