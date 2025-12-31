@@ -1,7 +1,7 @@
 // common/static/common/js/chart-modal.js
 
 let chartsLoaded = false;
-let currentAppName = 'inventory';  // Variable globale pour stocker l'app
+let currentAppName = 'inventory';  // Stocke l'app courante
 
 // Initialiser avec le nom de l'app
 function initChartModal(jsonData, appName) {
@@ -16,10 +16,9 @@ function onSavedChartSelectFocus() {
     chartsLoaded = true;
 }
 
-// Charger la liste - FILTRER par app
+// Charger la liste
 async function loadSavedChartsList() {
     try {
-        // PASSER l'app en paramètre
         const response = await fetch(`/common/api/charts/list/?app=${currentAppName}`);
         
         if (!response.ok) {
@@ -55,4 +54,117 @@ async function loadSavedChartsList() {
     }
 }
 
-// ... reste du code identique (loadSavedChartAuto, deleteSelectedChart, etc.)
+// Load automatique quand on sélectionne
+function loadSavedChartAuto() {
+    const select = document.getElementById('savedChartSelect');
+    const deleteBtn = document.getElementById('deleteChartBtn');
+    
+    if (!select.value) {
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        return;
+    }
+    
+    if (deleteBtn) deleteBtn.style.display = 'flex';
+    
+    const option = select.options[select.selectedIndex];
+    const filters = JSON.parse(option.dataset.filters);
+    
+    // Reconstruire l'URL
+    const params = new URLSearchParams();
+    
+    if (filters.fields) {
+        filters.fields.forEach(field => params.append('fields', field));
+    }
+    if (filters.types) {
+        filters.types.forEach(type => params.append('types', type));
+    }
+    
+    Object.entries(filters).forEach(([key, value]) => {
+        if (key !== 'fields' && key !== 'types') {
+            params.append(key, value);
+        }
+    });
+    
+    // UTILISER currentAppName pour construire l'URL dynamiquement
+    const url = `/${currentAppName}/charts/?${params.toString()}`;
+    window.open(url, '_blank');
+    
+    // Reset
+    setTimeout(() => {
+        select.value = '';
+        if (deleteBtn) deleteBtn.style.display = 'none';
+    }, 100);
+}
+
+// Supprimer une vue
+async function deleteSelectedChart() {
+    const select = document.getElementById('savedChartSelect');
+    const deleteBtn = document.getElementById('deleteChartBtn');
+    
+    if (!select.value) {
+        alert('No view selected');
+        return;
+    }
+    
+    const option = select.options[select.selectedIndex];
+    
+    if (!confirm(`Delete "${option.textContent}"?`)) return;
+    
+    try {
+        const response = await fetch(`/common/api/charts/${select.value}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            deleteBtn.style.display = 'none';
+            chartsLoaded = false;
+            loadSavedChartsList();
+            showSimpleToast(`View "${option.textContent}" deleted`);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Error deleting view');
+    }
+}
+
+// Toast simple
+function showSimpleToast(message) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: var(--btn-success);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px var(--shadow);
+        z-index: 10001;
+        font-size: 14px;
+    `;
+    
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
