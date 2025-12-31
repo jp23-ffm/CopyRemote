@@ -1,24 +1,119 @@
-// Dans common/static/common/js/chart-modal.js
+// common/static/common/js/chart-modal.js
 
-async function loadSavedChartsList(appName) {
-    try {
-        const response = await fetch(`/api/charts/list/?app=${appName}`);
-        // ... reste du code
-    } catch (error) {
-        console.error('Error:', error);
-    }
+// Variable globale pour stocker le nom de l'app
+let currentAppName = 'inventory';  // Par défaut
+
+// Fonction d'initialisation - MODIFIÉE
+function initChartModal(jsonData, appName) {
+    availableFields = jsonData.chartable_fields || {};
+    currentAppName = appName;  // ← STOCKER le nom de l'app
 }
 
-// Dans inventory/templates - appel
-<script>
-    const jsonData = {{ json_data|safe }};
-    initChartModal(jsonData);
-    loadSavedChartsList('inventory');  // ← Spécifier l'app
-</script>
+// ... tes autres fonctions ...
 
-// Dans businesscontinuity/templates - appel
-<script>
-    const jsonData = {{ json_data|safe }};
-    initChartModal(jsonData);
-    loadSavedChartsList('businesscontinuity');  // ← Spécifier l'app
-</script>
+// Dans le DOMContentLoaded - submit du formulaire
+document.addEventListener('DOMContentLoaded', function() {
+    const chartForm = document.getElementById('chartForm');
+    if (chartForm) {
+        chartForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Récupérer les fields et types
+            const formData = new FormData(this);
+            
+            // Récupérer TOUS les paramètres de l'URL actuelle (les filtres)
+            const currentParams = new URLSearchParams(window.location.search);
+            
+            // Ajouter les champs sélectionnés
+            for (let [key, value] of formData.entries()) {
+                currentParams.append(key, value);
+            }
+            
+            // AJOUTER le paramètre app
+            currentParams.set('app', currentAppName);  // ← ICI !
+            
+            // Ouvrir la page charts avec tous les paramètres
+            const url = '/common/charts/?' + currentParams.toString();
+            window.open(url, '_blank');
+            
+            closeChartModal();
+        });
+    }
+    
+    // ... reste du code
+});
+
+// Load saved chart - MODIFIÉ
+function loadSavedChartAuto() {
+    const select = document.getElementById('savedChartSelect');
+    const deleteBtn = document.getElementById('deleteChartBtn');
+    
+    if (!select.value) {
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        return;
+    }
+    
+    if (deleteBtn) deleteBtn.style.display = 'flex';
+    
+    const option = select.options[select.selectedIndex];
+    const filters = JSON.parse(option.dataset.filters);
+    
+    // Reconstruire l'URL
+    const params = new URLSearchParams();
+    
+    // AJOUTER app en premier
+    params.set('app', currentAppName);  // ← ICI !
+    
+    if (filters.fields) {
+        filters.fields.forEach(field => params.append('fields', field));
+    }
+    if (filters.types) {
+        filters.types.forEach(type => params.append('types', type));
+    }
+    
+    Object.entries(filters).forEach(([key, value]) => {
+        if (key !== 'fields' && key !== 'types') {
+            params.append(key, value);
+        }
+    });
+    
+    // Ouvrir
+    window.open(`/common/charts/?${params.toString()}`, '_blank');
+    
+    // Reset
+    select.value = '';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+}
+
+// List saved charts - MODIFIÉ
+async function loadSavedChartsList() {
+    try {
+        // PASSER le nom de l'app à l'API
+        const response = await fetch(`/common/api/charts/list/?app=${currentAppName}`);  // ← ICI !
+        
+        if (!response.ok) return;
+        
+        const data = await response.json();
+        const select = document.getElementById('savedChartSelect');
+        const deleteBtn = document.getElementById('deleteChartBtn');
+        
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">📂 Load saved view...</option>';
+        
+        if (deleteBtn) deleteBtn.style.display = 'none';
+        
+        if (data.success && Array.isArray(data.charts) && data.charts.length > 0) {
+            data.charts.forEach(chart => {
+                const option = document.createElement('option');
+                option.value = chart.id;
+                option.textContent = chart.name;
+                option.dataset.filters = JSON.stringify(chart.filters);
+                select.appendChild(option);
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error loading saved charts:', error);
+    }
+}
