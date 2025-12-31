@@ -1,0 +1,21 @@
+/* Modal footer avec espacement */
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    background: var(--bg-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .modal-footer > div {
+        width: 100%;
+    }
+}
