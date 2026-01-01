@@ -1,0 +1,109 @@
+// common/static/common/js/theme-toggle.js
+
+// Charger le thème IMMÉDIATEMENT depuis localStorage
+function loadThemeImmediate() {
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme) {
+        // Appliquer immédiatement (pas de flash)
+        applyTheme(savedTheme);
+    } else {
+        // Pas de thème sauvegardé → utiliser préférence système
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark ? 'dark' : 'light');
+    }
+}
+
+// Synchroniser avec la base de données en arrière-plan (optionnel)
+async function syncThemeFromDB() {
+    try {
+        const response = await fetch('/common/api/preferences/?app=global');
+        const data = await response.json();
+        
+        if (data.success && data.settings.theme) {
+            const dbTheme = data.settings.theme;
+            const localTheme = localStorage.getItem('theme');
+            
+            // Si le thème en DB est différent de celui en local
+            // (changé sur un autre appareil par exemple)
+            if (dbTheme !== localTheme) {
+                localStorage.setItem('theme', dbTheme);
+                applyTheme(dbTheme);
+            }
+        }
+    } catch (error) {
+        console.error('Error syncing theme from DB:', error);
+        // Pas grave, on continue avec le localStorage
+    }
+}
+
+// Appliquer le thème
+function applyTheme(theme) {
+    if (theme === 'dark') {
+        document.documentElement.classList.add('dark-mode');
+    } else {
+        document.documentElement.classList.remove('dark-mode');
+    }
+}
+
+// Toggle et sauvegarder dans les DEUX endroits
+async function toggleTheme() {
+    const isDark = document.documentElement.classList.contains('dark-mode');
+    const newTheme = isDark ? 'light' : 'dark';
+    
+    // 1. Appliquer immédiatement
+    applyTheme(newTheme);
+    
+    // 2. Sauvegarder en localStorage (instantané)
+    localStorage.setItem('theme', newTheme);
+    
+    // 3. Sauvegarder en DB (en arrière-plan, non bloquant)
+    saveThemeToDB(newTheme);
+}
+
+// Sauvegarder en DB (asynchrone, non bloquant)
+async function saveThemeToDB(theme) {
+    try {
+        await fetch('/common/api/preferences/update/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                app_name: 'global',
+                key: 'theme',
+                value: theme
+            })
+        });
+    } catch (error) {
+        console.error('Error saving theme to DB:', error);
+        // Pas grave, le localStorage fonctionne quand même
+    }
+}
+
+// Charger immédiatement (AVANT le DOM)
+loadThemeImmediate();
+
+// Synchroniser avec la DB après chargement (optionnel, non prioritaire)
+document.addEventListener('DOMContentLoaded', function() {
+    // Sync en arrière-plan, seulement si connecté
+    if (document.body.dataset.authenticated === 'true') {
+        syncThemeFromDB();
+    }
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
