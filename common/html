@@ -29,3 +29,32 @@
         </button>
     </div>
 </div>
+
+
+—------------
+
+<!-- inventory/templates/inventory/server_list.html -->
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Inventory</title>
+    
+    <!-- Charger le theme EN PREMIER (avant même le CSS) pour éviter le flash -->
+    <script src="{% static 'common/js/theme-toggle.js' %}"></script>
+    
+    <link rel="stylesheet" href="{% static 'inventory/css/inventory.css' %}">
+</head>
+<body data-authenticated="{% if user.is_authenticated %}true{% else %}false{% endif %}">
+    
+    <div class="header">
+        <h1>Inventory</h1>
+        <button onclick="toggleTheme()" class="btn btn-secondary">
+            🌓 Toggle Theme
+        </button>
+    </div>
+    
+    <!-- Reste de ton contenu -->
+</body>
+</html>
