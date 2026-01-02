@@ -1,35 +1,133 @@
-/* Modal Settings */
-#settingsModal {
+<!-- common/templates/common/settings_modal.html -->
+
+<div id="settingsModal" class="modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5>⚙️ Parameters</h5>
+                <button class="close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Dark Mode -->
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label">
+                            <strong>🌓 Dark Mode</strong>
+                        </div>
+                        <span class="setting-description">Switch between light and dark theme</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="themeToggle" onchange="toggleThemeFromSettings()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="modal-divider"></div>
+                
+                <!-- Documentation Link -->
+                <div class="setting-item" style="flex-direction: column; align-items: flex-start;">
+                    <div class="setting-label" style="margin-bottom: 8px;">
+                        <strong>📚 Documentation</strong>
+                    </div>
+                    <a href="https://wiki.cib.echonet/pages/viewpage.action?pageId=374216092" 
+                       target="_blank" 
+                       class="wiki-link">
+                        📖 Access to the documentation
+                    </a>
+                    <div style="font-size: 12px; opacity: 0.6; margin-top: 4px;">
+                        Wiki access MyIAM entitlement: wikicib_czchimera_readonly
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeSettingsModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ================================================
+   MODAL SETTINGS - CSS COMPLET
+   ================================================ */
+
+/* Modal backdrop */
+.modal {
     display: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+}
+
+.modal.show {
+    display: flex;
     align-items: center;
     justify-content: center;
 }
 
-#settingsModal.show {
-    display: flex;
+/* Modal dialog */
+.modal-dialog {
+    width: 90%;
+    max-width: 500px;
 }
 
-.modal-settingsheader {
+/* Modal content */
+.modal-content {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+/* Modal header */
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--modal-border);
 }
 
-.modal-settingsheader h2 {
-    font-size: 20px;
+.modal-header h5 {
+    margin: 0;
+    font-size: 18px;
     font-weight: 600;
+    color: var(--text-primary);
 }
 
+.modal-header .close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-header .close:hover {
+    color: var(--text-primary);
+}
+
+/* Modal body */
+.modal-body {
+    padding: 20px;
+}
+
+/* Setting item */
 .setting-item {
     display: flex;
     justify-content: space-between;
@@ -39,36 +137,61 @@
 
 .setting-info {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
 .setting-label {
-    font-size: 15px;
+    display: block;
+    margin-bottom: 4px;
 }
 
 .setting-label strong {
     font-size: 15px;
+    color: var(--text-primary);
 }
 
-.setting-label span {
+.setting-description {
+    display: block;
     font-size: 13px;
-    opacity: 0.7;
+    color: var(--text-secondary);
 }
 
+/* Divider */
 .modal-divider {
     height: 1px;
-    background: var(--modal-border);
+    background: var(--border-color);
     margin: 8px 0;
 }
 
-/* Toggle Switch */
+/* Wiki link */
+.wiki-link {
+    color: var(--btn-success);
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.wiki-link:hover {
+    text-decoration: underline;
+}
+
+/* Modal footer */
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ================================================
+   TOGGLE SWITCH
+   ================================================ */
+
 .toggle-switch {
     position: relative;
     display: inline-block;
     width: 52px;
     height: 28px;
+    flex-shrink: 0;
 }
 
 .toggle-switch input {
@@ -77,19 +200,19 @@
     height: 0;
 }
 
-.toggle-slider {
+.slider {
     position: absolute;
     cursor: pointer;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: var(--btn-secondary);
+    background-color: #ccc;
     transition: 0.3s;
     border-radius: 28px;
 }
 
-.toggle-slider:before {
+.slider:before {
     position: absolute;
     content: "";
     height: 20px;
@@ -101,20 +224,24 @@
     border-radius: 50%;
 }
 
-input:checked + .toggle-slider {
-    background-color: var(--btn-success);
+input:checked + .slider {
+    background-color: #5cb85c;
 }
 
-input:checked + .toggle-slider:before {
+input:checked + .slider:before {
     transform: translateX(24px);
 }
 
-.toggle-slider:hover {
-    opacity: 0.8;
+.slider:hover {
+    opacity: 0.9;
 }
 
-.modal-settingsfooter {
-    padding: 15px 0;
-    border-top: 1px solid var(--modal-border);
-    text-align: right;
+/* Dark mode adjustments */
+:root.dark-mode .slider {
+    background-color: #555;
 }
+
+:root.dark-mode input:checked + .slider {
+    background-color: #4a9d4a;
+}
+</style>
