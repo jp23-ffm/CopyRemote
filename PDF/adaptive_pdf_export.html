@@ -1,0 +1,135 @@
+// SOLUTION ALTERNATIVE : Mise en page adaptative selon le nombre de graphes
+
+async function exportAllChartsToPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    
+    // Page de titre
+    pdf.setFontSize(22);
+    pdf.text('Analytics Report', margin, 30);
+    pdf.setFontSize(11);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 40);
+    pdf.text(`Total Servers Analyzed: {{ total_servers }}`, margin, 47);
+    
+    let yPosition = 60;
+    
+    // Déterminer la mise en page selon le nombre de graphes
+    const numCharts = chartCanvases.length;
+    let chartsPerPage, chartWidth, chartHeight;
+    
+    if (numCharts === 1) {
+        // Un seul graphe : grand format centré
+        chartsPerPage = 1;
+        chartWidth = 170;
+        chartHeight = 120;
+    } else if (numCharts === 2) {
+        // Deux graphes : un par page
+        chartsPerPage = 1;
+        chartWidth = 170;
+        chartHeight = 110;
+    } else {
+        // Plusieurs graphes : 2 par page côte à côte
+        chartsPerPage = 2;
+        chartWidth = 80;
+        chartHeight = 80;
+    }
+    
+    for (let i = 0; i < chartCanvases.length; i++) {
+        const { canvas, name, data } = chartCanvases[i];
+        
+        // Calculer la position
+        const chartIndex = i % chartsPerPage;
+        const xPosition = chartIndex === 0 ? margin : pageWidth / 2 + 5;
+        
+        // Nouvelle page si nécessaire
+        if (i > 0 && chartIndex === 0) {
+            pdf.addPage();
+            yPosition = margin;
+        }
+        
+        // Si 2 graphes côte à côte et c'est le premier
+        if (chartsPerPage === 2 && chartIndex === 0) {
+            yPosition = margin;
+        }
+        
+        // Titre
+        pdf.setFontSize(12);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(name, xPosition, yPosition, { maxWidth: chartWidth });
+        const titleHeight = pdf.getTextDimensions(name, { maxWidth: chartWidth }).h;
+        yPosition += titleHeight + 5;
+        
+        // Créer canvas temporaire avec fond blanc
+        const tempCanvas = document.createElement('canvas');
+        const scale = 3;
+        tempCanvas.width = chartWidth * scale * 3.78;
+        tempCanvas.height = chartHeight * scale * 3.78;
+        
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.fillStyle = 'white';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // Dessiner le graphe proportionné
+        const aspectRatio = canvas.width / canvas.height;
+        const targetAspectRatio = chartWidth / chartHeight;
+        
+        let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+        
+        if (aspectRatio > targetAspectRatio) {
+            drawWidth = tempCanvas.width;
+            drawHeight = tempCanvas.width / aspectRatio;
+            offsetY = (tempCanvas.height - drawHeight) / 2;
+        } else {
+            drawHeight = tempCanvas.height;
+            drawWidth = tempCanvas.height * aspectRatio;
+            offsetX = (tempCanvas.width - drawWidth) / 2;
+        }
+        
+        tempCtx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+        
+        const imgData = tempCanvas.toDataURL('image/png', 1.0);
+        pdf.addImage(imgData, 'PNG', xPosition, yPosition, chartWidth, chartHeight);
+        
+        // Mini stats sous le graphe
+        const statsY = yPosition + chartHeight + 5;
+        pdf.setFontSize(8);
+        pdf.setFont(undefined, 'normal');
+        
+        const total = data.table_values.reduce((a, b) => a + b, 0);
+        const top3 = data.table_labels.slice(0, 3);
+        const top3Values = data.table_values.slice(0, 3);
+        
+        let lineY = statsY;
+        top3.forEach((label, idx) => {
+            const value = top3Values[idx];
+            const percentage = ((value / total) * 100).toFixed(1);
+            const text = `${label}: ${value} (${percentage}%)`;
+            pdf.text(text, xPosition, lineY, { maxWidth: chartWidth });
+            lineY += 4;
+        });
+        
+        // Si c'est le dernier d'une paire ou le dernier tout court
+        if (chartIndex === chartsPerPage - 1 || i === chartCanvases.length - 1) {
+            yPosition = lineY + 15;
+        }
+    }
+    
+    // Footers
+    const pageCount = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(9);
+        pdf.setTextColor(150);
+        pdf.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 20, pageHeight - 10);
+        pdf.text('Chimera Inventory - Analytics', margin, pageHeight - 10);
+    }
+    
+    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(filename);
+    
+    showToast('PDF exported successfully!');
+}

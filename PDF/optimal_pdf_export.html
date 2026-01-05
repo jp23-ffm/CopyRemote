@@ -1,0 +1,190 @@
+// SOLUTION OPTIMALE : Meilleure qualité et proportions garanties
+
+async function exportAllChartsToPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentWidth = pageWidth - (2 * margin);
+    
+    // Page de titre
+    pdf.setFontSize(22);
+    pdf.text('Analytics Report', margin, 30);
+    pdf.setFontSize(11);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 40);
+    pdf.text(`Total Servers Analyzed: {{ total_servers }}`, margin, 47);
+    
+    let currentPage = 1;
+    let yPosition = 65;
+    
+    for (let i = 0; i < chartCanvases.length; i++) {
+        const { canvas, name, data } = chartCanvases[i];
+        
+        // Dimensions du graphe dans le PDF
+        // On fixe une largeur et on calcule la hauteur pour garder le ratio
+        const maxChartWidth = contentWidth;
+        const maxChartHeight = 100; // Maximum height in mm
+        
+        const originalRatio = canvas.width / canvas.height;
+        let pdfChartWidth = maxChartWidth;
+        let pdfChartHeight = pdfChartWidth / originalRatio;
+        
+        // Si trop haut, on ajuste
+        if (pdfChartHeight > maxChartHeight) {
+            pdfChartHeight = maxChartHeight;
+            pdfChartWidth = pdfChartHeight * originalRatio;
+        }
+        
+        // Centrer horizontalement si le graphe est plus petit que la largeur dispo
+        const xPosition = margin + (contentWidth - pdfChartWidth) / 2;
+        
+        // Vérifier si on a assez de place sur la page
+        const requiredSpace = pdfChartHeight + 40; // graphe + titre + stats
+        if (yPosition + requiredSpace > pageHeight - margin && i > 0) {
+            pdf.addPage();
+            currentPage++;
+            yPosition = margin;
+        }
+        
+        // Titre du graphique
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.text(name, pageWidth / 2, yPosition, { align: 'center' });
+        yPosition += 8;
+        
+        // Recréer le graphe avec Chart.js dans un canvas propre
+        // pour avoir une image nette avec les bonnes dimensions
+        const exportCanvas = document.createElement('canvas');
+        
+        // Haute résolution pour le PDF (300 DPI équivalent)
+        const dpiScale = 4;
+        exportCanvas.width = pdfChartWidth * dpiScale * 3.78; // mm to px
+        exportCanvas.height = pdfChartHeight * dpiScale * 3.78;
+        
+        const exportCtx = exportCanvas.getContext('2d');
+        
+        // Fond blanc
+        exportCtx.fillStyle = '#ffffff';
+        exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+        
+        // Dessiner le graphe original
+        exportCtx.drawImage(canvas, 0, 0, exportCanvas.width, exportCanvas.height);
+        
+        // Ajouter au PDF
+        const imgData = exportCanvas.toDataURL('image/png', 1.0);
+        pdf.addImage(imgData, 'PNG', xPosition, yPosition, pdfChartWidth, pdfChartHeight);
+        yPosition += pdfChartHeight + 8;
+        
+        // Tableau récapitulatif
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Summary:', margin, yPosition);
+        yPosition += 5;
+        
+        // Créer un mini tableau
+        const total = data.table_values.reduce((a, b) => a + b, 0);
+        const tableData = [];
+        
+        data.table_labels.slice(0, 5).forEach((label, idx) => {
+            const value = data.table_values[idx];
+            const percentage = ((value / total) * 100).toFixed(1);
+            tableData.push([label, value.toString(), `${percentage}%`]);
+        });
+        
+        // Dessiner le tableau simple
+        pdf.setFont(undefined, 'normal');
+        pdf.setFontSize(9);
+        
+        const colWidths = [contentWidth * 0.5, contentWidth * 0.25, contentWidth * 0.25];
+        const rowHeight = 5;
+        
+        // Headers
+        pdf.setFont(undefined, 'bold');
+        pdf.text('Item', margin, yPosition);
+        pdf.text('Count', margin + colWidths[0], yPosition);
+        pdf.text('Percentage', margin + colWidths[0] + colWidths[1], yPosition);
+        yPosition += rowHeight;
+        
+        // Ligne de séparation
+        pdf.setDrawColor(200);
+        pdf.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
+        
+        // Données
+        pdf.setFont(undefined, 'normal');
+        tableData.forEach(row => {
+            pdf.text(row[0].substring(0, 35), margin, yPosition);
+            pdf.text(row[1], margin + colWidths[0], yPosition);
+            pdf.text(row[2], margin + colWidths[0] + colWidths[1], yPosition);
+            yPosition += rowHeight;
+        });
+        
+        yPosition += 10; // Espace avant le prochain graphe
+    }
+    
+    // Numérotation des pages
+    const totalPages = pdf.internal.getNumberOfPages();
+    pdf.setFontSize(9);
+    pdf.setTextColor(150);
+    
+    for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.text(
+            `Page ${i} of ${totalPages}`,
+            pageWidth / 2,
+            pageHeight - 10,
+            { align: 'center' }
+        );
+        pdf.text('Chimera Inventory', margin, pageHeight - 10);
+        const currentDate = new Date().toLocaleDateString();
+        pdf.text(currentDate, pageWidth - margin, pageHeight - 10, { align: 'right' });
+    }
+    
+    // Sauvegarder
+    const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(filename);
+    
+    showToast('✓ PDF exported successfully!');
+}
+
+// BONUS : Fonction pour exporter un seul graphe de manière propre
+function exportChartAsPNG(canvas, chartName) {
+    // Créer un canvas propre avec dimensions fixes
+    const exportCanvas = document.createElement('canvas');
+    const targetWidth = 1200;
+    const targetHeight = 800;
+    
+    exportCanvas.width = targetWidth;
+    exportCanvas.height = targetHeight;
+    
+    const ctx = exportCanvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, targetWidth, targetHeight);
+    
+    // Calculer les dimensions pour garder le ratio
+    const ratio = canvas.width / canvas.height;
+    const targetRatio = targetWidth / targetHeight;
+    
+    let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
+    
+    if (ratio > targetRatio) {
+        drawWidth = targetWidth;
+        drawHeight = targetWidth / ratio;
+        offsetY = (targetHeight - drawHeight) / 2;
+    } else {
+        drawHeight = targetHeight;
+        drawWidth = targetHeight * ratio;
+        offsetX = (targetWidth - drawWidth) / 2;
+    }
+    
+    ctx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+    
+    // Télécharger
+    const link = document.createElement('a');
+    link.download = `${chartName.replace(/\s+/g, '_')}_chart.png`;
+    link.href = exportCanvas.toDataURL('image/png');
+    link.click();
+    
+    showToast(`Chart "${chartName}" exported as PNG`);
+}
