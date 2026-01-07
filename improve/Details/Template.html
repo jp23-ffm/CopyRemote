@@ -1,9 +1,0 @@
-<tbody>
-    {% for server in servers %}
-    <tr data-server-id="{{ server.id }}" 
-        data-server-data='{{ server|server_to_json:json_data|safe }}'>
-        <td>{{ server.hostname }}</td>
-        <!-- ... autres colonnes ... -->
-    </tr>
-    {% endfor %}
-</tbody>
