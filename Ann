@@ -1,72 +1,16 @@
-def chart_view(request):
-    json_data = get_field_labels()
-    
-    selected_fields = request.GET.getlist('fields')
-    chart_types = request.GET.getlist('types')
-    permanent_filter_selection = request.GET.get('permanentfilter')
-    
-    requestfilters = {}
-    
-    for key, value in request.GET.items():
-        requestfilters[key] = value
-    
-    # Partir des serveurs avec tes filtres
-    servers = Server.objects.all().order_by('SERVER_ID')
-    # Applique ici tous tes autres filtres
-    
-    if "ANNOTATION" in selected_fields:
-        # Récupérer les SERVER_ID distincts de tes serveurs filtrés
-        server_ids = servers.values_list('SERVER_ID', flat=True).distinct()
-        
-        # Récupérer toutes les annotations pour ces SERVER_ID
-        annotations_qs = ServerAnnotation.objects.filter(
-            SERVER_ID__in=server_ids
-        )
-        
-        # Créer un dictionnaire SERVER_ID -> annotation (ou None)
-        annotations_dict = {ann.SERVER_ID: ann for ann in annotations_qs}
-        
-        # Créer ta liste finale avec SERVER_ID distinct + annotation
-        server_list = []
-        seen_server_ids = set()
-        
-        for server in servers:
-            if server.SERVER_ID not in seen_server_ids:
-                seen_server_ids.add(server.SERVER_ID)
-                
-                # Créer un objet qui combine les infos du serveur et l'annotation
-                server_data = {
-                    'SERVER_ID': server.SERVER_ID,
-                    'APP_DESCRIPTION': server.APP_DESCRIPTION,
-                    # ... autres champs que tu veux
-                    'annotation': annotations_dict.get(server.SERVER_ID, None)
-                }
-                server_list.append(server_data)
-        
-        return generate_charts(request, server_list, json_data)
-    
-    else:  # No Annotation
-        fields_to_keep = ['SERVER_ID'] + selected_fields
-        servers = servers.values(*fields_to_keep).distinct()
-        return generate_charts(request, servers, json_data)
-
-
-
-
-from django.db.models import OuterRef, Subquery
-
 if "ANNOTATION" in selected_fields:
-    # Subquery pour récupérer l'annotation
-    annotation_subquery = ServerAnnotation.objects.filter(
+    # Remplacer 'ANNOTATION' par les vrais champs annotés
+    selected_fields_cleaned = [f for f in selected_fields if f != 'ANNOTATION']
+    
+    # Ajouter les subqueries
+    annotation_notes = ServerAnnotation.objects.filter(
         SERVER_ID=OuterRef('SERVER_ID')
-    ).values('notes')[:1]  # Prendre la première (il n'y en a qu'une)
+    ).values('notes')[:1]
     
-    # Annoter les serveurs avec les notes de l'annotation
     servers = servers.annotate(
-        annotation_notes=Subquery(annotation_subquery)
-    ).values('SERVER_ID', 'annotation_notes').distinct()
+        notes=Subquery(annotation_notes)
+    )
     
-    # Maintenant chaque ligne a SERVER_ID et annotation_notes
-    # annotation_notes sera None si pas d'annotation
-
-
+    # Construire la liste des champs à récupérer
+    fields_to_keep = ['SERVER_ID', 'notes'] + selected_fields_cleaned
+    servers = servers.values(*fields_to_keep).distinct()
