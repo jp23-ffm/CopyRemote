@@ -1,0 +1,153 @@
+@login_required
+def chart_view(request):
+    json_data = get_field_labels()
+    
+    selected_fields = request.GET.getlist('fields')
+    chart_types = request.GET.getlist('types')
+    permanent_filter_selection = request.GET.get('permanentfilter')
+    
+    requestfilters = {}
+    
+    # Retrieve the filters based on the url
+    for key, value in request.GET.items():
+        requestfilters[key] = value
+    
+    servers = get_filtered_servers(requestfilters, permanent_filter_selection)
+    
+    # Au lieu de passer le queryset complet, on extrait juste les données nécessaires
+    if "ANNOTATION" in selected_fields:
+        hostnames = (servers.values('SERVER_ID').distinct().order_by('SERVER_ID'))
+        hostname_list = [item['SERVER_ID'] for item in hostnames]
+        annotations = ServerAnnotation.objects.filter(SERVER_ID__in=hostname_list)
+        
+        # Créer une structure simple : liste de dicts avec SERVER_ID et notes
+        annotation_data = [
+            {
+                'SERVER_ID': ann.SERVER_ID_id,
+                'notes': ann.notes
+            }
+            for ann in annotations
+        ]
+        
+        # Ajouter les annotations aux données des serveurs
+        server_data = list(servers.values('SERVER_ID', *selected_fields))
+        
+        # Créer un mapping pour retrouver les annotations facilement
+        annotation_map = {item['SERVER_ID']: item['notes'] for item in annotation_data}
+        
+        # Ajouter les annotations à chaque serveur
+        for server in server_data:
+            server['ANNOTATION'] = annotation_map.get(server['SERVER_ID'], '')
+    else:
+        # Structure simplifiée : juste les champs nécessaires
+        fields_to_extract = ['SERVER_ID'] + selected_fields
+        server_data = list(servers.values(*fields_to_extract))
+    
+    return generate_charts(request, server_data, json_data, selected_fields, chart_types)
+
+
+@login_required
+def generate_charts(request, server_data, json_data, selected_fields, chart_types):
+    """
+    server_data est maintenant une simple liste de dictionnaires
+    Exemple: [
+        {'SERVER_ID': 'SRV001', 'APP_NAME_VALUE': 'MyApp'},
+        {'SERVER_ID': 'SRV002', 'APP_NAME_VALUE': 'OtherApp'},
+    ]
+    """
+    
+    permanent_filter_selection = request.GET.get('permanentfilter')
+    
+    filter_text = ""
+    filter_parts = []
+    
+    # Retrieve the filters based on the url
+    for key, value in request.GET.items():
+        for field_key, field_info in json_data['fields'].items():
+            if 'inputname' in field_info and field_info['inputname'] == key:
+                fragment = f"{field_info['displayname']}: {value}"
+                filter_parts.append(fragment)
+    
+    filter_parts.append(permanent_filter_selection)
+    filter_text = ", ".join(filter_parts)
+    
+    # Generate the data for each chart
+    charts_data = []
+    
+    for field_key, chart_type in zip(selected_fields, chart_types):
+        if field_key and chart_type:
+            field_info = json_data.get('fields', {}).get(field_key)
+            if not field_info:
+                continue
+            
+            display_name = field_info['displayname']
+            
+            # Mapping pour gérer les alias (pour les cas spéciaux)
+            alias_map = {
+                'priority_asset': 'server_unique__priority_asset',
+                'in_live_play': 'server_unique__in_live_play',
+                'action_during_lp': 'server_unique__action_during_lp',
+                'original_action_during_lp': 'server_unique__original_action_during_lp',
+                'cluster': 'server_unique__cluster',
+                'cluster_type': 'server_unique__cluster_type',
+                'ANNOTATION': 'notes'
+            }
+            
+            data_field = alias_map.get(field_key, field_key)
+            
+            # Aggregation simplifiée sur la liste de dicts
+            # Compter les occurrences de chaque valeur
+            value_counts = {}
+            total_count = len(server_data)
+            
+            for server in server_data:
+                value = server.get(data_field, 'Unknown')
+                if value is None or value == '':
+                    value = 'Unknown'
+                value_counts[value] = value_counts.get(value, 0) + 1
+            
+            # Trier et prendre le top 19
+            sorted_items = sorted(value_counts.items(), key=lambda x: x[1], reverse=True)[:19]
+            
+            # Calculer "Others"
+            top_values_count = sum(count for _, count in sorted_items)
+            others_count = total_count - top_values_count
+            
+            # Préparer les labels et valeurs pour le chart
+            chart_labels = [str(value) for value, _ in sorted_items]
+            chart_values = [count for _, count in sorted_items]
+            
+            if others_count > 0:
+                chart_labels.append('Others')
+                chart_values.append(others_count)
+            
+            # Pour la table (top 100)
+            sorted_items_table = sorted(value_counts.items(), key=lambda x: x[1], reverse=True)[:100]
+            table_labels = [str(value) for value, _ in sorted_items_table]
+            table_values = [count for _, count in sorted_items_table]
+            
+            top_table_count = sum(table_values)
+            others_count_table = total_count - top_table_count
+            
+            if others_count_table > 0:
+                table_labels.append('Others')
+                table_values.append(others_count_table)
+            
+            charts_data.append({
+                'field': display_name,
+                'type': chart_type,
+                'labels': chart_labels,
+                'values': chart_values,
+                'table_labels': table_labels,
+                'table_values': table_values,
+                'different_values': len(value_counts),
+                'total': total_count,
+            })
+    
+    context = {
+        'charts_data': json.dumps(charts_data),
+        'total_servers': len(server_data),
+        'filter_text': filter_text
+    }
+    
+    return render(request, 'common/charts.html', context)
