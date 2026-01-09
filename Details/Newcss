@@ -1,0 +1,17 @@
+.detail-row {
+    display: grid;
+    grid-template-columns: minmax(auto, 200px) 1fr;  /* Label: max 200px, Valeur: reste */
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+}
+
+.detail-category {
+    background-color: #f9fafb;
+    border-radius: 8px;
+    padding: 18px 20px;
+    border: 1px solid #e5e7eb;
+    display: grid;  /* Important ! */
+    grid-template-columns: subgrid;  /* Hérite de la grille parente */
+}
