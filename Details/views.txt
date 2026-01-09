@@ -192,3 +192,110 @@ def chart_view(request):
         server_data = list(servers.values(*fields_to_extract))
     
     return generate_charts(request, server_data, json_data, selected_fields, chart_types)
+
+
+
+
+def generate_charts(request, server_data, json_data, selected_fields, chart_types):
+    """
+    server_data est une liste de dictionnaires (peut contenir des doublons de SERVER_ID)
+    """
+    
+    permanent_filter_selection = request.GET.get('permanentfilter')
+    
+    filter_text = ""
+    filter_parts = []
+    
+    for key, value in request.GET.items():
+        for field_key, field_info in json_data['fields'].items():
+            if 'inputname' in field_info and field_info['inputname'] == key:
+                fragment = f"{field_info['displayname']}: {value}"
+                filter_parts.append(fragment)
+    
+    filter_parts.append(permanent_filter_selection)
+    filter_text = ", ".join(filter_parts)
+    
+    # IMPORTANT: Dédupliquer par SERVER_ID pour avoir le vrai compte
+    unique_servers = {}
+    for server in server_data:
+        server_id = server.get('SERVER_ID')
+        if server_id and server_id not in unique_servers:
+            unique_servers[server_id] = server
+    
+    # Utiliser la liste dédupliquée pour les calculs
+    deduplicated_data = list(unique_servers.values())
+    total_count = len(deduplicated_data)
+    
+    charts_data = []
+    
+    for field_key, chart_type in zip(selected_fields, chart_types):
+        if field_key and chart_type:
+            field_info = json_data.get('fields', {}).get(field_key)
+            if not field_info:
+                continue
+            
+            display_name = field_info['displayname']
+            
+            alias_map = {
+                'priority_asset': 'server_unique__priority_asset',
+                'in_live_play': 'server_unique__in_live_play',
+                'action_during_lp': 'server_unique__action_during_lp',
+                'original_action_during_lp': 'server_unique__original_action_during_lp',
+                'cluster': 'server_unique__cluster',
+                'cluster_type': 'server_unique__cluster_type',
+                'ANNOTATION': 'ANNOTATION'  # Déjà ajouté correctement
+            }
+            
+            data_field = alias_map.get(field_key, field_key)
+            
+            # Compter sur les données dédupliquées
+            value_counts = {}
+            
+            for server in deduplicated_data:
+                value = server.get(data_field, 'Unknown')
+                if value is None or value == '':
+                    value = 'Unknown'
+                value_counts[value] = value_counts.get(value, 0) + 1
+            
+            # Le reste reste identique
+            sorted_items = sorted(value_counts.items(), key=lambda x: x[1], reverse=True)[:19]
+            
+            top_values_count = sum(count for _, count in sorted_items)
+            others_count = total_count - top_values_count
+            
+            chart_labels = [str(value) for value, _ in sorted_items]
+            chart_values = [count for _, count in sorted_items]
+            
+            if others_count > 0:
+                chart_labels.append('Others')
+                chart_values.append(others_count)
+            
+            sorted_items_table = sorted(value_counts.items(), key=lambda x: x[1], reverse=True)[:100]
+            table_labels = [str(value) for value, _ in sorted_items_table]
+            table_values = [count for _, count in sorted_items_table]
+            
+            top_table_count = sum(table_values)
+            others_count_table = total_count - top_table_count
+            
+            if others_count_table > 0:
+                table_labels.append('Others')
+                table_values.append(others_count_table)
+            
+            charts_data.append({
+                'field': display_name,
+                'type': chart_type,
+                'labels': chart_labels,
+                'values': chart_values,
+                'table_labels': table_labels,
+                'table_values': table_values,
+                'different_values': len(value_counts),
+                'total': total_count,
+            })
+    
+    context = {
+        'charts_data': json.dumps(charts_data),
+        'total_servers': total_count,  # Utiliser le compte dédupliqué
+        'filter_text': filter_text
+    }
+    
+    return render(request, 'common/charts.html', context)
