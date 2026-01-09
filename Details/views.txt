@@ -149,5 +149,46 @@ def generate_charts(request, server_data, json_data, selected_fields, chart_type
         'total_servers': len(server_data),
         'filter_text': filter_text
     }
-    
+
     return render(request, 'common/charts.html', context)
+
+
+
+
+@login_required
+def chart_view(request):
+    json_data = get_field_labels()
+    
+    selected_fields = request.GET.getlist('fields')
+    chart_types = request.GET.getlist('types')
+    permanent_filter_selection = request.GET.get('permanentfilter')
+    
+    requestfilters = {}
+    
+    for key, value in request.GET.items():
+        requestfilters[key] = value
+    
+    servers = get_filtered_servers(requestfilters, permanent_filter_selection)
+    
+    # Extraire les SERVER_IDs
+    server_ids = list(servers.values_list('SERVER_ID', flat=True).distinct())
+    
+    # Construire server_data avec les champs demandés
+    if "ANNOTATION" in selected_fields:
+        # Récupérer les annotations pour ces serveurs
+        annotations = ServerAnnotation.objects.filter(SERVER_ID__in=server_ids)
+        annotation_map = {ann.SERVER_ID_id: ann.notes for ann in annotations}
+        
+        # Construire server_data avec SERVER_ID et les autres champs
+        fields_to_extract = ['SERVER_ID'] + [f for f in selected_fields if f != 'ANNOTATION']
+        server_data = list(servers.values(*fields_to_extract))
+        
+        # Ajouter les annotations à chaque serveur
+        for server in server_data:
+            server['ANNOTATION'] = annotation_map.get(server['SERVER_ID'], '')
+    else:
+        # Structure simplifiée sans annotations
+        fields_to_extract = ['SERVER_ID'] + selected_fields
+        server_data = list(servers.values(*fields_to_extract))
+    
+    return generate_charts(request, server_data, json_data, selected_fields, chart_types)
