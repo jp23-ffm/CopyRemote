@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modal avec Listbox</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    width: 400px;
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    margin-bottom: 20px;
+  }
+
+  .modal-body {
+    flex: 1;
+    overflow: visible;
+  }
+
+  /* Listbox */
+  .listbox-container {
+    position: relative;
+    margin-top: auto;
+  }
+
+  .listbox-trigger {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .listbox-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    list-style: none;
+    padding: 0;
+    margin-left: 0;
+    box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 1001;
+  }
+
+  .listbox-dropdown.hidden {
+    display: none;
+  }
+
+  .listbox-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+  }
+
+  .listbox-item:hover {
+    background: #f5f5f5;
+  }
+
+  .listbox-item:last-child {
+    border-bottom: none;
+  }
+
+  .item-text {
+    flex: 1;
+  }
+
+  .item-remove {
+    background: #ff4444;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 10px;
+  }
+
+  .item-remove:hover {
+    background: #cc0000;
+  }
+
+  .close-modal {
+    margin-top: 20px;
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<button onclick="document.getElementById('modal').style.display='flex'">
+  Ouvrir le modal
+</button>
+
+<div id="modal" class="modal-overlay" style="display: none;">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Mon Modal</h2>
+      <p>Contenu du modal ici...</p>
+    </div>
+    
+    <div class="modal-body">
+      <p>Quelques paragraphes de contenu pour remplir le modal.</p>
+    </div>
+
+    <div class="listbox-container">
+      <button class="listbox-trigger" onclick="toggleListbox()">
+        Sélectionner une option ▼
+      </button>
+      <ul id="listbox" class="listbox-dropdown hidden">
+        <li class="listbox-item">
+          <span class="item-text">Option 1</span>
+          <button class="item-remove" onclick="removeItem(this)">×</button>
+        </li>
+        <li class="listbox-item">
+          <span class="item-text">Option 2</span>
+          <button class="item-remove" onclick="removeItem(this)">×</button>
+        </li>
+        <li class="listbox-item">
+          <span class="item-text">Option 3</span>
+          <button class="item-remove" onclick="removeItem(this)">×</button>
+        </li>
+        <li class="listbox-item">
+          <span class="item-text">Option 4</span>
+          <button class="item-remove" onclick="removeItem(this)">×</button>
+        </li>
+        <li class="listbox-item">
+          <span class="item-text">Option 5</span>
+          <button class="item-remove" onclick="removeItem(this)">×</button>
+        </li>
+      </ul>
+    </div>
+
+    <button class="close-modal" onclick="document.getElementById('modal').style.display='none'">
+      Fermer
+    </button>
+  </div>
+</div>
+
+<script>
+  function toggleListbox() {
+    const listbox = document.getElementById('listbox');
+    listbox.classList.toggle('hidden');
+  }
+
+  function removeItem(button) {
+    const item = button.closest('.listbox-item');
+    item.remove();
+  }
+
+  // Fermer la listbox si on clique ailleurs
+  document.addEventListener('click', function(e) {
+    const listbox = document.getElementById('listbox');
+    const trigger = document.querySelector('.listbox-trigger');
+    
+    if (!listbox.contains(e.target) && e.target !== trigger) {
+      listbox.classList.add('hidden');
+    }
+  });
+</script>
+
+</body>
+</html>
