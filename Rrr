@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Chimera - Login</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'userapp/styles.css' %}">
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Expires" content="0" />
+</head>
+<body>
+    <div class="login-container">
+        <img src="{% static 'userapp/chimera.png' %}" alt="Chimera Logo" class="login-logo">
+        
+        <form method="post" action="{% url 'login' %}" id="loginForm">
+            {% csrf_token %}
+            
+            <!-- Dropdown pour sélectionner l'application -->
+            <label for="app_selection">Select Application:</label>
+            <select name="app_selection" id="app_selection">
+                <option value="reportapp">Server View</option>
+                <option value="continuity">Continuity View</option>
+            </select>
+            
+            {% if request.GET.next %}
+            <input type="hidden" name="next" value="{{ request.GET.next }}">
+            {% endif %}
+            
+            <!-- Champs username/password cachés par défaut -->
+            <div id="credentialsSection" style="display: none;">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username">
+                
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password">
+                
+                <button type="submit" class="login-button">Login with credentials</button>
+            </div>
+        </form>
+        
+        <!-- Boutons SSO et toggle credentials en premier -->
+        <button type="button" class="login-button" onclick="ssoLogin()">SSO</button>
+        <button type="button" class="transparent-button" onclick="toggleCredentials()">Login with credentials</button>
+        
+        <!-- Modal pour requête d'accès -->
+        <div id="requestAccessModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeRequestAccessModal()">&times;</span>
+                <h2>Request Access</h2>
+                <p>To get access, please request this MyIAM entitlement:</p>
+                <ul>
+                    <li>IV2EMEA IAASDEV Chimera Prod RO</li>
+                </ul>
+                <p>Wait for approval and follow any additional instructions provided. Thank you.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function ssoLogin() {
+            var app = document.getElementById("app_selection").value;
+            window.location.href = "{% url 'initiate_sso' %}?app=" + encodeURIComponent(app);
+        }
+        
+        function toggleCredentials() {
+            var section = document.getElementById("credentialsSection");
+            if (section.style.display === "none") {
+                section.style.display = "block";
+            } else {
+                section.style.display = "none";
+            }
+        }
+        
+        function openRequestAccessModal() {
+            document.getElementById("requestAccessModal").style.display = "block";
+        }
+        
+        function closeRequestAccessModal() {
+            document.getElementById("requestAccessModal").style.display = "none";
+        }
+        
+        window.onclick = function(event) {
+            var modal = document.getElementById("requestAccessModal");
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+</body>
+</html>
