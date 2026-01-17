@@ -1,0 +1,36 @@
+python manage.py shell
+
+
+
+# Importer tes modèles
+from ton_app.models import CustomUser, UserProfile, SavedSearch, SavedOptions, UserPermissions, SavedChart
+
+# Récupérer un user
+user = CustomUser.objects.first()
+
+# Accéder au UserProfile (pas de related_name défini, donc c'est 'userprofile')
+user.userprofile
+user.userprofile.email_address
+
+# Accéder aux SavedSearch liés à ce UserProfile
+user.userprofile.savedsearch_set.all()
+
+# Accéder aux SavedOptions
+user.userprofile.savedoptions_set.all()
+
+# Accéder aux UserPermissions
+user.userprofile.userpermissions_set.all()
+
+# Accéder aux SavedChart (attention: related_name="saved_charts")
+user.userprofile.saved_charts.all()
+
+# Voir tous les champs du user
+user.__dict__
+
+# Tester si le profile existe
+try:
+    profile = user.userprofile
+    print(f"Profile trouvé: {profile.email_address}")
+except UserProfile.DoesNotExist:
+    print("Pas de profile pour cet user")
+
