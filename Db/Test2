@@ -1,0 +1,30 @@
+# Récupérer ou créer le UserProfile
+try:
+    user_profile = user.userprofile
+except UserProfile.DoesNotExist:
+    logger.warning("[LDAP] UserProfile for %s does not exist.", user.username)
+    return
+
+# Déterminer les permissions selon les groupes
+is_bc_editor = req_bc_editors in groups or req2 in groups
+is_inventory_editor = req_inventory_editors in groups or req2 in groups
+
+# Mettre à jour ou créer les permissions
+user_permissions, created = UserPermissions.objects.update_or_create(
+    user_profile=user_profile,
+    defaults={
+        'businesscontinuity_allowedit': is_bc_editor,
+        'inventory_allowedit': is_inventory_editor
+    }
+)
+
+# Logs pour débugger
+if is_bc_editor:
+    logger.debug("[LDAP] %s is a BC editor.", user.username)
+else:
+    logger.debug("[LDAP] %s is not a BC editor.", user.username)
+
+if is_inventory_editor:
+    logger.debug("[LDAP] %s is an Inventory editor.", user.username)
+else:
+    logger.debug("[LDAP] %s is not an Inventory editor.", user.username)
