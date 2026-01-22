@@ -1,3 +1,43 @@
+def server_view(request):
+    # Récupère les filtres de l'URL
+    country_filter = request.GET.get('country')
+    
+    # Si filtre sur Country, commence par Inventory
+    if country_filter:
+        # Filtre Inventory d'abord
+        matching_inventory = InventoryServer.objects.filter(Country=country_filter)
+        valid_server_ids = list(matching_inventory.values_list('SERVER_ID', flat=True))
+        
+        # Filtre tes serveurs avec ces IDs
+        all_servers = Server.objects.filter(SERVER_ID__in=valid_server_ids).select_related('server_unique')
+        
+        # Le dict est déjà filtré
+        inventory_dict = {inv.SERVER_ID: inv for inv in matching_inventory}
+    else:
+        # Pas de filtre Country, process normal
+        all_servers = Server.objects.all().select_related('server_unique')
+        server_ids = all_servers.values_list('SERVER_ID', flat=True)
+        inventory_dict = {
+            inv.SERVER_ID: inv
+            for inv in InventoryServer.objects.filter(SERVER_ID__in=server_ids)
+        }
+    
+    # Continue avec tes autres filtres sur all_servers
+    # Ex: all_servers = all_servers.filter(ITCONTINUITY_LEVEL='HIGH')
+    
+    # Pagination...
+    # Boucle pour créer servers_for_template...
+
+
+
+
+
+
+
+
+
+
+
 from inventory.models import InventoryServer
 from continuity.models import ContinuityServer
 
