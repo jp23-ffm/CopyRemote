@@ -1,0 +1,38 @@
+from inventory.models import InventoryServer
+from continuity.models import ContinuityServer
+
+def ma_vue(request):
+    # Récupère tous tes serveurs Continuity
+    continuity_servers = ContinuityServer.objects.all()
+    
+    # Crée un dictionnaire pour mapper SERVER_ID -> Country
+    inventory_dict = {
+        inv.SERVER_ID: inv.Country 
+        for inv in InventoryServer.objects.all()
+    }
+    
+    # Ajoute dynamiquement le champ Country à chaque serveur
+    for server in continuity_servers:
+        server.country = inventory_dict.get(server.SERVER_ID)
+    
+    return render(request, 'template.html', {'servers': continuity_servers})
+
+
+
+{% for server in servers %}
+    <tr>
+        <td>{{ server.SERVER_ID }}</td>
+        <td>{{ server.country }}</td>
+        <!-- tes autres champs -->
+    </tr>
+{% endfor %}
+
+
+server_ids = continuity_servers.values_list('SERVER_ID', flat=True)
+inventory_dict = {
+    inv.SERVER_ID: inv.Country 
+    for inv in InventoryServer.objects.filter(SERVER_ID__in=server_ids)
+}
+
+
+
