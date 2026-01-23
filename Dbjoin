@@ -1,4 +1,38 @@
 def server_view(request):
+    country_filter = request.GET.get('country')
+    
+    if country_filter:
+        matching_inventory = InventoryServer.objects.filter(Country=country_filter)
+        valid_server_ids = list(matching_inventory.values_list('SERVER_ID', flat=True))
+        
+        # Découpe en chunks de 999
+        chunk_size = 999
+        all_servers = Server.objects.none()  # QuerySet vide
+        
+        for i in range(0, len(valid_server_ids), chunk_size):
+            chunk = valid_server_ids[i:i + chunk_size]
+            all_servers = all_servers | Server.objects.filter(SERVER_ID__in=chunk)
+        
+        all_servers = all_servers.select_related('server_unique')
+        inventory_dict = {inv.SERVER_ID: inv for inv in matching_inventory}
+    else:
+        all_servers = Server.objects.all().select_related('server_unique')
+        server_ids = all_servers.values_list('SERVER_ID', flat=True)
+        inventory_dict = {
+            inv.SERVER_ID: inv
+            for inv in InventoryServer.objects.filter(SERVER_ID__in=server_ids)
+        }
+    
+    # Continue...
+
+
+
+
+
+
+
+
+def server_view(request):
     # Récupère les filtres de l'URL
     country_filter = request.GET.get('country')
     
