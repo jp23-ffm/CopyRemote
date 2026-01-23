@@ -1,0 +1,129 @@
+def is_value_valid(value):
+    """Check if value is considered valid (not missing/invalid)."""
+    if value is None:
+        return False
+    return str(value).strip().upper() not in INVALID_VALUES
+
+
+
+def bulk_insert_discrepancies(records):
+    if not records:
+        return
+    
+    # Mapping des champs vers leurs colonnes _ok
+    field_to_ok_column = {
+        'APE_NAME_VALUE': 'ape_name_ok',
+        'APE_AUID_VALUE': 'ape_auid_ok',
+        'PAMELA_DATACENTER': 'datacenter_ok',
+        'OSFAMILY': 'osfamily_ok',
+        'OSSHORTNAME': 'osshortname_ok',
+        'ENVIRONMENT': 'environment_ok',
+        'REGION': 'region_ok',
+        'TECHFAMILY': 'techfamily_ok',
+        'SNOW_SUPPORTGROUP': 'snow_supportgroup_ok',
+        'APE_SUPPORTGROUP_NAME': 'ape_supportgroup_ok',
+        'LIVE_STATUS': 'live_status_ok',
+        'MACHINE_TYPE': 'machine_type_ok',
+        'IPADDRESS': 'ipaddress_ok',
+    }
+    
+    # Colonnes de base + colonnes de validation
+    base_columns = ['SERVER_ID', 'missing_fields', 'analysis_date'] + FIELDS_TO_CHECK
+    ok_columns = list(field_to_ok_column.values())
+    all_columns = base_columns + ok_columns
+    columns_str = ', '.join(all_columns)
+    
+    chunk_size = 1000
+    total = 0
+    
+    with connection.cursor() as cursor:
+        for i in range(0, len(records), chunk_size):
+            chunk = records[i:i + chunk_size]
+            
+            placeholders = ', '.join(['(' + ', '.join(['%s'] * len(all_columns)) + ')'] * len(chunk))
+            
+            values_list = []
+            for record in chunk:
+                # Valeurs de base
+                row_values = [record.get(col) for col in base_columns]
+                
+                # Calcule les valeurs _ok pour chaque champ
+                for field, ok_col in field_to_ok_column.items():
+                    is_valid = is_value_valid(record.get(field))
+                    row_values.append(is_valid)
+                
+                values_list.extend(row_values)
+            
+            insert_sql = f"""
+                INSERT INTO inventory_serverdiscrepancystaging ({columns_str})
+                VALUES {placeholders}
+            """
+            
+            cursor.execute(insert_sql, values_list)
+            total += len(chunk)
+        
+        write_log(f"Inserted {total} records in {(len(records) + chunk_size - 1) // chunk_size} batches")
+
+
+
+def create_analysis_snapshot(stats, analysis_date, duration):
+    """Create a snapshot of the analysis results"""
+    from inventory.models import AnalysisSnapshot
+    
+    snapshot = AnalysisSnapshot(
+        analysis_date=analysis_date,
+        total_servers_analyzed=stats['total_entries'],
+        servers_with_issues=stats['servers_with_discrepancies'],
+        servers_clean=stats['total_entries'] - stats['servers_with_discrepancies'],
+        duration_seconds=duration,
+    )
+    
+    # Remplis les compteurs par champ
+    for field in FIELDS_TO_CHECK:
+        field_lower = field.lower()
+        count_attr = f"missing_{field_lower}_count"
+        
+        # Adapte le nom selon ton mapping
+        if field == 'APE_NAME_VALUE':
+            count_attr = 'missing_ape_name_count'
+        elif field == 'APE_AUID_VALUE':
+            count_attr = 'missing_ape_auid_count'
+        elif field == 'PAMELA_DATACENTER':
+            count_attr = 'missing_datacenter_count'
+        elif field == 'APE_SUPPORTGROUP_NAME':
+            count_attr = 'missing_ape_supportgroup_count'
+        # ... ajoute les autres mappings si nécessaire
+        
+        if hasattr(snapshot, count_attr):
+            setattr(snapshot, count_attr, stats.get('discrepancies_by_field', {}).get(field, 0))
+    
+    snapshot.save()
+    write_log(f"Created analysis snapshot: {snapshot}")
+    
+    return snapshot
+
+
+
+def analyze_servers():
+    # ... ton code existant ...
+    
+    # Analyze
+    stats = analyze_servers_logic()  # Renomme ton code d'analyse actuel
+    
+    # Insert records
+    if stats['records']:
+        write_log(f"Inserting {len(stats['records'])} discrepancy records...")
+        bulk_insert_discrepancies(stats['records'])
+    else:
+        write_log("No discrepancies found")
+    
+    # Swap tables
+    swap_tables()
+    
+    duration = datetime.datetime.now() - start_time
+    write_log(f"Completed in {duration}")
+    
+    # **NOUVEAU : Crée le snapshot**
+    create_analysis_snapshot(stats, analysis_date, duration.total_seconds())
+    
+    return stats
