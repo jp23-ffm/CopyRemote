@@ -2,18 +2,30 @@ def bulk_insert_discrepancies(records):
     if not records:
         return
     
-    # Crée des objets ServerDiscrepancy
-    discrepancy_objects = [
-        ServerDiscrepancy(
-            SERVER_ID=record['SERVER_ID'],
-            missing_fields=record['missing_fields'],
-            analysis_date=record['analysis_date'],
-            **{field: record.get(field) for field in FIELDS_TO_CHECK}
-        )
-        for record in records
-    ]
+    columns = ['SERVER_ID', 'missing_fields', 'analysis_date'] + FIELDS_TO_CHECK
+    columns_str = ', '.join(columns)
     
-    # Insertion en masse - beaucoup plus rapide !
-    ServerDiscrepancy.objects.bulk_create(discrepancy_objects, batch_size=1000)
+    chunk_size = 1000
+    total = 0
     
-    write_log(f"Inserted {len(discrepancy_objects)} discrepancy records in bulk")
+    with connection.cursor() as cursor:
+        for i in range(0, len(records), chunk_size):
+            chunk = records[i:i + chunk_size]
+            
+            # Crée les placeholders : (%s, %s, %s, ...), (%s, %s, %s, ...), ...
+            placeholders = ', '.join(['(' + ', '.join(['%s'] * len(columns)) + ')'] * len(chunk))
+            
+            # Flatten les valeurs
+            values_list = []
+            for record in chunk:
+                values_list.extend([record.get(col) for col in columns])
+            
+            insert_sql = f"""
+                INSERT INTO inventory_serverdiscrepancystaging ({columns_str})
+                VALUES {placeholders}
+            """
+            
+            cursor.execute(insert_sql, values_list)
+            total += len(chunk)
+        
+        write_log(f"Inserted {total} records in {(len(records) + chunk_size - 1) // chunk_size} batches")
