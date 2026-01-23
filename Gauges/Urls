@@ -1,0 +1,9 @@
+# inventory/urls.py (ou ton urls.py principal)
+
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    # ... tes autres URLs
+    path('dashboard/', views.dashboard_view, name='dashboard'),
+]
