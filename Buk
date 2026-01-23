@@ -1,0 +1,19 @@
+def bulk_insert_discrepancies(records):
+    if not records:
+        return
+    
+    # Crée des objets ServerDiscrepancy
+    discrepancy_objects = [
+        ServerDiscrepancy(
+            SERVER_ID=record['SERVER_ID'],
+            missing_fields=record['missing_fields'],
+            analysis_date=record['analysis_date'],
+            **{field: record.get(field) for field in FIELDS_TO_CHECK}
+        )
+        for record in records
+    ]
+    
+    # Insertion en masse - beaucoup plus rapide !
+    ServerDiscrepancy.objects.bulk_create(discrepancy_objects, batch_size=1000)
+    
+    write_log(f"Inserted {len(discrepancy_objects)} discrepancy records in bulk")
