@@ -1,0 +1,8 @@
+# Voir tous les kills
+cat /var/log/gunicorn/fat_workers.log
+
+# Suivre en temps réel
+tail -f /var/log/gunicorn/fat_workers.log
+
+# Compter combien de kills aujourd'hui
+grep "$(date '+%Y-%m-%d')" /var/log/gunicorn/fat_workers.log | wc -l
