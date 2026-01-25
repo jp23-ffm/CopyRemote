@@ -1,0 +1,21 @@
+#!/bin/bash
+# /usr/local/bin/kill_fat_gunicorn_workers.sh
+
+# Configuration
+MAX_MEM_MB=1000  # Ajuste selon tes besoins (1GB ici)
+LOG_FILE="/var/log/gunicorn/fat_workers.log"
+
+# Créer le fichier de log s'il n'existe pas
+touch "$LOG_FILE"
+
+# Scanner les workers Gunicorn
+ps aux | grep gunicorn | grep -v grep | grep -v master | while read line; do
+    PID=$(echo $line | awk '{print $2}')
+    MEM_KB=$(echo $line | awk '{print $6}')
+    MEM_MB=$((MEM_KB / 1024))
+    
+    if [ $MEM_MB -gt $MAX_MEM_MB ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Worker PID $PID exceeded limit: ${MEM_MB}MB / ${MAX_MEM_MB}MB - Killing gracefully" >> "$LOG_FILE"
+        kill -QUIT $PID
+    fi
+done
