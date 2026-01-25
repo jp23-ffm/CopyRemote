@@ -1,0 +1,9 @@
+ps aux | grep gunicorn | awk '{sum+=$6} END {print "Total RAM Gunicorn: " sum/1024 "MB"}'
+
+
+gunicorn --log-level info \
+         --access-logfile /var/log/gunicorn/access.log \
+         --error-logfile /var/log/gunicorn/error.log \
+         --max-requests 500 \
+         --max-requests-jitter 200
+
