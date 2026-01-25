@@ -1,0 +1,17 @@
+# 1. Créer le script
+sudo nano /usr/local/bin/kill_fat_gunicorn_workers.sh
+
+# 2. Coller le contenu ci-dessus
+
+# 3. Rendre exécutable
+sudo chmod +x /usr/local/bin/kill_fat_gunicorn_workers.sh
+
+# 4. Créer le dossier de log si besoin
+sudo mkdir -p /var/log/gunicorn
+sudo chown ton_user:ton_user /var/log/gunicorn
+
+# 5. Tester manuellement
+/usr/local/bin/kill_fat_gunicorn_workers.sh
+
+# 6. Ajouter au cron
+crontab -e
