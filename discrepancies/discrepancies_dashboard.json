@@ -1,0 +1,117 @@
+{
+  "dashboard": {
+    "title": "Server Data Quality Dashboard",
+    "widgets": [
+      {
+        "id": "overall_quality",
+        "type": "gauge",
+        "size": "large",
+        "title": "Overall Data Quality",
+        "metric": "percentage_clean",
+        "thresholds": {
+          "critical": 80,
+          "warning": 95,
+          "good": 100
+        },
+        "colors": {
+          "critical": "#dc3545",
+          "warning": "#ffc107",
+          "good": "#28a744"
+        }
+      },
+      {
+        "id": "datacenter_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "Datacenter",
+        "metric": "missing_datacenter_count",
+        "link": "/servers/?datacenter_ok=False"
+      },
+      {
+        "id": "environment_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "Environment",
+        "metric": "missing_environment_count",
+        "link": "/servers/?environment_ok=False"
+      },
+      {
+        "id": "live_status_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "Live Status",
+        "icon": "⚡",
+        "metric": "missing_live_status_count",
+        "link": "/servers/?live_status_ok=False"
+      },
+      {
+        "id": "machine_type_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "Machine Type",
+        "metric": "missing_machine_type_count",
+        "link": "/servers/?machine_type_ok=False"
+      },
+      {
+        "id": "region_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "Region",
+        "metric": "missing_region_count",
+        "link": "/servers/?region_ok=False"
+      },
+      {
+        "id": "osfamily_quality",
+        "type": "gauge",
+        "size": "small",
+        "title": "OS Family",
+        "metric": "missing_osfamily_count",
+        "link": "/servers/?osfamily_ok=False"
+      }
+    ],
+    "historic_section": {
+      "enabled": true,
+      "title": "Quality Trend",
+      "default_metric": "servers_with_issues",
+      "days": 30,
+      "metrics": [
+        {
+          "id": "all_issues",
+          "label": "All Issues",
+          "metric": "servers_with_issues",
+          "color": "#dc3545"
+        },
+        {
+          "id": "datacenter",
+          "label": "Missing Datacenter",
+          "metric": "missing_datacenter_count",
+          "color": "#ffc107"
+        },
+        {
+          "id": "environment",
+          "label": "Missing Environment",
+          "metric": "missing_environment_count",
+          "color": "#17a2b8"
+        },
+        {
+          "id": "live_status",
+          "label": "Missing Live Status",
+          "metric": "missing_live_status_count",
+          "color": "#28a744"
+        },
+        {
+          "id": "region",
+          "label": "Missing Region",
+          "metric": "missing_region_count",
+          "color": "#6610f2"
+        },
+        {
+          "id": "osfamily",
+          "label": "Missing OS Family",
+          "metric": "missing_osfamily_count",
+          "color": "#fd7e14"
+        }
+      ]
+    }
+  }
+}

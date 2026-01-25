@@ -1,0 +1,166 @@
+{
+
+    "categories" : {
+
+	    "cat1" : "Application",
+	    "cat2" : "Hardware",
+	    "cat3" : "Operating System",
+	    "cat4" : "Perimeter/Scope",
+	    "cat5" : "Product",
+	    "cat6" : "Status",
+	    "cat7" : "Virtual"
+    },
+	
+	"permanentfilters": {
+
+	    "Alive and Operational" : {
+            "LIVE_STATUS" : ["ALIVE"],
+            "SNOW_STATUS" : ["@OPERATIONAL"]
+		}
+	},
+    
+    "fields" : {
+ 
+ 	    "SERVER_ID" : {
+	      "displayname" : "Server Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "ischeckeddisabled" : "True",
+	      "inputname" : "server",
+	      "suitable_charts": ["pie", "doughnut", "bar"]
+	    },
+	    "APP_NAME_VALUE" : {
+	      "displayname" : "Application Name",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "app_name"
+	    },
+	    
+	    "APP_AUID_VALUE" : {
+	      "displayname" : "Application AUID",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "app_auid"
+	    },	    
+
+
+	    "APP_SUPPORTGROUP_NAME" : {
+	      "displayname" : "Application Support Group",
+	      "selectionsection" : "cat1",
+	      "inputname" : "supportgrpname"
+	    },
+
+
+	    "PAMELA_DATACENTER" : {
+	      "displayname" : "Datacenter",
+	      "selectionsection" : "cat2",
+	      "listbox" : "datacenters",
+	      "listboxmsg" : "Datacenter",
+	      "listid" : "datacenter",	      
+	      "ischecked" : "True",
+	      "inputname" : "datacenter"
+	    },
+
+
+
+
+
+	    "OSSHORTNAME" : {
+	      "displayname" : "OS Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "inputname" : "osshortname",
+	      "listbox" : "osshortnames",
+	      "listboxmsg" : "OS",
+	      "listid" : "osshortname",
+	      "inputname" : "osshortname",
+	      "suitable_charts": ["pie", "doughnut", "bar"]
+	    },
+
+
+	    "LIVE_STATUS" : {
+	      "displayname" : "Live Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "livestatuss",
+	      "listboxmsg" : "Live Status",
+	      "listid" : "livestatus",	      
+	      "inputname" : "livestatus"
+	    },		
+
+
+	    "ENVIRONMENT" : {
+	      "displayname" : "Environment",
+	      "selectionsection" : "cat4",
+	      "inputname" : "environment",
+	      "ischecked" : "True",
+	      "listbox" : "environments",
+	      "listboxmsg" : "Environment",
+	      "listid" : "environment",
+	      "inputname" : "environment"	
+	    },
+
+	    "SHORT_ENVIRONMENT" : {
+	      "displayname" : "Environment short",
+	      "selectionsection" : "cat4",
+	      "inputname" : "shortenvironment"
+	    },	
+	    
+	 	    	
+
+
+	    "IPADDRESS" : {
+	      "displayname" : "IP Address",
+	      "selectionsection" : "cat3",
+	      "inputname" : "ipaddress"
+	    },
+
+
+	    "REGION" : {
+	      "displayname" : "Region",
+	      "selectionsection" : "cat4",
+	      "inputname" : "pamelaarea",
+	      "listbox" : "regions",
+	      "listboxmsg" : "Region",
+	      "listid" : "region",
+	      "inputname" : "region"		      
+	    },
+
+	    "MACHINE_TYPE" : {
+	      "displayname" : "Machine Type",
+	      "selectionsection" : "cat2",
+	      "inputname" : "machinetype"
+	    },
+
+	    "TECHFAMILY" : {
+	      "displayname" : "Tech Family",
+	      "selectionsection" : "cat3",
+	      "inputname" : "techfam"
+	    }
+
+    },
+    
+    "disabled" : {
+    
+        "PAMELA_DATACENTER" : {
+	      "displayname" : "Pamela Datacenter",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "inputname" : "pamdatacenter"
+	    }
+	    
+	},
+	
+	"api_ModelFieldsContentView_allowed" : [
+	    "APP_ITCONTINUITYCRITICALITY", 
+	    "SNOW_DATACENTER", 
+	    "VPIC_DATACENTER", 
+	    "OSSHORTNAME",
+	    "INFRAVERSION",
+	    "MODEL",
+	    "ENVIRONMENT",
+	    "REGION"
+    ]
+
+}
+
