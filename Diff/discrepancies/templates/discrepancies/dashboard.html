@@ -1,0 +1,119 @@
+{% extends 'common/dashboard_base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block dashboard_title %}{{ title }}{% endblock %}
+
+{% block dashboard_meta %}
+    {% if not no_data %}
+        Last analysis: {{ snapshot.analysis_date|date:"d M Y H:i" }}<br>
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+    <!-- Add any discrepancies-specific styles here -->
+{% endblock %}
+
+{% block hero_section %}
+    <!-- Hero gauge: Overall quality -->
+    <div class="hero-section">
+        {% for widget in widgets %}
+            {% if widget.size == 'large' %}
+			<div class="hero-gauge">
+				<a href="{{ widget.link }}" class="hero-gauge-card">
+					<h2>{{ widget.title }}</h2>
+					<div class="hero-gauge-container">
+						<canvas id="gauge-{{ widget.id }}"></canvas>
+						<div class="hero-gauge-value">{{ widget.display_value }}</div>
+					</div>
+					<div class="hero-gauge-stats">
+						<div>Clean: <span>{{ snapshot.servers_clean }}</span></div>
+						<div>Issues: <span>{{ snapshot.servers_with_issues }}</span></div>
+						<div>Total: <span>{{ snapshot.total_servers_analyzed }}</span></div>
+					</div>
+				</a>
+            </div>
+			
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block widgets_grid %}
+    <!-- Mini gauges grid: Per-field quality -->
+    <div class="gauges-grid">
+        {% for widget in widgets %}
+            {% if widget.size == 'small' %}
+            <a href="{{ widget.link }}" class="gauge-card">
+                <div class="gauge-card-header">
+                    <span class="gauge-card-icon">{{ widget.icon }}</span>
+                    <h3 class="gauge-card-title">{{ widget.title }}</h3>
+                </div>
+                <div class="gauge-card-canvas-container">
+                    <canvas id="gauge-{{ widget.id }}"></canvas>
+                    <div class="gauge-card-value">{{ widget.display_value }}</div>
+                </div>
+                <div class="gauge-card-detail">{{ widget.detail }}</div>
+            </a>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block historic_section %}
+    {% if historic_config %}
+    <!-- Historic trend section -->
+    <div class="historic-section">
+        <div class="historic-header">
+            <h2>📈 {{ historic_config.title }}</h2>
+            
+            <!-- Metric selector dropdown -->
+            <select id="metric-selector" class="metric-selector">
+                {% for metric in historic_config.metrics %}
+                <option 
+                    value="{{ metric.id }}"
+                    data-metric="{{ metric.metric }}"
+                    data-color="{{ metric.color }}"
+                    {% if forloop.first %}selected{% endif %}>
+                    {{ metric.label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Trend chart canvas -->
+        <div class="trend-chart-container">
+            <canvas id="trend-chart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+    <!-- Load trend chart JS -->
+    <script src="{% static 'discrepancies/js/trend.js' %}"></script>
+    
+    <script>
+        // Initialize all gauges
+        {% for widget in widgets %}
+        createGauge(
+            'gauge-{{ widget.id }}',
+            {{ widget.value }},
+            {{ widget.thresholds|safe }},
+            {{ widget.colors|safe }},
+            {% if widget.size == 'large' %}true{% else %}false{% endif %}
+        );
+        {% endfor %}
+        
+        // Initialize trend chart if historic data is available
+        {% if trend_data %}
+        initTrendChart(
+            {{ trend_data.dates|safe }},
+            {{ trend_data.values|safe }},
+            '{{ historic_config.metrics.0.color }}',
+            '{{ historic_config.metrics.0.label }}'
+        );
+        {% endif %}
+    </script>
+{% endblock %}

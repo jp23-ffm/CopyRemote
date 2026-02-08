@@ -1,0 +1,9 @@
+{ 
+    "index": "inventory",
+    "filters": {
+        "ENVIRONMENT": ["PROD"], 
+        "APP_NAME_VALUE" : ["MonitoringSystem"], 
+        "SNOW_DATACENTER" : ["DC-DUBLIN-01"] 
+    }, 
+    "fields" : ["SERVER_ID", "ANNOTATION"] 
+} 

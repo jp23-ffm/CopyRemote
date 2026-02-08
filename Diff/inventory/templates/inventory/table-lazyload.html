@@ -1,0 +1,798 @@
+<script>
+    let now1 = new Date();
+   let time1 = `${now1.getHours().toString().padStart(2, '0')}:${now1.getMinutes().toString().padStart(2, '0')}:${now1.getSeconds().toString().padStart(2, '0')}.${now1.getMilliseconds().toString().padStart(3, '0')}`;
+   console.log(`[${time1}] Table Lazyload Start`); 
+</script>
+
+{% load static %}
+{% load inventory_custom_filters %}
+
+
+<style>
+/* Lazy loading styles */
+.loading-spinner {
+    color: #999;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.error-cell {
+    color: #e74c3c;
+    font-weight: bold;
+    cursor: help;
+}
+
+/* Hidden column placeholder */
+td.lazy-placeholder {
+    min-width: 50px;
+}
+
+/* Rest of the modal and table styles are unchanged... */
+:root {
+    --modaldetails-overlay-bg: rgba(0, 0, 0, 0.75);
+    --modaldetails-overlay-blur: blur(3px);
+    --modaldetails-bg: #ffffff;
+    --modaldetails-border: #e5e7eb;
+    --modaldetails-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    --modaldetails-header-bg-start: #f9fafb;
+    --modaldetails-header-bg-end: #ffffff;
+    --modaldetails-header-border: #e5e7eb;
+    --modaldetails-title-color: #111827;
+    --modaldetails-close-color: #6b7280;
+    --modaldetails-close-hover-bg: #f3f4f6;
+    --modaldetails-close-hover-color: #1f2937;
+    --modaldetails-badge-bg: #3b82f6;
+    --modaldetails-badge-color: #ffffff;
+    --modaldetails-scrollbar-track: #f1f5f9;
+    --modaldetails-scrollbar-thumb: #cbd5e1;
+    --modaldetails-scrollbar-thumb-hover: #94a3b8;
+    --category-bg: #f9fafb;
+    --category-border: #e5e7eb;
+    --category-title-color: #374151;
+    --category-title-border: #d1d5db;
+    --detail-row-border: #e5e7eb;
+    --detail-label-color: #4b5563;
+    --detail-value-color: #1f2937;
+    --detail-value-empty: #9ca3af;
+    --detail-value-variable: #7c3aed;
+    --icon-button-color: #6b7280;
+    --icon-button-hover-bg: #f3f4f6;
+    --icon-button-hover-color: #1f2937;
+    --icon-button-active-bg: #e5e7eb;
+}
+
+[data-theme="dark"] {
+    --modaldetails-overlay-bg: rgba(0, 0, 0, 0.85);
+    --modaldetails-bg: #1f2937;
+    --modaldetails-border: #374151;
+    --modaldetails-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    --modaldetails-header-bg-start: #111827;
+    --modaldetails-header-bg-end: #1f2937;
+    --modaldetails-header-border: #374151;
+    --modaldetails-title-color: #f9fafb;
+    --modaldetails-close-color: #9ca3af;
+    --modaldetails-close-hover-bg: #374151;
+    --modaldetails-close-hover-color: #f9fafb;
+    --modaldetails-badge-bg: #2563eb;
+    --modaldetails-badge-color: #ffffff;
+    --modaldetails-scrollbar-track: #374151;
+    --modaldetails-scrollbar-thumb: #4b5563;
+    --modaldetails-scrollbar-thumb-hover: #6b7280;
+    --category-bg: #111827;
+    --category-border: #374151;
+    --category-title-color: #d1d5db;
+    --category-title-border: #4b5563;
+    --detail-row-border: #374151;
+    --detail-label-color: #9ca3af;
+    --detail-value-color: #e5e7eb;
+    --detail-value-empty: #6b7280;
+    --detail-value-variable: #a78bfa;
+    --icon-button-color: #9ca3af;
+    --icon-button-hover-bg: #374151;
+    --icon-button-hover-color: #f9fafb;
+    --icon-button-active-bg: #4b5563;
+}
+
+.modaldetails-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--modaldetails-overlay-bg);
+    z-index: 999999;
+    overflow: auto;
+    padding: 20px;
+    backdrop-filter: var(--modaldetails-overlay-blur);
+}
+
+.modaldetails-content {
+    position: relative;
+    background-color: var(--modaldetails-bg);
+    max-width: 1400px;
+    margin: 30px auto;
+    border-radius: 12px;
+    box-shadow: var(--modaldetails-shadow);
+    animation: modalSlideIn 0.25s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from { transform: translateY(-30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.modaldetails-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--modaldetails-header-border);
+    background: linear-gradient(to bottom, var(--modaldetails-header-bg-start), var(--modaldetails-header-bg-end));
+    border-radius: 12px 12px 0 0;
+}
+
+.modaldetails-header h2 {
+    margin: 0;
+    font-size: 22px;
+    color: var(--modaldetails-title-color);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modaldetails-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modaldetails-icon-button {
+    background: none;
+    border: none;
+    color: var(--icon-button-color);
+    cursor: pointer;
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+    font-size: 18px;
+}
+
+.modaldetails-icon-button:hover {
+    background-color: var(--icon-button-hover-bg);
+    color: var(--icon-button-hover-color);
+}
+
+.modaldetails-instance-badge {
+    background-color: var(--modaldetails-badge-bg);
+    color: var(--modaldetails-badge-color);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.modaldetails-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: var(--modaldetails-close-color);
+    cursor: pointer;
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.modaldetails-close:hover {
+    background-color: var(--modaldetails-close-hover-bg);
+    color: var(--modaldetails-close-hover-color);
+}
+
+.modaldetails-body {
+    padding: 28px 32px 32px;
+    max-height: calc(100vh - 180px);
+    overflow-y: auto;
+}
+
+.server-details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 20px;
+}
+
+.detail-category {
+    background-color: var(--category-bg);
+    border-radius: 8px;
+    padding: 18px 20px;
+    border: 1px solid var(--category-border);
+}
+
+.detail-category h3 {
+    margin: 0 0 14px 0;
+    font-size: 15px;
+    color: var(--category-title-color);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid var(--category-title-border);
+    padding-bottom: 8px;
+}
+
+.detail-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 180px) 1fr;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--detail-row-border);
+    font-size: 13px;
+}
+
+.detail-row:last-child { border-bottom: none; }
+
+.detail-label {
+    font-weight: 600;
+    color: var(--detail-label-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-value {
+    color: var(--detail-value-color);
+    word-wrap: break-word;
+    word-break: break-word;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.detail-value.empty { color: var(--detail-value-empty); font-style: italic; }
+.detail-value.variable { color: var(--detail-value-variable); font-style: italic; }
+
+.hostname-cell { cursor: context-menu; }
+</style>
+
+<!-- Server Details Modal -->
+<div id="serverDetailsModal" class="modaldetails-overlay" style="display: none;">
+    <div class="modaldetails-content">
+        <div class="modaldetails-header">
+            <h2 id="modalServerTitle">Server Details</h2>
+            <div class="modaldetails-header-actions">
+                <button class="modaldetails-icon-button" id="modalToggleView" onclick="toggleModalView()" title="Switch to alphabetical view">⇅</button>
+                <button class="modaldetails-icon-button" onclick="copyModalData()" title="Copy to clipboard">📋</button>
+                <button class="modaldetails-close" onclick="closeServerModalDetails()">&times;</button>
+            </div>
+        </div>
+        <div class="modaldetails-body">
+            <div id="modalServerDetails"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Table -->
+<table id="serversTable" data-user-canedit="{{ edit_mode }}">
+    <thead class="tablehead">
+        <!-- Fixed columns always visible -->
+        <th draggable="true" class="col-expand resizable sticky-col-1">
+            <div class="column-title">+/-</div>
+        </th>
+        <th draggable="true" class="col-info resizable sticky-col-2">
+            <div class="column-title">#</div>
+        </th>
+
+        {% for field in table_fields %}
+            {% if field.name == 'ANNOTATION' and not edit_mode %}
+                {# Skip annotation if not in edit mode #}
+            {% else %}
+                {# Determine if column is initially visible #}
+                {% with is_visible=field.name|is_column_visible:visible_columns %}
+                <th draggable="true"
+                    class="{{ field.name }} resizable {% if field.name == 'SERVER_ID' %}sticky-col-3{% endif %}"
+                    style="{% if not is_visible and field.name != 'SERVER_ID' %}display: none;{% endif %}">
+
+                    <input type="text" class="search-input" name="{{ field.inputname }}" placeholder="Search {{ field.displayname }}">
+
+                    {% if field.listbox != '' %}
+                        <select id="{{ field.listid }}-listbox" class="{{ field.listid }}-listbox listbox-centered">
+                            <option value="">{{ field.listboxmsg }}</option>
+                            {% for listboxentry in field.listbox %}
+                                <option value="{{ listboxentry }}">{{ listboxentry }}</option>
+                            {% endfor %}
+                        </select>
+                    {% else %}
+                        <div class="column-title">{{ field.displayname }}</div>
+                    {% endif %}
+                </th>
+                {% endwith %}
+            {% endif %}
+        {% endfor %}
+    </thead>
+
+    <tbody>
+        {% for server_group in page_obj.object_list %}
+            <!-- Primary row -->
+            <tr class="server-row primary-row"
+                data-hostname="{{ server_group.hostname }}"
+                id="primary-{{ server_group.hostname|slugify }}">
+
+                <td class="col-expand sticky-col-1">
+                    {% if server_group.count > 1 %}
+                        <button class="expand-btn" onclick="toggleDetails('{{ server_group.hostname|slugify }}')">+</button>
+                    {% endif %}
+                </td>
+
+                <td class="col-info sticky-col-2">
+                    <span class="instance-count {% if server_group.has_hidden %}has-filtered{% endif %}">
+                        {{ server_group.count }}
+                        {% if server_group.has_hidden %}
+                            <span class="hidden-indicator">/{{ server_group.total_count }}</span>
+                        {% endif %}
+                    </span>
+                </td>
+
+                {% for field in model_fields %}
+                    {% with is_visible=field.name|is_column_visible:visible_columns %}
+                    <td class="{{ field.name }} field-value {% if field.is_hostname %}hostname-cell sticky-col-3{% endif %}"
+                        data-column="{{ field.name }}"
+                        style="{% if not is_visible and field.name != 'SERVER_ID' %}display: none;{% endif %}">
+
+                        {% if field.name == 'ANNOTATION' %}
+                            {% if edit_mode %}
+                                <div class="annotation-display">
+                                    <button class="btn-edit-annotation" onclick="editAnnotation('{{ server_group.hostname }}');">
+                                        {% if server_group.annotation %}✏️{% else %}➕{% endif %}
+                                    </button>
+                                    {% if server_group.annotation and server_group.annotation.notes %}
+                                        <span class="annotation-notes">
+                                            {{ server_group.annotation.notes|truncatechars:50 }}
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% elif is_visible or field.name == 'SERVER_ID' %}
+                            {# Only render data for visible columns #}
+                            {% if field.name in server_group.constant_fields %}
+                                {% if field.is_hostname %}
+                                    <strong>{{ server_group.constant_fields|lookup:field.name }}</strong>
+                                {% else %}
+                                    {{ server_group.constant_fields|lookup:field.name }}
+                                {% endif %}
+                            {% elif field.name in server_group.variable_fields %}
+                                <span class="variable-field">{{ server_group.variable_fields|lookup:field.name|lookup:"preview" }}</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        {% else %}
+                            {# Placeholder for lazy-loaded columns #}
+                            <span class="lazy-placeholder">-</span>
+                        {% endif %}
+                    </td>
+                    {% endwith %}
+                {% endfor %}
+            </tr>
+
+            <!-- Detail rows (for grouped view with multiple instances) -->
+            {% if server_group.count > 1 %}
+                {% for instance in server_group.all_instances %}
+                    <tr class="server-row detail-row"
+                        data-hostname="{{ server_group.hostname }}"
+                        data-instance="{{ forloop.counter }}"
+                        id="detail-{{ server_group.hostname|slugify }}-{{ forloop.counter }}"
+                        style="display: none;">
+
+                        <td class="col-expand sticky-col-1">
+                            {% if forloop.first %}
+                                <button class="expand-btn expanded" onclick="toggleDetails('{{ server_group.hostname|slugify }}')">-</button>
+                            {% endif %}
+                        </td>
+
+                        <td class="col-info sticky-col-2">
+                            <span class="instance-badge {% if server_group.has_hidden %}has-filtered{% endif %}">
+                                {{ forloop.counter }}/{{ server_group.count }}{% if server_group.has_hidden %} *{% endif %}
+                            </span>
+                        </td>
+
+                        {% for field in model_fields %}
+                            {% with is_visible=field.name|is_column_visible:visible_columns %}
+                            <td class="{{ field.name }} field-value {% if field.is_hostname %}hostname-cell sticky-col-3{% endif %}"
+                                data-column="{{ field.name }}"
+                                style="{% if not is_visible and field.name != 'SERVER_ID' %}display: none;{% endif %}">
+
+                                {% if field.name == 'ANNOTATION' %}
+                                    {# Annotation only on first detail row #}
+                                {% elif is_visible or field.name == 'SERVER_ID' %}
+                                    {% with field_value=instance|lookup:field.name %}
+                                        {% if field.is_hostname %}
+                                            <strong>{{ field_value }}</strong>
+                                        {% elif field_value %}
+                                            {{ field_value }}
+                                        {% else %}
+                                            <span class="empty-field">--</span>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="lazy-placeholder">-</span>
+                                {% endif %}
+                            </td>
+                            {% endwith %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            {% endif %}
+        {% empty %}
+            <tr>
+                <td colspan="{{ model_fields|length|add:2 }}" style="text-align: center; padding: 40px; color: #6c757d;">
+                    No servers found.
+                </td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+<script>
+(function() {
+
+    let currentViewMode = 'categorized'; // 'categorized' or 'alphabetical'
+    let currentServerData = null;
+    let currentHostname = null;
+    let currentInstanceNumber = null;
+    
+    // Save all server data (grouped data)
+    const serversData = {
+        {% for server_group in page_obj.object_list %}
+            "{{ server_group.hostname }}": {
+                {% for field in model_fields %}
+                    "{{ field.name }}": {% if field.name in server_group.constant_fields %}"{{ server_group.constant_fields|lookup:field.name|escapejs }}"{% elif field.name in server_group.variable_fields %}{{ server_group.variable_fields|lookup:field.name|safe }}{% else %}null{% endif %}{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    };
+    
+    // Save all server instances (detailed data)
+    const instancesData = {
+        {% for server_group in page_obj.object_list %}
+            {% if server_group.count > 1 %}
+                {% for instance in server_group.all_instances %}
+                    "{{ server_group.hostname }}_instance_{{ forloop.counter }}": {
+                        {% for field in model_fields %}
+                            "{{ field.name }}": "{{ instance|lookup:field.name|escapejs }}"{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    }{% if not forloop.last %},{% endif %}
+                {% endfor %}{% if not forloop.last %},{% endif %}
+            {% endif %}
+        {% endfor %}
+    };
+    
+    const fieldLabels = {{ json_data|safe }};
+    
+    // Clipboard copy (format tab-separated)
+    function copyToClipboard() {
+        if (!currentServerData) return;
+        
+        let tsvContent = '';
+        
+        // Header
+        tsvContent += 'Field\tValue\n';
+        
+        // Process all data
+        for (const [fieldKey, fieldValue] of Object.entries(currentServerData)) {
+            const fieldInfo = fieldLabels.fields[fieldKey];
+
+            if (!fieldInfo) continue;
+            
+            let displayValue = fieldValue;
+
+            if (typeof displayValue === 'object' && displayValue !== null) {
+                if (displayValue.preview) {
+                    displayValue = displayValue.preview;
+                } else {
+                    displayValue = JSON.stringify(displayValue);
+                }
+            }
+            
+            displayValue = displayValue && displayValue !== '' && displayValue !== 'null' ? displayValue : '--';
+            
+            tsvContent += `${fieldInfo.displayname}\t${displayValue}\n`;
+        }
+        
+        // Copy to clipboard
+        navigator.clipboard.writeText(tsvContent).then(() => {
+            showToast('✓ Copied to clipboard!');
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+            showToast('✗ Failed to copy', true);
+        });
+    }
+    
+    function showToast(message, isError = false) {
+        const toast = document.createElement('div');
+        toast.className = 'copy-toast';
+        toast.textContent = message;
+        if (isError) {
+            toast.style.backgroundColor = '#ef4444';
+        }
+        document.body.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.animation = 'slideInUp 0.3s ease-out reverse';
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    
+    // Toogle the display view
+    function toggleViewMode() {
+        currentViewMode = currentViewMode === 'categorized' ? 'alphabetical' : 'categorized';
+
+        const toggleBtn = document.getElementById('modalToggleView');
+        if (toggleBtn) {
+            toggleBtn.classList.toggle('active');
+            toggleBtn.title = currentViewMode === 'categorized' ? 'Switch to alphabetical view' : 'Switch to categorized view';
+        }
+        
+        renderModalContent();
+    }
+    
+
+    function renderModalContent() {
+        if (!currentServerData) return;
+        
+        let html = '';
+        
+        if (currentViewMode === 'categorized') {
+            // Categories View
+            html = '<div class="server-details-grid">';
+            
+            const categories = {};
+            
+            for (const [fieldKey, fieldValue] of Object.entries(currentServerData)) {
+                const fieldInfo = fieldLabels.fields[fieldKey];
+                if (!fieldInfo) continue;
+                
+                const category = fieldInfo.selectionsection || 'Other';
+                if (!categories[category]) {
+                    categories[category] = [];
+                }
+                
+                categories[category].push({
+                    label: fieldInfo.displayname,
+                    value: fieldValue,
+                    key: fieldKey
+                });
+            }
+            
+            const sortedCategories = Object.fromEntries(
+              Object.entries(categories).sort((a, b) => {
+                const realCategoryNameA = fieldLabels.categories[a[0]];
+                const realCategoryNameB = fieldLabels.categories[b[0]];
+                return realCategoryNameA.localeCompare(realCategoryNameB);
+              })
+            );            
+            
+            // Generate the HTML for each category
+            for (const [categoryName, fields] of Object.entries(sortedCategories)) {
+                html += `<div class="detail-category">`;
+                let realCategoryName = fieldLabels.categories[categoryName];
+                html += `<h3>${realCategoryName}</h3>`;
+                
+                for (const field of fields) {
+                    let displayValue = field.value;
+                    let valueClass = '';
+                    
+                    if (typeof displayValue === 'object' && displayValue !== null) {
+                        if (displayValue.preview) {
+                            displayValue = displayValue.preview;
+                            valueClass = 'variable';
+                        } else {
+                            displayValue = JSON.stringify(displayValue);
+                        }
+                    }
+                    
+                    displayValue = displayValue && displayValue !== '' && displayValue !== 'null' ? displayValue : '--';
+                    if (displayValue === '--') {
+                        valueClass = 'empty';
+                    }
+                    
+                    html += `<div class="detail-row">`;
+                    html += `<span class="detail-label">${field.label}:</span>`;
+                    html += `<span class="detail-value ${valueClass}">${displayValue}</span>`;
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+            }
+            
+            html += '</div>';
+            
+        } else {
+            // Alphabetic single view
+            html = '<div class="server-details-grid">';
+            html += `<div class="detail-category" style="grid-column: 1 / -1;">`;
+            html += `<h3>All Fields (Alphabetical)</h3>`;
+            
+            // Collect all fields
+            const allFields = [];
+            for (const [fieldKey, fieldValue] of Object.entries(currentServerData)) {
+                const fieldInfo = fieldLabels.fields[fieldKey];
+                if (!fieldInfo) continue;
+                
+                allFields.push({
+                    label: fieldInfo.displayname,
+                    value: fieldValue,
+                    key: fieldKey
+                });
+            }
+            
+            allFields.sort((a, b) => a.label.localeCompare(b.label));
+            
+            for (const field of allFields) {
+                let displayValue = field.value;
+                let valueClass = '';
+                
+                if (typeof displayValue === 'object' && displayValue !== null) {
+                    if (displayValue.preview) {
+                        displayValue = displayValue.preview;
+                        valueClass = 'variable';
+                    } else {
+                        displayValue = JSON.stringify(displayValue);
+                    }
+                }
+                
+                displayValue = displayValue && displayValue !== '' && displayValue !== 'null' ? displayValue : '--';
+                if (displayValue === '--') {
+                    valueClass = 'empty';
+                }
+                
+                html += `<div class="detail-row">`;
+                html += `<span class="detail-label">${field.label}:</span>`;
+                html += `<span class="detail-value ${valueClass}">${displayValue}</span>`;
+                html += `</div>`;
+            }
+            
+            html += `</div>`;
+            html += '</div>';
+        }
+        
+        document.getElementById('modalServerDetails').innerHTML = html;
+    }
+    
+    window.openServerModal = function(hostname, instanceNumber = null) {
+        const modal = document.getElementById('serverDetailsModal');
+        let serverData;
+        let modalTitle;
+        
+        // Check if we need a grouped or detailed view
+        if (instanceNumber !== null) {
+            const instanceKey = `${hostname}_instance_${instanceNumber}`;
+            serverData = instancesData[instanceKey];
+            modalTitle = `Server Details: ${hostname} - Instance ${instanceNumber}`;
+        } else {
+            serverData = serversData[hostname];
+            modalTitle = `Server Details: ${hostname}`;
+        }
+        
+        if (!serverData) {
+            console.error('No data found for:', hostname, instanceNumber);
+            return;
+        }
+        
+        currentServerData = serverData;
+        currentHostname = hostname;
+        currentInstanceNumber = instanceNumber;
+        
+        let titleHTML = `Server Details: <strong>${hostname}</strong>`;
+        if (instanceNumber !== null) {
+            titleHTML += ` <span class="modaldetails-instance-badge">Instance ${instanceNumber}</span>`;
+        }
+        document.getElementById('modalServerTitle').innerHTML = titleHTML;
+
+        renderModalContent();
+        
+        modal.style.display = 'block';
+    };
+    
+    window.closeServerModalDetails = function() {
+        document.getElementById('serverDetailsModal').style.display = 'none';
+        currentServerData = null;
+        currentHostname = null;
+        currentInstanceNumber = null;
+    };
+    
+    window.copyModalData = copyToClipboard;
+    window.toggleModalView = toggleViewMode;
+    
+    // Event listeners
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('serverDetailsModal');
+        if (modal && e.target === modal) {
+            closeServerModalDetails();
+        }
+    });
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const modal = document.getElementById('serverDetailsModal');
+            if (modal && modal.style.display === 'block') {
+                closeServerModalDetails();
+            }
+        }
+    });
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Move the modal to the body to be on top of all elements
+        const modal = document.getElementById('serverDetailsModal');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+        
+        const hostnameCells = document.querySelectorAll('.hostname-cell');
+        
+        hostnameCells.forEach(cell => {
+            cell.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                
+                const row = this.closest('tr');
+                const hostname = row.getAttribute('data-hostname');
+                
+                if (!hostname) return;
+                
+                if (row.classList.contains('detail-row')) {
+                    const instanceBadge = row.querySelector('.instance-badge');
+                    if (instanceBadge) {
+                        const badgeText = instanceBadge.textContent.trim();
+                        const match = badgeText.match(/^(\d+)\//);
+                        if (match) {
+                            const instanceNumber = parseInt(match[1]);
+                            openServerModal(hostname, instanceNumber);
+                            return;
+                        }
+                    }
+                }
+                
+                openServerModal(hostname, null);
+            });
+            
+            cell.addEventListener('dblclick', function(e) {
+                const row = this.closest('tr');
+                const hostname = row.getAttribute('data-hostname');
+                
+                if (!hostname) return;
+                
+                if (row.classList.contains('detail-row')) {
+                    const instanceBadge = row.querySelector('.instance-badge');
+                    if (instanceBadge) {
+                        const badgeText = instanceBadge.textContent.trim();
+                        const match = badgeText.match(/^(\d+)\//);
+                        if (match) {
+                            const instanceNumber = parseInt(match[1]);
+                            openServerModal(hostname, instanceNumber);
+                            return;
+                        }
+                    }
+                }
+                
+                openServerModal(hostname, null);
+            });
+        });
+    });
+})();
+
+</script>
+
+
+<script>
+    now1 = new Date();
+    time1 = `${now1.getHours().toString().padStart(2, '0')}:${now1.getMinutes().toString().padStart(2, '0')}:${now1.getSeconds().toString().padStart(2, '0')}.${now1.getMilliseconds().toString().padStart(3, '0')}`;
+   console.log(`[${time1}] Table Lazyload End`); 
+</script> 
