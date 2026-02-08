@@ -34,11 +34,9 @@ FIELDS_TO_CHECK = [
 ]
 
 INVALID_VALUES = {
-    '', 'EMPTY', 'N/A', 'NA', 'N.A.', 'UNKNOWN',
-    'UNDEFINED', 'NULL', 'NONE', '-', '--', '?',
+    '', 'EMPTY', 'N/A', 'NA', 'N.A.', 'UNKNOWN', 'UNDEFINED', 'NULL', 'NONE', '-', '--', '?',
 }
 
-# Marker for missing/invalid values in database
 MISSING_MARKER = 'MISSING'
 VALIDATION_OK = 'OK'
 VALIDATION_KO = 'KO'
@@ -52,22 +50,18 @@ def write_log(message):
 
 
 def is_value_missing(value):
-    """Check if value is considered missing or invalid."""
+    # Check if value is considered missing or invalid
     if value is None:
         return True
     return str(value).strip().upper() in INVALID_VALUES
 
 
 def is_value_valid(value):
-    """Check if value is considered valid (not missing/invalid)."""
+    # Check if value is considered valid (not missing/invalid)
     if value is None:
         return False
     return str(value).strip().upper() not in INVALID_VALUES
 
-
-# ============================================================================
-# TABLE OPERATIONS
-# ============================================================================
 
 def bulk_insert_discrepancies(records):
     if not records:
@@ -110,10 +104,8 @@ def bulk_insert_discrepancies(records):
 # ============================================================================
 
 def analyze_servers():
-    """
-    Analyze all servers for missing data.
-    Returns statistics dict.
-    """
+    # Analyze all servers for missing data, returns statistics dict
+
     write_log("Starting analysis")
     write_log("Checking empty fields")
 
@@ -125,16 +117,24 @@ def analyze_servers():
     })
 
     fields_to_fetch = ['SERVER_ID'] + FIELDS_TO_CHECK
-    print("222")
-    queryset = (
+
+    """queryset = (
         Server.objects.only(*fields_to_fetch)
         .filter(
             LIVE_STATUS='ALIVE',
-            #SNOW_STATUS='OPERATIONAL',
-            #INFRAVERSION__in=['IV1', 'IV2', 'IBM'],
+            SNOW_STATUS='OPERATIONAL',
+            INFRAVERSION__in=['IV1', 'IV2', 'IBM'],
         )
         .order_by('SERVER_ID')
-    )
+    )"""
+    
+    queryset = (
+        Server.objects.only(*fields_to_fetch)
+        .filter(
+            LIVE_STATUS='ALIVE'
+        )
+        .order_by('SERVER_ID')
+    )    
 
     queryset = (
         Server.objects.only(*fields_to_fetch)
@@ -171,7 +171,13 @@ def analyze_servers():
         SNOW_STATUS__in=['RETIRED', 'NON-OPERATIONAL'],
         INFRAVERSION__in=['IV1', 'IV2', 'IBM'],
     )""" 
-
+    
+    """
+    inconsistent_servers = Server.objects.only(*fields_to_fetch).filter(
+        Q(SNOW_STATUS__iexact='RETIRED') | Q(SNOW_STATUS__iexact='NON-OPERATIONAL'),
+        LIVE_STATUS__iexact='ALIVE',
+        INFRAVERSION__in=['IV1', 'IV2', 'IBM'],
+    )"""
 
     inconsistent_servers = Server.objects.only(*fields_to_fetch).filter(
         Q(SNOW_STATUS__iexact='RETIRED') | Q(SNOW_STATUS__iexact='NON-OPERATIONAL'),
