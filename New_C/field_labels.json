@@ -1,0 +1,545 @@
+{
+
+    "categories" : {
+
+	    "cat1" : "Application",
+	    "cat2" : "Hardware",
+	    "cat3" : "Operating System",
+	    "cat4" : "Perimeter/Scope",
+	    "cat5" : "Product",
+	    "cat6" : "Status",
+	    "cat7" : "Virtual",
+	    "cat8" : "Business Continuity"
+    },
+	
+	"permanentfilters": {
+
+	    "Alive and Operational" : {
+            "LIVE_STATUS" : ["ALIVE"],
+            "SNOW_STATUS" : ["@OPERATIONAL"]
+		}
+	},
+    
+    "fields" : {
+ 
+ 	    "SERVER_ID" : {
+	      "displayname" : "Server Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "ischeckeddisabled" : "True",
+	      "inputname" : "server",
+	      "suitable_charts": ["pie", "doughnut", "bar"]
+	    },
+	    
+	    "DOMAIN" : {
+	      "displayname" : "Domain",
+	      "selectionsection" : "cat3",
+	      "listbox" : "domains",
+	      "listboxmsg" : "Domain",
+	      "listid" : "domain",	      
+	      "inputname" : "domain"
+	    },	    
+
+	    "APP_NAME_VALUE" : {
+	      "displayname" : "Application Name",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "app_name"
+	    },
+	    
+	    "APP_AUID_VALUE" : {
+	      "displayname" : "Application AUID",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "app_auid"
+	    },	    
+
+	    "SNOW_APPLICATION_VALUE" : {
+	      "displayname" : "SNow App Name",
+	      "selectionsection" : "cat1",
+	      "inputname" : "snow_app_name"
+	    },
+
+	    "APP_ITCONTINUITYCRITICALITY" : {
+	      "displayname" : "IT Continuity Criticaly",
+	      "selectionsection" : "cat1",
+	      "listbox" : "itcontinuitylvls",
+	      "listboxmsg" : "IT Continuity Crit.",
+	      "listid" : "itcontinuitylvl",
+	      "ischecked" : "True",
+	      "inputname" : "itcontinuitylvl"
+	    },
+
+	    "CPU" : {
+	      "displayname" : "CPU",
+	      "selectionsection" : "cat2",
+	      "inputname" : "pamelacpu"
+	    },
+
+	    "DISK" : {
+	      "displayname" : "Disk",
+	      "selectionsection" : "cat2",
+	      "inputname" : "serverdisk"
+	    },
+
+	    "RAM" : {
+	      "displayname" : "RAM",
+	      "selectionsection" : "cat2",
+	      "inputname" : "serverram"
+	    },
+
+	    "APP_MANAGER" : {
+	      "displayname" : "Application Manager",
+	      "selectionsection" : "cat1",
+	      "inputname" : "appmanager"
+	    },
+
+	    "APP_PRODUCTIONDOMAINMANAGER" : {
+	      "displayname" : "PRD Domain Manager",
+	      "selectionsection" : "cat1",
+	      "inputname" : "prddomainmanager"
+	    },
+
+	    "APP_SUPPORTGROUP_NAME" : {
+	      "displayname" : "Application Support Group",
+	      "selectionsection" : "cat1",
+	      "inputname" : "supportgrpname"
+	    },
+
+	    "APP_SUPPORTGROUP_EMAIL" : {
+	      "displayname" : "Support Group Email",
+	      "selectionsection" : "cat1",
+	      "inputname" : "supportgrpemail"
+	    },
+
+	    "ASSETGEN_CABINET" : {
+	      "displayname" : "Cabinet",
+	      "selectionsection" : "cat2",
+	      "inputname" : "assetgen_cabinet"
+	    },		
+
+	    "SERIAL" : {
+	      "displayname" : "Serial",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "inputname" : "serial"
+	    },
+
+	    "SNOW_SUPPORTGROUP" : {
+	      "displayname" : "Support Group",
+	      "selectionsection" : "cat4",
+	      "inputname" : "supportgroup"
+	    },		
+
+	    "APP_PRODUCTIONMANAGER" : {
+	      "displayname" : "Production Manager",
+	      "selectionsection" : "cat1",
+	      "inputname" : "productionmanager"
+	    },
+	    
+	    "APP_SECPROFILE" : {
+	      "displayname" : "Secutiy Profile",
+	      "selectionsection" : "cat1",
+	      "listbox" : "securityprofiles",
+	      "listboxmsg" : "Security Profile",
+	      "listid" : "securityprofile",	      
+	      "inputname" : "securityprofile"
+	    },
+
+	    "SNOW_DATACENTER" : {
+	      "displayname" : "Datacenter",
+	      "selectionsection" : "cat2",
+	      "listbox" : "datacenters",
+	      "listboxmsg" : "Datacenter",
+	      "listid" : "datacenter",	      
+	      "ischecked" : "True",
+	      "inputname" : "datacenter"
+	    },
+
+	    "VPIC_DATACENTER" : {
+	      "displayname" : "VPIC Datacenter",
+	      "selectionsection" : "cat7",
+	      "listbox" : "vpicdatacenters",
+	      "listboxmsg" : "Datacenter",
+	      "listid" : "vpicdatacenter",	      
+	      "inputname" : "vpicdatacenter"
+	    },
+
+	    "INFRAVERSION" : {
+	      "displayname" : "Infra Version",
+	      "selectionsection" : "cat4",
+	      "ischecked" : "True",
+	      "listbox" : "infraversions",
+	      "listboxmsg" : "Infraversion",
+	      "listid" : "infraversion",
+	      "inputname" : "infraversion"
+	    },		
+
+	    "OSFAMILY" : {
+	      "displayname" : "OS Family",
+	      "selectionsection" : "cat3",
+	      "inputname" : "osfamily"
+	    },
+
+	    "MANUFACTURER" : {
+	      "displayname" : "Manufacturer",
+	      "selectionsection" : "cat2",
+	      "inputname" : "manufacturer"
+	    },
+
+	    "MODEL" : {
+	      "displayname" : "Model",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "inputname" : "model",
+	      "listbox" : "models",
+	      "listboxmsg" : "Model",
+	      "listid" : "model",
+	      "inputname" : "model"	      
+	    },
+
+	    "APP_OWNERBUSINESSLINE" : {
+	      "displayname" : "Owner Business Line",
+	      "selectionsection" : "cat4",
+	      "inputname" : "ownerbusinessline"
+	    },
+
+	    "PERIMETER" : {
+	      "displayname" : "Perimeter",
+	      "selectionsection" : "cat4",
+	      "inputname" : "perimeter"
+	    },
+
+	    "SUBPERIMETER" : {
+	      "displayname" : "Subperimeter",
+	      "selectionsection" : "cat4",
+	      "inputname" : "subperimeter"
+	    },
+
+	    "OSSHORTNAME" : {
+	      "displayname" : "OS Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "inputname" : "osshortname",
+	      "listbox" : "osshortnames",
+	      "listboxmsg" : "OS",
+	      "listid" : "osshortname",
+	      "inputname" : "osshortname",
+	      "suitable_charts": ["pie", "doughnut", "bar"]
+	    },
+
+	    "PAMELA_PRODUCT" : {
+	      "displayname" : "Product",
+	      "selectionsection" : "cat5",
+	      "ischecked" : "True",
+	      "inputname" : "product"
+	    },
+
+	    "SNOW_STATUS" : {
+	      "displayname" : "Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "statuss",
+	      "listboxmsg" : "Status",
+	      "listid" : "status",	      	      
+	      "inputname" : "status"
+	    },
+
+	    "LIVE_STATUS" : {
+	      "displayname" : "Live Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "livestatuss",
+	      "listboxmsg" : "Live Status",
+	      "listid" : "livestatus",	      
+	      "inputname" : "livestatus"
+	    },		
+
+	    "APP_VITALAPP" : {
+	      "displayname" : "Vital App",
+	      "selectionsection" : "cat1",
+	      "inputname" : "vitalapp"
+	    },
+
+	    "APP_ITCLUSTER" : {
+	      "displayname" : "IT Cluster",
+	      "selectionsection" : "cat4",
+	      "inputname" : "itcluster"
+	    },		
+
+	    "APP_CRITICALITY" : {
+	      "displayname" : "Criticality",
+	      "selectionsection" : "cat1",
+	      "inputname" : "criticality"
+	    },
+
+	    "ENVIRONMENT" : {
+	      "displayname" : "Environment",
+	      "selectionsection" : "cat4",
+	      "inputname" : "environment",
+	      "ischecked" : "True",
+	      "listbox" : "environments",
+	      "listboxmsg" : "Environment",
+	      "listid" : "environment",
+	      "inputname" : "environment"	
+	    },
+
+	    "SHORT_ENVIRONMENT" : {
+	      "displayname" : "Environment short",
+	      "selectionsection" : "cat4",
+	      "inputname" : "shortenvironment"
+	    },	
+	    
+	 	    	
+
+	    "ECOSYSTEM" : {
+	      "displayname" : "Ecosystem",
+	      "selectionsection" : "cat5",
+	      "inputname" : "ecosystem"
+	    },
+
+	    "SUBSCRIPTION_ID" : {
+	      "displayname" : "Subscription ID",
+	      "selectionsection" : "cat4",
+	      "inputname" : "subscriptionid"
+	    },
+		
+	    "SUBSCRIPTION_STATE" : {
+	      "displayname" : "Subscription Sate",
+	      "selectionsection" : "cat4",
+	      "inputname" : "subscriptionstate"
+	    },
+	    
+	    "SUBSCRIPTION_OWNER" : {
+	      "displayname" : "Server Owner",
+	      "selectionsection" : "cat4",
+	      "inputname" : "serverowner"
+	    },
+
+	    "VLAN" : {
+	      "displayname" : "NetIP(VLAN)",
+	      "selectionsection" : "cat3",
+	      "inputname" : "netip"
+	    },
+
+	    "IPADDRESS" : {
+	      "displayname" : "IP Address",
+	      "selectionsection" : "cat3",
+	      "inputname" : "ipaddress"
+	    },
+
+	    "FQDN" : {
+	      "displayname" : "FQDN",
+	      "selectionsection" : "cat3",
+	      "inputname" : "fqdn"
+	    },
+	    
+	    
+	    "IDRAC_NAME" : {
+	      "displayname" : "iDRAC Name",
+	      "selectionsection" : "cat2",
+	      "inputname" : "idracname"
+	    },
+
+	    "IDRAC_IP" : {
+	      "displayname" : "iDRAC IP",
+	      "selectionsection" : "cat2",
+	      "inputname" : "idracip"
+	    },
+
+	    "VPIC_HOST" : {
+	      "displayname" : "VPIC Hypervisor",
+	      "selectionsection" : "cat7",
+	      "inputname" : "vpichostname"
+	    },
+
+	    "AFFINITY" : {
+	      "displayname" : "Affinity",
+	      "selectionsection" : "cat7",
+	      "inputname" : "pamelaaffinity"
+	    },
+
+	    "HYPERVISOR" : {
+	      "displayname" : "Pamela Hypervisor",
+	      "selectionsection" : "cat7",
+	      "inputname" : "pamelahypervisor"
+	    },		
+
+	    "PAMELA_VPIC_CLUSTER" : {
+	      "displayname" : "VMware Cluster",
+	      "selectionsection" : "cat7",
+	      "inputname" : "vpiccluster"
+	    },
+
+	    "VPIC_VCNAME" : {
+	      "displayname" : "vCenter",
+	      "selectionsection" : "cat7",
+	      "inputname" : "vpicvcname"
+	    },
+
+        "VPIC_VMGROUPS" : {
+          "displayname" : "VM Groups",
+          "selectionsection" : "cat7",
+          "listbox" : "vpicvmgroupss",
+          "listboxmsg" : "VM Groups",
+          "listid" : "vpicvmgroup",
+          "inputname" : "vpicvmgroup"
+        },
+
+	    "OPENSTACK_POWERSTATE" : {
+	      "displayname" : "Openstack VM State",
+	      "selectionsection" : "cat7",
+	      "inputname" : "openstackvmstate"
+	    },
+
+	    "OPENSTACK_INFRA" : {
+	      "displayname" : "Openstack infra",
+	      "selectionsection" : "cat7",
+	      "inputname" : "oginfra"
+	    },		
+
+	    "REGION" : {
+	      "displayname" : "Region",
+	      "selectionsection" : "cat4",
+	      "inputname" : "pamelaarea",
+	      "listbox" : "regions",
+	      "listboxmsg" : "Region",
+	      "listid" : "region",
+	      "inputname" : "region"		      
+	    },
+
+	    "COUNTRY" : {
+	      "displayname" : "Country",
+	      "selectionsection" : "cat4",
+	      "inputname" : "pamelacountry"
+	    },
+
+	    "MACHINE_TYPE" : {
+	      "displayname" : "Machine Type",
+	      "selectionsection" : "cat2",
+	      "inputname" : "machinetype"
+	    },
+
+	    "ASSETGEN_ROOM" : {
+	      "displayname" : "Asset Gen Room",
+	      "selectionsection" : "cat2",
+	      "inputname" : "assetgenroom"
+	    },
+
+	    "TECHFAMILY" : {
+	      "displayname" : "Tech Family",
+	      "selectionsection" : "cat3",
+	      "inputname" : "techfam"
+	    },
+
+	    "SUBTECHFAMILY" : {
+	      "displayname" : "Sub Tech Family",
+	      "selectionsection" : "cat3",
+	      "inputname" : "subtechfam"
+	    },
+
+	    "OBSO_HWPURCHASEDATE" : {
+	      "displayname" : "Obso Purchase Date",
+	      "selectionsection" : "cat2",
+	      "inputname" : "obsopurchasedate"
+	    },
+
+	    "OBSO_HW_ENDOFEXTENDEDDATE" : {
+	      "displayname" : "Obsolescense HW",
+	      "selectionsection" : "cat2",
+	      "inputname" : "obso"
+	    },
+
+	    "PARKPLACEENDON" : {
+	      "displayname" : "ParkPlace On",
+	      "selectionsection" : "cat2",
+	      "inputname" : "parkplaceon"
+	    },
+
+	    "PARKPLACESTARTON" : {
+	      "displayname" : "ParkPlace Start On",
+	      "selectionsection" : "cat2",
+	      "inputname" : "parkplacestarton"
+	    },
+
+	    "DECOMREQ" : {
+	      "displayname" : "Pamela DecomRequest",
+	      "selectionsection" : "cat2",
+	      "inputname" : "decomrequest"
+	    },
+	    
+	    "ANNOTATION": {
+	      "displayname" : "Annotation",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "inputname" : "annotation"
+	    },
+
+	    "priority_asset": {
+	      "displayname" : "Priority Asset",
+	      "selectionsection" : "cat8",
+	      "inputname" : "priorityasset",
+	      "model_extra" : "serverunique"
+	    },
+
+	    "in_live_play": {
+	      "displayname" : "In Live Play",
+	      "selectionsection" : "cat8",
+	      "inputname" : "inliveplay",
+	      "model_extra" : "serverunique"
+	    },
+
+	    "action_during_lp": {
+	      "displayname" : "Action During LP",
+	      "selectionsection" : "cat8",
+	      "inputname" : "actionduringlp",
+	      "model_extra" : "serverunique"
+	    },
+
+	    "original_action_during_lp": {
+	      "displayname" : "Original Action During LP",
+	      "selectionsection" : "cat8",
+	      "inputname" : "originalactionduringlp",
+	      "model_extra" : "serverunique"
+	    },
+
+	    "cluster": {
+	      "displayname" : "Cluster",
+	      "selectionsection" : "cat8",
+	      "inputname" : "cluster",
+	      "model_extra" : "serverunique"
+	    },
+
+	    "cluster_type": {
+	      "displayname" : "Cluster Type",
+	      "selectionsection" : "cat8",
+	      "inputname" : "clustertype",
+	      "model_extra" : "serverunique"
+	    }
+
+    },
+    
+    "disabled" : {
+    
+        "PAMELA_DATACENTER" : {
+	      "displayname" : "Pamela Datacenter",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "inputname" : "pamdatacenter"
+	    }
+	    
+	},
+	
+	"api_ModelFieldsContentView_allowed" : [
+	    "APP_ITCONTINUITYCRITICALITY", 
+	    "SNOW_DATACENTER", 
+	    "VPIC_DATACENTER", 
+	    "OSSHORTNAME",
+	    "INFRAVERSION",
+	    "MODEL",
+	    "ENVIRONMENT",
+	    "REGION"
+    ]
+
+}
+
