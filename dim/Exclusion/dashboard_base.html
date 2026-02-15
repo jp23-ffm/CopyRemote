@@ -1,0 +1,68 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %}</title>
+    
+    <!-- Chart.js library -->
+    <script src="{% static 'common/js/chart.umd.js' %}"></script>
+    
+    <!-- Common dashboard CSS -->
+    <link rel="stylesheet" href="{% static 'common/css/dashboard.css' %}">
+    
+    <!-- App-specific CSS -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body {% block body_attrs %}{% endblock %}>
+
+<script>
+
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark-mode');
+    }
+    
+</script>
+    
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <h1>{% block dashboard_title %}Dashboard{% endblock %}</h1>
+        <div class="dashboard-meta">
+            {% block dashboard_meta %}{% endblock %}
+        </div>
+    </div>
+    
+    {% if no_data %}
+        <!-- No data message -->
+        <div class="no-data-message">
+            <h2>No Data Available</h2>
+            <p>{% block no_data_message %}No analysis has been run yet.{% endblock %}</p>
+        </div>
+        <div class="dashboard">
+            {% block no_data_additional_sections %}{% endblock %}
+        </div>
+    {% else %}
+        <div class="dashboard">
+            <!-- Hero gauge section -->
+            {% block hero_section %}{% endblock %}
+            
+            <!-- Mini gauges grid -->
+            {% block widgets_grid %}{% endblock %}
+            
+            <!-- Historic trend section -->
+            {% block historic_section %}{% endblock %}
+            
+            <!-- Additional custom sections -->
+            {% block additional_sections %}{% endblock %}
+        </div>
+    {% endif %}
+    
+    <!-- Common gauge JS -->
+    <script src="{% static 'common/js/gauges.js' %}"></script>
+    
+    <!-- App-specific JS -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
