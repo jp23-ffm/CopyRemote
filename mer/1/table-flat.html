@@ -1,0 +1,198 @@
+{% load static %}
+{% load inventory_custom_filters %}
+{% load discrepancy_filters %}
+
+<style>
+.error-missing {
+    background-color: #fee2e2 !important; /* Light red */
+    color: #991b1b;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .error-missing {
+    background-color: #7f1d1d !important;
+    color: #fca5a5;
+}
+
+.error-inconsistent {
+    background-color: #fed7aa !important; /* Light orange */
+    color: #9a3412;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .error-inconsistent {
+    background-color: #7c2d12 !important;
+    color: #fdba74;
+}
+
+/* Sort context menu */
+.sort-context-menu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    min-width: 160px;
+    padding: 4px 0;
+    display: none;
+}
+
+[data-theme="dark"] .sort-context-menu {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.sort-context-menu div {
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+}
+
+[data-theme="dark"] .sort-context-menu div {
+    color: #d1d5db;
+}
+
+.sort-context-menu div:hover {
+    background: #f3f4f6;
+}
+
+[data-theme="dark"] .sort-context-menu div:hover {
+    background: #374151;
+}
+
+</style>
+
+
+<table id="serversTable">
+
+    <thead class="tablehead">
+
+        {% for field in table_fields %}
+
+            {% if field.displayname == '' %}
+                {% comment %} Do nothing {% endcomment %}
+            {% else %}
+
+            <th draggable="true" data-field="{{ field.name }}" class="{{ field.name }} resizable {% if field.name == 'SERVER_ID'%}sticky-col-3{% endif %}">
+
+                <input type="text" class="search-input" name="{{ field.inputname }}" placeholder="Search {{ field.displayname }}">
+                {% if field.listbox != '' %}
+                    <select id="{{ field.listid }}-listbox" class="{{ field.listid }}-listbox listbox-centered">
+                        <option value="">{{ field.listboxmsg }}</option>
+                        {% for listboxentry in field.listbox %}
+                            <option value="{{ listboxentry }}">{{ listboxentry }}</option>
+                        {% endfor %}
+                        {% if field.listid == "infraversion" %}
+                            <option value="IV1,IV2,IBM">Our Infra (IV1+IV2+IBM)</option>
+                        {% endif %}
+                    </select>
+
+                {% else %}
+                    <div class="column-title">{{ field.displayname }}</div>
+                {% endif %}
+
+            </th>
+
+            {% endif %}
+
+        {% endfor %}
+        
+    </thead>
+
+    <tbody>
+
+        {% for server_group in page_obj.object_list %}
+
+            <!-- Main row (adapted according to mode) -->
+            <tr class="server-row flat-row" 
+                data-hostname="{{ server_group.hostname }}" 
+                id="{{ server_group.hostname|slugify }}-{{ forloop.counter }}">
+           
+                {% for field in model_fields %}
+
+                    {% with field_value=server_group.primary_server|lookup:field.name %}
+                    
+                    {# Get error CSS class dynamically using custom filter #}
+                    {% get_cell_error_class server_group.primary_server field.name validation_errors as error_class %}
+
+                    <td class="{{ field.name }} field-value {{ error_class }} {% if field.is_hostname %}hostname-cell sticky-col-3{% endif %}">
+
+                        {% if field.is_hostname %}
+                            <strong>{{ field_value }}</strong>
+                        {% elif field_value == 'MISSING' %}
+                            <span class="empty-field">MISSING</span>
+                        {% elif field_value or field_value == 0 %}
+                            {{ field_value }}
+                        {% else %}
+                            <span class="empty-field">-</span>
+                        {% endif %}
+
+                    </td>
+
+                    {% endwith %}   
+
+                {% endfor %}
+
+            </tr>
+
+
+
+            {% empty %}
+
+            <tr>
+                <td colspan="{{ model_fields|length }}" style="text-align: center; padding: 40px; color: #6c757d;">
+                    No servers found.
+                </td>
+            </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+<!-- Sort context menu -->
+<div id="sortContextMenu" class="sort-context-menu">
+    <div data-action="asc">Sort ascending</div>
+    <div data-action="desc">Sort descending</div>
+</div>
+
+<script>
+(function() {
+    const menu = document.getElementById('sortContextMenu');
+    let targetField = null;
+
+    // Right-click on <th>
+    document.querySelectorAll('#serversTable thead th[data-field]').forEach(function(th) {
+        th.style.cursor = 'context-menu';
+        th.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            targetField = th.getAttribute('data-field');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+        });
+    });
+
+    // Click on menu item
+    menu.querySelectorAll('div[data-action]').forEach(function(item) {
+        item.addEventListener('click', function() {
+            if (!targetField) return;
+            menu.style.display = 'none';
+            var order = item.getAttribute('data-action');
+            var url = new URL(window.location.href);
+            url.searchParams.set('sort', targetField);
+            url.searchParams.set('order', order);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        });
+    });
+
+    // Close menu on click outside
+    document.addEventListener('click', function() {
+        menu.style.display = 'none';
+    });
+})();
+</script>

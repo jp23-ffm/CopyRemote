@@ -1,0 +1,171 @@
+{
+
+    "categories" : {
+
+	    "cat1" : "Application",
+	    "cat2" : "Hardware",
+	    "cat3" : "Operating System",
+	    "cat4" : "Perimeter/Scope",
+	    "cat5" : "Product",
+	    "cat6" : "Status",
+	    "cat7" : "Virtual"
+    },
+	    
+    "validation_errors": {
+        "live_status_inconsistent": {
+            "affected_fields": ["LIVE_STATUS", "SNOW_STATUS"],
+            "css_class": "error-inconsistent",
+            "display_name": "Live Status Inconsistencies"
+        }
+    },
+    
+    "fields" : {
+ 
+ 	    "SERVER_ID" : {
+	      "displayname" : "Server Name",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "ischeckeddisabled" : "True",
+	      "inputname" : "server"
+	    },
+
+	    "live_status_inconsistent" : {
+	      "displayname" : "",
+	      "selectionsection" : "cat0",
+	      "ischecked" : "False",
+	      "inputname" : "live_status_inconsistent"
+	    },
+
+	    "APP_NAME_VALUE" : {
+	      "displayname" : "Application Name",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "listbox" : "app_names",
+	      "listboxmsg" : "Application Name",
+	      "listid" : "app_name", 
+          "listempty" : "True", 
+	      "inputname" : "app_name"
+	    },
+	    
+	    "APP_AUID_VALUE" : {
+	      "displayname" : "Application AUID",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "app_auid"
+	    },	    
+
+	    "OSSHORTNAME" : {
+	      "displayname" : "OS Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "inputname" : "osshortname",
+	      "listbox" : "osshortnames",
+	      "listboxmsg" : "OS",
+	      "listid" : "osshortname",
+	      "inputname" : "osshortname"
+	    },
+
+	    "LIVE_STATUS" : {
+	      "displayname" : "Live Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "livestatuss",
+	      "listboxmsg" : "Live Status",
+	      "listid" : "livestatus",	      
+	      "inputname" : "livestatus"
+	    },		
+
+	    "SNOW_STATUS" : {
+	      "displayname" : "Snow Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "snowstatuss",
+	      "listboxmsg" : "Snow Status",
+	      "listid" : "snowstatus",	      
+	      "inputname" : "snowstatus"
+	    }, 	  
+
+	    "IPADDRESS" : {
+	      "displayname" : "IP Address",
+	      "selectionsection" : "cat3",
+	      "inputname" : "ipaddress"
+	    },
+
+	    "REGION" : {
+	      "displayname" : "Region",
+	      "selectionsection" : "cat4",
+	      "inputname" : "pamelaarea",
+	      "listbox" : "regions",
+	      "listboxmsg" : "Region",
+	      "listid" : "region",
+	      "inputname" : "region"		      
+	    },
+
+	    "MACHINE_TYPE" : {
+	      "displayname" : "Machine Type",
+	      "selectionsection" : "cat2",
+	      "inputname" : "machinetype"
+	    },
+
+	    "OSFAMILY" : {
+	      "displayname" : "OS Family",
+	      "selectionsection" : "cat3",
+	      "inputname" : "osfamily"
+	    },
+	    
+	    "MANUFACTURER" : {
+	      "displayname" : "Manufacturer",
+	      "selectionsection" : "cat2",
+	      "inputname" : "manufacturer"
+	    },
+	    
+	    "COUNTRY" : {
+	      "displayname" : "Country",
+	      "selectionsection" : "cat4",
+	      "inputname" : "country"
+	    },
+	    
+	    "CITY" : {
+	      "displayname" : "City",
+	      "selectionsection" : "cat4",
+	      "inputname" : "city"
+	    },
+	    
+	    "INFRAVERSION" : {
+	      "displayname" : "Infra Version",
+	      "selectionsection" : "cat6",
+	      "inputname" : "infraversion"
+	    },
+
+	    "days_open" : {
+	      "displayname" : "Days Open",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "inputname" : "daysopen"
+	    }
+
+    },
+    
+    "disabled" : {
+    
+        "PAMELA_DATACENTER" : {
+	      "displayname" : "Pamela Datacenter",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "inputname" : "pamdatacenter"
+	    }
+	    
+	},
+	
+	"api_ModelFieldsContentView_allowed" : [
+	    "APP_ITCONTINUITYCRITICALITY", 
+	    "SNOW_DATACENTER", 
+	    "VPIC_DATACENTER", 
+	    "OSSHORTNAME",
+	    "INFRAVERSION",
+	    "MODEL",
+	    "ENVIRONMENT",
+	    "REGION"
+    ]
+
+}
