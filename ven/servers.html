@@ -1,0 +1,933 @@
+{% load static %}
+{% load discrepancy_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimera - Discrepancies - v1.0</title>
+
+    <!-- Load the theme common/js/theme-toggle.js-->
+
+    <link rel="stylesheet" type="text/css" href="{% static appname|add:'/css/discrepancies.css' %}">
+
+    <link rel="icon" type=image/svg+xml" href="{% static appname|add:'/img/favicon.svg' %}">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <script id="json-data" type="application/json">{{ json_data|safe }}</script>
+
+
+</head>
+
+<body>
+
+{{ cacheset|json_script:"cacheset-data" }}
+{{ localhostname|json_script:"localhostname-data" }}
+
+<script>
+
+    const cacheset = JSON.parse(
+        document.getElementById('cacheset-data').textContent
+    );
+
+    console.log('cacheset →', cacheset);   // true or false
+    
+    const localhostname = JSON.parse(
+        document.getElementById('localhostname-data').textContent
+    );    
+    console.log('hostname →', localhostname); 
+    
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark-mode');
+    }
+    
+</script>
+
+    <div id="topbar">
+    
+        <div id="app-info">
+            <span>Discrepancies</span>
+        </div>
+
+        <div id="user-info">
+            <button class="help-icon" onclick="openSettingsModal()">⚙️</button>
+            <span>    </span>
+            <span>Welcome, {{ user.username }}</span>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>     
+
+    </div>  <!-- topbar -->  
+
+    <div class="container">
+
+        <div class="content">
+        
+            <div class="sidebar-container">
+            
+                <div class="sidebar">
+             
+                    <h2>Show/Hide Columns</h2>
+                    
+                    <form id="columnSelector">
+                    
+                        <label>
+                            <input type="checkbox" id="selectAllColumns"> Select All / Default selection
+                        </label>
+                        <br><br>
+
+                        {% for section in category_fields %}
+
+                            <div class="category">
+                            
+                                <div class="category-header">
+                                    <input type="checkbox" class="category-checkbox" data-category="{{ section.category }}">
+                                    <span class="category-title" data-target="{{ section.category }}">{{ section.title }}</span>
+                                </div>
+
+                                <div class="category-content" id="{{ section.category }}">
+                                    {%for field in section.fields %}
+                                        <label>
+                                            <input type="checkbox" class="column-checkbox" data-column="{{ field.key }}" 
+                                                {% if field.ischecked %}checked{% endif %} {% if field.ischeckeddisabled %}disabled{% endif %}>
+                                                {{ field.displayname }}
+                                        </label>
+                                        <br>
+                                    {% endfor %}
+                                </div>  <!-- category-content -->
+                                
+                            </div>  <!-- category -->
+
+                        {% endfor %}
+                          
+                    </form>  <!-- columnSelector -->
+
+                </div>  <!-- sidebar -->
+
+                <div class="log-date-container">
+                    <p>You are seeing DPR Data</p>
+                
+                    {% if last_status %}
+                        {% if last_status.success %}
+                            <p style="color: green;">
+                                <a href="{% url appname|add:':logs_imports' %}" style="color: inherit;">Last import: {{ last_status.date_import }}</a>
+                            </p>
+                        {% else %}
+                            <p style="color: red;">
+                                <a href="{% url appname|add:':logs_imports' %}" style="color: inherit;">Last import: {{ last_status.date_import }}</a>
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <p style="color: blue;">Last import: No import performed yet</p>
+                    {% endif %} 
+
+                </div>  <!-- log-date-container -->
+                
+                <div class="toggle-button" id="toggleSidebar">
+                    <i class="chevron-toggle">&lt;</i>
+                </div>  <!-- toggle-button  -->
+                
+            </div>  <!-- sidebar-container -->
+
+            <div class="tabs">
+            
+                <div id="menu">
+                    
+                    <div style="display:flex; align-items:center; gap:10px;">
+                    <div class="export-dropdown-container">
+
+                        <button class="export-btn" onclick="toggleExportDropdown()">Export &nbsp;&nbsp;▼</button>
+                        <div class="export-dropdown-content" id="exportDropdownContent">
+                            <div class="export-option" data-value="excel">Export To Excel</div>
+                            <div class="export-option" data-value="csv">Export To CSV</div>
+                            <hr class="export-separator"> <!-- Separator -->
+                            <div class="export-option" data-value="chart">Charts Generation</div>
+                        </div>  <!-- export-dropdown-content -->
+
+                    </div>  <!-- export-dropdown-container -->
+                 
+
+
+                    <button class="menu-button" id="bulkEditButton" style="background-color: #6040c0; color: white;">Bulk Edit</button>
+                    </div>
+
+                    <div id="totalRecords">
+                        Total Servers: <span>{{ page_obj.paginator.count }}</span>
+                    </div>
+
+                </div>  <!-- menu -->
+
+                <div class="tab-content">
+
+                    <div id="tab1" class="tab active">
+
+                        <div class="main-content">
+
+                            <div id="filters-wrapper">
+                                  <div id="filters-container" class="collapsed" data-clickable="true">
+                                       <span id="chevron" class="chevron">... ▼</span>
+                                    <div class="filter-tags" id="filterTags">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-container">
+
+                                    {% include 'discrepancies/table-flat.html' %}
+					
+                            </div> <!-- table-container -->
+
+                            <div class="buttons-container">
+
+                                <button type="button" id="clearFiltersButton">Clear Filters</button>
+
+                                <div class="pagination">                
+
+                                    <label for="page_size">Records per page:</label>
+
+                                    <select id="page_size" name="page_size" onchange="applyPageSize()">
+                                        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                                        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>  <!-- Default selected option -->
+                                        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                                    </select>
+
+                                    <span class="step-links">
+
+                                    {% if page_obj.has_previous %}
+                                        <a href="?page=1{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">&laquo; First</a>
+                                        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Previous</a>
+
+                                    {% endif %}
+
+                                    <span class="current">
+                                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                                    </span>
+
+                                    {% if page_obj.has_next %}
+                                        <a href="?page={{ page_obj.next_page_number }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Next</a>
+                                        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Last &raquo;</a>
+                                    {% endif %}
+
+                                    </span>  <!-- step-links -->  
+
+                                </div>  <!-- pagination -->
+
+                            </div>  <!-- buttons-container -->
+
+                            <!--/form-->  
+                                
+                        </div> <!-- main-content -->
+                        
+                    </div>  <!-- tab active -->
+
+                </div>  <!-- tab-content -->
+        
+            </div>  <!-- tabs -->
+    
+        </div> <!-- content -->
+
+    </div> <!-- container -->   
+
+    
+    {% include 'common/settings_modal.html' %}
+    {% include 'common/charts_modal.html' %}
+
+    <!-- Annotation Modal -->
+    <div id="annotationModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content" style="max-width:550px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Server Annotation</h3>
+                <button class="close-button" onclick="closeAnnotationModal()">&times;</button>
+            </div>
+
+            <form id="annotationForm" onsubmit="return false;">
+                <div class="form-group" style="margin-top:15px;">
+                    <label>Server</label>
+                    <input type="text" id="modal-hostname" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Assigned To</label>
+                    <input type="text" id="annotation-assigned-to" placeholder="e.g. john.doe">
+                </div>
+
+                <div class="form-group">
+                    <label>Comment</label>
+                    <textarea id="annotation-comment" rows="3" placeholder="Add a comment..."></textarea>
+                </div>
+
+                <div id="history-section" style="display:none;">
+                    <label style="font-weight:600; margin-bottom:6px; display:block;">History</label>
+                    <div id="annotation-history" class="history-list"></div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-clear btn-secondary" onclick="clearAnnotation()">Clear</button>
+                    <div class="right-buttons">
+                        <button type="button" class="btn-secondary" onclick="closeAnnotationModal()">Cancel</button>
+                        <button type="button" class="btn-save btn-primary" onclick="saveAnnotation()">Save</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Edit Modal -->
+    <div id="bulkEditModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content" style="max-width:550px;">
+
+            <div class="modal-header">
+                <h3 class="modal-title">Bulk Edit ({{ page_obj.paginator.count }} servers)</h3>
+                <button type="button" class="close-button" onclick="closeBulkModal()">&times;</button>
+            </div>
+
+            <div id="progressContainer" style="display: none;">
+                <div id="progressBar" style="width: 0%; height: 20px; background-color: #4caf50; transition: width 0.3s;"></div>
+                <p id="progressMessage"></p>
+            </div>
+
+            <form id="bulkEditForm">
+                <br>
+                <div class="form-group">
+                    <label for="bulk_assigned_to">Assigned To:</label>
+                    <input type="text" id="bulk_assigned_to" name="bulk_assigned_to" placeholder="e.g. john.doe">
+                </div>
+
+                <hr style="margin: 20px 0;">
+
+                <div class="form-group">
+                    <label for="bulk_comment">Comment:</label>
+                    <textarea id="bulk_comment" name="bulk_comment" rows="4" placeholder="Add annotation for these servers..."></textarea>
+                </div>
+
+                <input type="hidden" name="query" value="{{ request.GET.urlencode }}">
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-clear btn-secondary" onclick="startBulkUpdate(true)">Clear</button>
+                    <div class="right-buttons">
+                        <button type="button" class="btn-secondary" onclick="closeBulkModal()">Cancel</button>
+                        <button type="button" class="btn-primary" onclick="startBulkUpdate()">Apply to Selection</button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <script src="{% static appname|add:'/js/annotation-manager.js' %}"></script>
+    <script src="{% static appname|add:'/js/filter.js' %}"></script>
+    <script src="{% static 'common/js/chart-modal.js' %}"></script>
+    <script src="{% static 'common/js/settings-modal.js' %}"></script>
+
+    <script>
+
+        const filterTagsDiv = document.getElementById('filterTags');
+        const json_data = JSON.parse('{{ json_data|escapejs }}');
+        const filtersContainer = document.getElementById('filters-container');
+        const chevron = document.getElementById('chevron');
+        const noFiltersMessage = document.createElement('div');
+        const dropdownContent = document.getElementById('exportDropdownContent');
+        const sidebarContainer = document.querySelector('.sidebar-container');
+        const toggleButton = document.getElementById('toggleSidebar');
+        const appname = '{{ appname }}';
+        const searchForm = document.getElementById('saveSearchForm');
+        const savedSearchNames = [
+            {% for search in saved_searches %}
+              "{{ search.name|escapejs }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        noFiltersMessage.id = 'no-filters-message';
+        noFiltersMessage.textContent = 'No filters';
+        noFiltersMessage.style.textAlign = 'left';
+        noFiltersMessage.style.color = '#777';
+  
+        let isExpandable = false;
+
+        /* -- URL Update when changing the page -- */
+        
+        const jsonData = {{ json_data|safe }};
+        initChartModal(jsonData, 'inventory');
+        initSettingsModal('inventory');
+
+        function updateURL(href) {
+            const url = new URL(href, window.location.origin);
+            const searchParams = new URLSearchParams(url.search);
+
+            // Update the URL with the current state of visible columns
+            const visibleColumns = Array.from(document.querySelectorAll('.column-checkbox'))
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => checkbox.getAttribute('data-column'))
+                .join(',');
+
+            searchParams.set('visible_columns', visibleColumns);
+
+            // Include the cat_ parameters
+            const currentParams = new URLSearchParams(window.location.search);
+            for (const [key, value] of currentParams.entries()) {
+                if (key.startsWith('cat_')) {
+                    searchParams.set(key, value);
+                }
+            }            
+
+            window.location.href = `${url.pathname}?${searchParams.toString()}`;
+        }
+        
+     
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                // Page was restored from BFCache
+                document.getElementById('app-select').value = '{% url "inventory:server_view" %}';
+            }
+        });
+
+
+        /* -- Annotations Custom Type -- */
+
+        function toggleCustomType() {
+            const typeSelect = document.getElementById('annotation-type');
+            const customTypeGroup = document.getElementById('custom-type-group');
+            const customTypeInput = document.getElementById('custom-type');
+
+            if (typeSelect.value === 'CUSTOM') {
+                customTypeGroup.style.display = 'block';
+                customTypeInput.required = true;
+            } else {
+                customTypeGroup.style.display = 'none';
+                customTypeInput.required = false;
+                customTypeInput.value = ''; // Clear the custom type input
+            }
+        }
+        
+
+        function toggleCustomTypeBulk() {
+
+            const typeSelect = document.getElementById('bulk_type');
+            const customTypeGroup = document.getElementById('custom-type-group-bulk');
+            const customTypeInput = document.getElementById('bulk_custom_type');
+
+            if (typeSelect.value === 'CUSTOM') {
+                customTypeGroup.style.display = 'block';
+                customTypeInput.required = true;
+            } else {
+                customTypeGroup.style.display = 'none';
+                customTypeInput.required = false;
+                customTypeInput.value = ''; // Clear the custom type input
+            }
+        }        
+
+        /* -- Bulk Edit Operations -- */
+
+        document.getElementById('bulkEditButton').addEventListener('click', function () {
+            document.getElementById('bulkEditModal').style.display = 'flex';
+        });
+
+        document.getElementById('bulkEditModal').addEventListener('click', function (event) {
+            if (event.target === this) {
+                closeBulkModal();
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeBulkModal();
+            }
+        });
+
+        function startBulkUpdate(clear=false) {
+
+            if (document.getElementById('bulk_comment').value.trim() === '' && clear === false) {
+                alert("The Comment field can't be empty.\nTo clear all annotations of the selected servers, please use the Clear button.");
+                return;
+            }
+
+            if (clear === false) {
+                cleanMsg = "apply the bulk update on";
+            } else {
+                cleanMsg = "clear the current annotations of";
+            }
+
+            if (!confirm("Are you sure you want to " + cleanMsg + " the {{ page_obj.paginator.count }} selected items?")) {
+                return;
+            }
+
+            if (clear) {
+                document.getElementById('bulk_assigned_to').value = '';
+                document.getElementById('bulk_comment').value = '';
+            }
+
+            const form = document.getElementById('bulkEditForm');
+            const formData = new FormData(form);
+            const queryParams = new URLSearchParams(formData);
+
+            fetch(`/discrepancies/bulk_annotation/?${queryParams}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: queryParams
+            })
+            .then(response => {
+                if (response.headers.get('content-type') === 'text/event-stream') {
+                    const progressContainer = document.getElementById('progressContainer');
+                    const progressBar = document.getElementById('progressBar');
+                    const progressMessage = document.getElementById('progressMessage');
+
+                    progressContainer.style.display = 'block';
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder('utf-8');
+                    let result = '';
+
+                    function processText({ done, value }) {
+                        if (done) {
+                            progressBar.style.width = '100%';
+                            progressMessage.textContent = 'Bulk update completed!';
+                            setTimeout(() => {
+                                progressContainer.style.display = 'none';
+                                window.location.reload();
+                            }, 2000);
+                            return;
+                        }
+
+                        result += decoder.decode(value, { stream: true });
+                        const chunks = result.split('\n\n');
+                        result = chunks.pop();
+
+                        for (const chunk of chunks) {
+                            if (chunk.startsWith('data: ')) {
+                                const data = chunk.substring(6);
+                                if (data.startsWith('progress:')) {
+                                    const progressDetails = data.substring(9).split('|');
+                                    if (progressDetails.length >= 2) {
+                                        const progressValue = parseFloat(progressDetails[0]);
+                                        progressBar.style.width = `${progressValue}%`;
+                                        progressMessage.textContent = `Progress: ${progressValue.toFixed(2)}%`;
+                                    }
+                                }
+                            }
+                        }
+
+                        reader.read().then(processText);
+                    }
+
+                    reader.read().then(processText);
+
+                } else {
+                    return response.json().then(data => {
+                        if (data.status === 'error' || data.status === 'warning') {
+                            alert(data.message);
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('An error occurred while processing the bulk update.');
+            });
+        }
+
+        function closeBulkModal() {
+            document.getElementById('bulkEditModal').style.display = 'none';
+        }
+
+
+        /* -- Categories Sidebar -- */
+        
+        function updateSidebarState() {  // Function to update the sidebar state and save it to localStorage
+            const isCollapsed = sidebarContainer.classList.contains('collapsed');
+            toggleButton.querySelector('i').innerHTML = isCollapsed ? '&gt;' : '&lt;'; // Update chevron icon based on state
+            localStorage.setItem(`${appname}sidebarCollapsed`, isCollapsed); // Save the state to localStorage
+            loadExpandedState();
+            checkIfMultipleLines();
+        }
+
+
+        toggleButton.addEventListener('click', () => {  // Function to toggle the sidebar state and update local storage
+            sidebarContainer.classList.toggle('collapsed');
+            updateSidebarState();
+        });
+
+
+        function loadSidebarState() {  // Function to load the sidebar state from localStorage on page load
+            const isCollapsed = localStorage.getItem(`${appname}sidebarCollapsed`) === 'true';
+            if (isCollapsed) {
+                sidebarContainer.classList.add('collapsed');
+            } else {
+                sidebarContainer.classList.remove('collapsed');
+            }
+            updateSidebarState(); 
+        }
+
+        window.addEventListener('load', loadSidebarState);  // Load the sidebar state on page load
+
+
+        /* -- Filter Bar -- */
+        
+        function loadExpandedState() {  // Function to load the state from local storage
+            const isExpanded = localStorage.getItem(`${appname}filtersContainerExpanded`) === 'true';
+            filtersContainer.classList.toggle('expanded', isExpanded);
+            updateChevron();
+            if (isExpanded) {
+                filtersContainer.style.width = localStorage.getItem(`${appname}filtersContainerWidth`);
+            }
+        }
+
+        
+        function saveExpandedState(isExpanded) {  // Function to save the state to local storage
+            localStorage.setItem(`${appname}filtersContainerExpanded`, isExpanded);
+            if (isExpanded) {
+                localStorage.setItem(`${appname}filtersContainerExpanded`, filtersContainer.offsetWidth + 'px');
+            }
+        }
+
+
+        chevron.addEventListener('click', (event) => {
+            const isExpanded = !filtersContainer.classList.contains('expanded');
+
+            filtersContainer.classList.toggle('expanded', isExpanded);
+            if (isExpanded) {
+                   filtersContainer.style.width = (filtersContainer.offsetWidth -27) + 'px';
+               } else {
+                   filtersContainer.style.width = '';
+               }
+            saveExpandedState(isExpanded);
+            updateChevron();
+            event.stopPropagation();
+            checkIfMultipleLines();
+        });
+
+
+        function updateChevron() {
+            const isExpanded = filtersContainer.classList.contains('expanded');
+            chevron.textContent = isExpanded ? '... ▲' : '... ▼';
+        }
+
+
+        function checkIfMultipleLines() {
+        
+            const filterTagsDiv = document.getElementById('filterTags');
+            const clone = filterTagsDiv.cloneNode(true);
+            clone.style.visibility = 'hidden';
+            clone.style.position = 'absolute';
+            clone.style.width = filterTagsDiv.offsetWidth + 'px';
+            clone.style.flexWrap = 'nowrap';
+            document.body.appendChild(clone);
+
+            clone.style.flexWrap = 'wrap';
+            const fullHeight = clone.offsetHeight;
+            document.body.removeChild(clone);
+            const isExpandable = fullHeight > 50; // Bigger than the default height
+            const isExpanded = localStorage.getItem(`${appname}filtersContainerExpanded`) === 'true';
+
+            if (isExpandable) {
+                filtersContainer.setAttribute('data-clickable', 'true');
+                chevron.style.display = 'block';
+                if (!isExpanded) {
+                    localStorage.removeItem(`${appname}filtersContainerExpanded`);
+                    localStorage.removeItem(`${appname}filtersContainerWidth`);
+                }
+            } else {
+                filtersContainer.removeAttribute('data-clickable');
+                filtersContainer.classList.toggle('expanded', false);
+                filtersContainer.classList.remove('expanded');
+                chevron.style.display = 'none';
+                filtersContainer.style.width = '';
+            }
+
+            updateChevron();
+            updateFiltersDisplay();
+        
+        }
+
+        
+        function updateFiltersDisplay() {
+            if (filterTagsDiv.children.length === 0) {
+                if (!filtersContainer.contains(noFiltersMessage)) { 
+                    filtersContainer.insertBefore(noFiltersMessage, filterTagsDiv);
+                }
+            } else {
+                sessionStorage.removeItem('selectedSearchName');
+                if (filtersContainer.contains(noFiltersMessage)) {
+                    filtersContainer.removeChild(noFiltersMessage);
+                }
+            }
+        }
+
+
+        /* -- Load, Resize and Scroll events -- */
+        
+        window.addEventListener('load', () => {
+            loadSidebarState(); // Load the state when the page loads
+            loadExpandedState(); // Load the state when the page loads
+            checkIfMultipleLines();
+        });
+
+
+        window.addEventListener('resize', () => {
+            const wasExpanded = filtersContainer.classList.contains('expanded');
+            checkIfMultipleLines();
+            if (isExpandable && wasExpanded) {
+                filtersContainer.classList.add('expanded');
+            } else {
+                filtersContainer.classList.remove('expanded');
+                updateChevron();
+                updateFiltersDisplay();
+            }
+        });
+        
+        window.addEventListener('scroll', () => {
+            checkIfMultipleLines();
+        });
+
+
+        /* -- Update on load -- */
+
+        checkIfMultipleLines();
+        updateChevron();
+
+ 
+        function ActiveFiltersDetected() {
+            const filterTags = document.querySelectorAll('.filter-tag');
+            return filterTags.length > 0;
+        }
+      
+        
+       
+        /* -- Export Operations -- */
+        
+        function toggleExportDropdown() {
+            const dropdownContent = document.getElementById('exportDropdownContent');
+            dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+        }
+
+
+        document.querySelectorAll('.export-option').forEach(item => {
+            item.addEventListener('click', function () {
+                const selectedValue = this.getAttribute('data-value');
+                if (selectedValue === 'chart') {
+                    openChartModal();
+                } else if (selectedValue === 'excel') {
+                    if (ActiveFiltersDetected()) {
+                        startExport('xlsx');
+                    } else {
+                        const userConfirmation = confirm("No filters are applied. Do you really want to export all data?");
+                        if (userConfirmation) {
+                            startExport('xlsx');
+                        }
+                    }
+                } else if (selectedValue === 'csv') {
+                    if (ActiveFiltersDetected()) {
+                        startExport('csv');
+                    } else {
+                        const userConfirmation = confirm("No filters are applied. Do you really want to export all data?");
+                        if (userConfirmation) {
+                            startExport('csv');
+                        }
+                    }
+                }
+                toggleExportDropdown();
+            });
+            
+        });
+        
+       
+        function startExport(filetype) {
+            const visibleColumns = Array.from(document.querySelectorAll('#serversTable thead th[data-field]'))
+                                        .filter(th => getComputedStyle(th).display !== 'none')
+                                        .map(th => th.getAttribute('data-field'));
+
+            const searchParams = new URLSearchParams(window.location.search);
+            const filters = Object.fromEntries(searchParams);
+            const exportBtn = document.querySelector('.export-btn');
+            const originalText = exportBtn.textContent;
+
+            exportBtn.textContent = '⏳ Exporting...';
+            exportBtn.disabled = true;
+            document.body.classList.add('waiting-cursor');
+            
+            const downloadFiletype = filetype;
+            const url = `/${appname}/export/${downloadFiletype}/`;
+  
+            // Step 1: Start the export    
+            fetch(url, {    
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    filters: filters,
+                    columns: visibleColumns
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const jobId = data.job_id;
+
+                // Step 2 : check the statut every 2s
+                const interval = setInterval(() => {
+                    fetch(`/${appname}/export/status/${jobId}/${downloadFiletype}/`)
+
+                        .then(resp => resp.json())
+                        .then(statusData => {
+                            if (statusData.status === 'ready') {
+                                clearInterval(interval);
+
+                                // Step 3 : force the download
+                                const a = document.createElement('a');
+                                a.href = `/${appname}/export/download/${jobId}/${downloadFiletype}/`;
+                                a.download = 'export.${downloadFiletype}';
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+
+                                exportBtn.textContent = originalText;
+                                exportBtn.disabled = false;
+                                document.body.classList.remove('waiting-cursor');
+                            }
+                        });
+                }, 2000);
+            })
+            .catch(error => {
+
+                console.error('Erreur export :', error);
+                exportBtn.textContent = originalText;
+                exportBtn.disabled = false;
+                document.body.classList.remove('waiting-cursor');
+            });
+        }        
+
+
+        /* -- Export and Search buttons click events -- */
+
+        window.onclick = function (event) {
+
+            if (!event.target.matches('.export-btn') && !event.target.closest('.export-dropdown-content')) {  // Close the export dropdown if the user clicks outside of it
+                const exportDropdownContent = document.getElementById("exportDropdownContent");
+                if (exportDropdownContent && exportDropdownContent.style.display === 'block') {
+                    exportDropdownContent.style.display = 'none';
+                }
+            }
+
+        };
+        
+
+
+        /* -- Permanent Filter -- */
+
+        function togglePermanentFilterDropdown() {
+            const dropdownContent = document.getElementById('permanentFilterDropdownContent');
+            dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+        }
+
+        function selectPermanentFilter(filter) {
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.action = "{% url appname|add:':update_permanentfilter_field' %}";
+
+            const csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = 'csrfmiddlewaretoken';
+            csrfToken.value = '{{ csrf_token }}';
+            form.appendChild(csrfToken);
+
+            const filterInput = document.createElement('input');
+            filterInput.type = 'hidden';
+            filterInput.name = 'permanentfilter_choice';
+            filterInput.value = filter;
+            form.appendChild(filterInput);
+
+            document.body.appendChild(form);
+            form.submit();
+
+            const dropdownBtn = document.querySelector('#permanentfilter-container .permanentfilter-btn');  // Update the button text to reflect the selected filter
+            dropdownBtn.innerHTML = `${filter} &nbsp;&nbsp; ▼`;
+        }
+
+        window.onclick = function (event) {
+            if (!event.target.matches('.permanentfilter-btn') && !event.target.closest('.permanentfilter-dropdown-content')) {
+                const dropdownContent = document.getElementById("permanentFilterDropdownContent");
+                if (dropdownContent && dropdownContent.style.display === 'block') {
+                    dropdownContent.style.display = 'none';
+                }
+            }
+        };  
+
+
+        let draggedColumnIndex = null;
+          const headers = document.querySelectorAll('#serversTable th');
+
+          headers.forEach((header, index) => {
+            header.addEventListener('dragstart', function() {
+              draggedColumnIndex = index;
+              this.classList.add('dragging');
+            });
+
+            header.addEventListener('dragend', function() {
+              this.classList.remove('dragging');
+              headers.forEach(h => h.classList.remove('drag-over'));
+            });
+
+            header.addEventListener('dragover', function(e) {
+              e.preventDefault();
+              this.classList.add('drag-over');
+            });
+
+            header.addEventListener('dragleave', function() {
+              this.classList.remove('drag-over');
+            });
+
+            header.addEventListener('drop', function(e) {
+              e.preventDefault();
+              const targetIndex = index;
+              
+              if (draggedColumnIndex !== targetIndex) {
+                moveColumn(draggedColumnIndex, targetIndex);
+              }
+            });
+          });
+
+          function moveColumn(fromIndex, toIndex) {
+            const table = document.getElementById('serversTable');
+            const rows = table.rows;
+
+            for (let i = 0; i < rows.length; i++) {
+              const row = rows[i];
+              const cells = Array.from(row.cells);
+              const movedCell = cells[fromIndex];
+              
+              row.deleteCell(fromIndex);
+              row.insertBefore(movedCell, cells[toIndex]);
+            }
+          }
+
+        
+        (function() {
+            function fixColumns() {
+                const table = document.querySelector('#serversTable');
+                if (!table) return;
+                
+                const col1 = table.querySelectorAll('th:nth-child(1), td:nth-child(1)');
+                const col2 = table.querySelectorAll('th:nth-child(2), td:nth-child(2)');
+                const col3 = table.querySelectorAll('th:nth-child(3), td:nth-child(3)');
+                
+                const w1 = col1[0]?.offsetWidth || 0;
+                const w2 = col2[0]?.offsetWidth || 0;
+                col1.forEach(cell => cell.style.left = '0px');
+                col2.forEach(cell => cell.style.left = w1 + 'px');
+                col3.forEach(cell => cell.style.left = (w1 + w2) + 'px');
+            }
+            
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', fixColumns);
+            } else {
+                fixColumns();
+            }
+            }
+        )(); 
+
+    </script>
+
+</body>
+</html>
+

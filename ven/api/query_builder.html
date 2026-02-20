@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Query Builder — srvprop</title>
+    <style>
+        /* ── Variables ── */
+        :root {
+            --bg: #f0f2f5;
+            --bg-panel: #ffffff;
+            --bg-input: #ffffff;
+            --bg-code: #1e293b;
+            --bg-section: #f8f9fa;
+            --text: #212529;
+            --text-muted: #6c757d;
+            --text-code: #e2e8f0;
+            --border: #dee2e6;
+            --accent: #A0826D;
+            --accent-hover: #8a6e5c;
+            --chip-bg: #e9ecef;
+            --chip-text: #495057;
+            --chip-neg-bg: #fde8e8;
+            --chip-neg-text: #c0392b;
+            --chip-neg-border: #f5c6c6;
+            --status-ok: #28a745;
+            --status-err: #dc3545;
+            --shadow: 0 1px 4px rgba(0,0,0,0.08);
+            --shadow-md: 0 2px 12px rgba(0,0,0,0.1);
+            --radius: 10px;
+            --radius-sm: 6px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0d1117;
+                --bg-panel: #161b22;
+                --bg-input: #21262d;
+                --bg-code: #0d1117;
+                --bg-section: #1c2128;
+                --text: #e6edf3;
+                --text-muted: #8b949e;
+                --text-code: #e2e8f0;
+                --border: #30363d;
+                --accent: #B8956A;
+                --accent-hover: #c9a87b;
+                --chip-bg: #2d333b;
+                --chip-text: #adbac7;
+                --chip-neg-bg: #3d1f1f;
+                --chip-neg-text: #fc8181;
+                --chip-neg-border: #5c2a2a;
+                --shadow: 0 1px 4px rgba(0,0,0,0.3);
+                --shadow-md: 0 2px 12px rgba(0,0,0,0.4);
+            }
+        }
+
+        /* ── Base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        code, pre, .mono { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; }
+
+        /* ── Header ── */
+        .qb-header {
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 28px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow);
+        }
+
+        .qb-header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .qb-header .endpoint-badge {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: var(--bg-section);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 10px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .qb-header .header-hint {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+
+        /* ── Layout ── */
+        .qb-layout {
+            display: flex;
+            gap: 20px;
+            padding: 20px 24px;
+            align-items: flex-start;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .qb-builder {
+            flex: 0 0 460px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .qb-right {
+            flex: 1;
+            position: sticky;
+            top: 60px;
+            max-height: calc(100vh - 80px);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scrollbar-width: thin;
+        }
+
+        /* ── Panels ── */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 10px 16px;
+            background: var(--bg-section);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .panel-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+        }
+
+        .panel-title .required {
+            color: var(--status-err);
+            margin-left: 3px;
+        }
+
+        .panel-body {
+            padding: 14px 16px;
+        }
+
+        /* ── Index Tabs ── */
+        .index-tabs {
+            display: flex;
+            gap: 6px;
+        }
+
+        .index-tab {
+            padding: 6px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-family: monospace;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .index-tab:hover { border-color: var(--accent); color: var(--accent); }
+
+        .index-tab.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* ── Filter Rows ── */
+        #filter-rows { display: flex; flex-direction: column; gap: 10px; }
+
+        .filter-row {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 10px 12px;
+            background: var(--bg-section);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .filter-row-top {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .filter-field-select {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-input);
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
+        .btn-remove-row {
+            width: 26px;
+            height: 26px;
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.15s;
+        }
+
+        .btn-remove-row:hover { border-color: var(--status-err); color: var(--status-err); }
+
+        .filter-chips-area {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            min-height: 0;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: var(--chip-bg);
+            color: var(--chip-text);
+            border: 1px solid transparent;
+            border-radius: 4px;
+            padding: 2px 6px 2px 8px;
+            font-size: 0.82rem;
+            font-family: monospace;
+            cursor: pointer;
+            transition: all 0.12s;
+            user-select: none;
+        }
+
+        .chip:hover { border-color: var(--accent); }
+
+        .chip.negated {
+            background: var(--chip-neg-bg);
+            color: var(--chip-neg-text);
+            border-color: var(--chip-neg-border);
+        }
+
+        .chip-remove {
+            background: none;
+            border: none;
+            color: currentColor;
+            opacity: 0.5;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .chip-remove:hover { opacity: 1; }
+
+        .filter-value-input {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-input);
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
+        .filter-value-input:focus { outline: none; border-color: var(--accent); }
+
+        .filter-row-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+        }
+
+        .filter-row-hint code {
+            background: var(--bg-input);
+            padding: 0 3px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            font-size: 0.75rem;
+        }
+
+        .btn-add-filter {
+            margin-top: 6px;
+            padding: 6px 14px;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.15s;
+        }
+
+        .btn-add-filter:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Radio groups ── */
+        .radio-group {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        /* ── Fields checkboxes ── */
+        .fields-categories {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .fields-category { }
+
+        .fields-cat-name {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .fields-cat-items {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .field-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.82rem;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            transition: background 0.1s;
+        }
+
+        .field-checkbox:hover { background: var(--bg-section); }
+
+        .field-cb-name { color: var(--text); }
+
+        .field-cb-code {
+            color: var(--text-muted);
+            font-family: monospace;
+            font-size: 0.78rem;
+        }
+
+        .fields-select-all {
+            font-size: 0.78rem;
+            color: var(--accent);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            text-decoration: underline;
+        }
+
+        /* ── Advanced (details) ── */
+        .qb-advanced {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .qb-advanced summary {
+            padding: 10px 16px;
+            background: var(--bg-section);
+            border-bottom: 1px solid transparent;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .qb-advanced summary::before {
+            content: '▶';
+            font-size: 0.65rem;
+            transition: transform 0.15s;
+        }
+
+        .qb-advanced[open] summary { border-bottom-color: var(--border); }
+        .qb-advanced[open] summary::before { transform: rotate(90deg); }
+
+        .adv-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+        .adv-row { display: flex; flex-direction: column; gap: 6px; }
+
+        .adv-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .adv-label small { font-weight: 400; color: var(--text-muted); }
+
+        .adv-select {
+            width: 100%;
+            padding: 5px 8px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-input);
+            color: var(--text);
+            font-size: 0.85rem;
+        }
+
+        .compact-checkboxes {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 200px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+
+        .compact-cb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: var(--text);
+        }
+
+        .compact-cb:hover { background: var(--bg-section); }
+
+        /* ── Preview ── */
+        .preview-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .quick-mode-label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .quick-mode-label input { cursor: pointer; }
+
+        /* ── Sort toggle ── */
+        .sort-toggle-btn {
+            padding: 3px 10px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .sort-toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── Chevron ── */
+        .btn-chevron {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            transition: transform 0.2s ease;
+            display: inline-block;
+            line-height: 1;
+            margin-right: 2px;
+        }
+        .panel-header.collapsible { cursor: pointer; }
+        .panel-header.collapsible:hover .btn-chevron { color: var(--text); }
+
+
+        .btn-copy {
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+
+        .btn-execute {
+            padding: 5px 16px;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-execute:hover { background: var(--accent-hover); }
+        .btn-execute:disabled { opacity: 0.6; cursor: default; }
+
+        .json-preview {
+            background: var(--bg-code);
+            color: var(--text-code);
+            padding: 14px 16px;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 340px;
+            white-space: pre;
+            scrollbar-width: thin;
+        }
+
+        /* ── Response ── */
+        .response-meta {
+            padding: 8px 16px;
+            font-size: 0.82rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-section);
+        }
+
+        .status-ok { color: var(--status-ok); font-weight: 700; }
+        .status-err { color: var(--status-err); font-weight: 700; }
+
+        .response-body {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        /* ── Misc ── */
+        .hidden { display: none !important; }
+
+        select option, select optgroup {
+            background: var(--bg-input);
+            color: var(--text);
+        }
+
+        .empty-hint {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            padding: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .qb-layout { flex-direction: column; }
+            .qb-builder { flex: none; width: 100%; }
+            .qb-right { position: static; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}">
+
+<div class="qb-header">
+    <h1>Query Builder</h1>
+    <span class="endpoint-badge">POST /api/srvprop/</span>
+    <button class="sort-toggle-btn" id="sort-toggle-btn" onclick="toggleSortMode()"
+            title="Currently: by category — click for alphabetical">⊞ By category</button>
+    <span class="header-hint">Select fields to filter, choose what to return, execute.</span>
+</div>
+
+<div class="qb-layout">
+
+    <!-- ── LEFT: Builder ── -->
+    <div class="qb-builder">
+
+        <!-- Index -->
+        <div class="panel">
+            <div class="panel-header"><span class="panel-title">Index</span></div>
+            <div class="panel-body">
+                <div class="index-tabs">
+                    <button class="index-tab active" data-index="inventory" onclick="switchIndex('inventory')">inventory</button>
+                    <button class="index-tab" data-index="businesscontinuity" onclick="switchIndex('businesscontinuity')">businesscontinuity</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Filters<span class="required">*</span></span>
+                <span style="font-size:0.75rem;color:var(--text-muted)">AND between fields · OR between values</span>
+            </div>
+            <div class="panel-body">
+                <div id="filter-rows"></div>
+                <button class="btn-add-filter" onclick="addFilterRow()">+ Add filter</button>
+            </div>
+        </div>
+
+        <!-- Fields to return -->
+        <div class="panel">
+            <div class="panel-header collapsible" onclick="toggleFieldsPanel()">
+                <div style="display:flex;align-items:center;gap:4px">
+                    <span class="btn-chevron" id="fields-chevron">▶</span>
+                    <span class="panel-title">Fields to return</span>
+                </div>
+                <button class="fields-select-all hidden" id="btn-select-all"
+                        onclick="event.stopPropagation(); toggleSelectAll()">Select all</button>
+            </div>
+            <div class="panel-body" id="fields-panel-body">
+                <div class="radio-group" style="margin-bottom:10px">
+                    <label><input type="radio" name="fields-mode" value="all" checked onchange="onFieldsModeChange('all')"> All fields</label>
+                    <label><input type="radio" name="fields-mode" value="select" onchange="onFieldsModeChange('select')"> Select fields</label>
+                    <label><input type="radio" name="fields-mode" value="exclude" onchange="onFieldsModeChange('exclude')"> All except...</label>
+                </div>
+                <div id="fields-checkboxes" class="hidden"></div>
+            </div>
+        </div>
+
+        <!-- Format -->
+        <div class="panel">
+            <div class="panel-header"><span class="panel-title">Output format</span></div>
+            <div class="panel-body">
+                <div class="radio-group">
+                    <label><input type="radio" name="output-format" value="json" checked onchange="updatePreview()"> JSON</label>
+                    <label><input type="radio" name="output-format" value="csv" onchange="updatePreview()"> CSV <small style="color:var(--text-muted)">(download)</small></label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced -->
+        <details class="qb-advanced">
+            <summary>Advanced options</summary>
+            <div class="adv-body">
+
+                <!-- groupedby -->
+                <div class="adv-row">
+                    <label class="adv-label">Group by <small>(JSON only, single field)</small></label>
+                    <select class="adv-select" id="groupedby-select" onchange="updatePreview()">
+                        <option value="">— none —</option>
+                    </select>
+                </div>
+
+                <!-- unify -->
+                <div class="adv-row">
+                    <label class="adv-label">Unify by <small>(dedup rows, concat other values with " | ")</small></label>
+                    <select class="adv-select" id="unify-select" onchange="updatePreview()">
+                        <option value="">— none —</option>
+                    </select>
+                </div>
+
+                <!-- enrich -->
+                <div class="adv-row">
+                    <label class="adv-label">Enrich from other index</label>
+                    <div class="radio-group" style="margin-bottom:8px">
+                        <label><input type="radio" name="enrich-toggle" value="no" checked onchange="onEnrichToggle('no')"> No</label>
+                        <label><input type="radio" name="enrich-toggle" value="yes" onchange="onEnrichToggle('yes')"> Yes — from <strong id="enrich-index-label"></strong></label>
+                    </div>
+                    <div id="enrich-config" class="hidden">
+                        <div id="enrich-field-checkboxes" class="compact-checkboxes"></div>
+                    </div>
+                </div>
+
+            </div>
+        </details>
+
+    </div>
+
+    <!-- ── RIGHT: Preview + Response ── -->
+    <div class="qb-right">
+
+        <!-- JSON Preview -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">Request payload</span>
+                <div class="preview-actions">
+                    <label class="quick-mode-label" title="Adds ?page=1 — returns first 100 results immediately, no streaming">
+                        <input type="checkbox" id="quick-mode-cb"> Quick preview
+                    </label>
+                    <button class="btn-copy" onclick="copyJson()">Copy</button>
+                    <button class="btn-execute" onclick="executeQuery()">▶ Execute</button>
+                </div>
+            </div>
+            <pre id="json-preview" class="json-preview"></pre>
+        </div>
+
+        <!-- Response -->
+        <div class="panel hidden" id="response-panel">
+            <div class="panel-header"><span class="panel-title">Response</span></div>
+            <div class="response-meta" id="response-meta"></div>
+            <pre id="response-body" class="json-preview response-body"></pre>
+        </div>
+
+    </div>
+</div>
+
+<script>
+const FIELDS_DATA = {{ fields_json|safe }};
+let currentIndex = 'inventory';
+let filterRowCount = 0;
+let fieldsSortMode = 'category';  // 'category' | 'alpha'
+
+// ── Utilities ──────────────────────────────────────────────
+
+function getCsrfToken() {
+    return document.getElementById('csrf-token').value;
+}
+
+function getFieldsData(index) {
+    return FIELDS_DATA[index || currentIndex];
+}
+
+function buildFieldOptions(index, noneLabel) {
+    const data = getFieldsData(index);
+    let html = `<option value="">— ${noneLabel || 'Select a field'} —</option>`;
+    if (fieldsSortMode === 'alpha') {
+        [...data.fields].sort((a, b) => a.displayname.localeCompare(b.displayname)).forEach(f => {
+            html += `<option value="${escHtml(f.name)}">${escHtml(f.displayname)} (${escHtml(f.name)})</option>`;
+        });
+    } else {
+        const cats = data.categories;
+        const catOrder = Object.keys(cats);
+        const byCategory = {};
+        data.fields.forEach(f => {
+            const cat = f.category || '__other__';
+            if (!byCategory[cat]) byCategory[cat] = [];
+            byCategory[cat].push(f);
+        });
+        catOrder.forEach(cat => {
+            if (!byCategory[cat]) return;
+            html += `<optgroup label="${cats[cat]}">`;
+            byCategory[cat].forEach(f => {
+                html += `<option value="${escHtml(f.name)}">${escHtml(f.displayname)} (${escHtml(f.name)})</option>`;
+            });
+            html += '</optgroup>';
+        });
+    }
+    return html;
+}
+
+function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Build payload ──────────────────────────────────────────
+
+function buildPayload() {
+    const payload = { index: currentIndex };
+
+    // Filters
+    const filters = {};
+    document.querySelectorAll('.filter-row').forEach(row => {
+        const field = row.querySelector('.filter-field-select').value;
+        if (!field) return;
+        const chips = [...row.querySelectorAll('.chip')].map(chip =>
+            chip.dataset.negated === 'true' ? '!' + chip.dataset.value : chip.dataset.value
+        );
+        if (chips.length === 0) return;
+        if (filters[field]) {
+            filters[field] = filters[field].concat(chips);
+        } else {
+            filters[field] = chips;
+        }
+    });
+    payload.filters = filters;
+
+    // Fields mode
+    const mode = document.querySelector('input[name="fields-mode"]:checked').value;
+    if (mode === 'select') {
+        const sel = [...document.querySelectorAll('#fields-checkboxes input:checked')].map(cb => cb.value);
+        if (sel.length > 0) payload.fields = sel;
+    } else if (mode === 'exclude') {
+        const exc = [...document.querySelectorAll('#fields-checkboxes input:checked')].map(cb => cb.value);
+        if (exc.length > 0) payload.excludefields = exc;
+    }
+
+    // Format
+    const fmt = document.querySelector('input[name="output-format"]:checked').value;
+    if (fmt !== 'json') payload.format = fmt;
+
+    // groupedby
+    const gb = document.getElementById('groupedby-select').value;
+    if (gb) payload.groupedby = gb;
+
+    // unify
+    const unifyVal = document.getElementById('unify-select').value;
+    if (unifyVal) payload.unify = [unifyVal];
+
+    // enrich
+    if (document.querySelector('input[name="enrich-toggle"]:checked').value === 'yes') {
+        const enrichIndex = currentIndex === 'inventory' ? 'businesscontinuity' : 'inventory';
+        const ef = [...document.querySelectorAll('#enrich-field-checkboxes input:checked')].map(cb => cb.value);
+        if (ef.length > 0) payload.enrich = { index: enrichIndex, fields: ef };
+    }
+
+    return payload;
+}
+
+function updatePreview() {
+    document.getElementById('json-preview').textContent = JSON.stringify(buildPayload(), null, 2);
+}
+
+// ── Filter rows ────────────────────────────────────────────
+
+function addFilterRow() {
+    filterRowCount++;
+    const id = `fr-${filterRowCount}`;
+    const row = document.createElement('div');
+    row.className = 'filter-row';
+    row.id = id;
+    row.innerHTML = `
+        <div class="filter-row-top">
+            <select class="filter-field-select" onchange="updatePreview()">${buildFieldOptions()}</select>
+            <button class="btn-remove-row" onclick="removeFilterRow('${id}')" title="Remove">×</button>
+        </div>
+        <div class="filter-chips-area">
+            <div class="filter-chips" id="chips-${id}"></div>
+            <input type="text" class="filter-value-input"
+                placeholder="Type a value and press Enter to add it"
+                onkeydown="handleChipInput(event,'${id}')">
+        </div>
+        <div class="filter-row-hint">
+            <span>Click a chip to toggle <code>!</code> negation</span>
+            <span>Use <code>*</code> as wildcard&nbsp; e.g. <code>RHEL*</code>, <code>!*TEST*</code></span>
+        </div>`;
+    document.getElementById('filter-rows').appendChild(row);
+    row.querySelector('.filter-field-select').focus();
+    updatePreview();
+}
+
+function removeFilterRow(id) {
+    document.getElementById(id)?.remove();
+    updatePreview();
+}
+
+function handleChipInput(e, rowId) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const input = e.target;
+    const raw = input.value.trim();
+    if (!raw) return;
+    // Support comma-separated entry
+    raw.split(',').map(v => v.trim()).filter(Boolean).forEach(v => {
+        const neg = v.startsWith('!');
+        addChip(rowId, neg ? v.slice(1) : v, neg);
+    });
+    input.value = '';
+    updatePreview();
+}
+
+function addChip(rowId, value, negated) {
+    const container = document.getElementById(`chips-${rowId}`);
+    const chip = document.createElement('span');
+    chip.className = 'chip' + (negated ? ' negated' : '');
+    chip.dataset.value = value;
+    chip.dataset.negated = String(negated);
+    chip.title = 'Click to toggle ! negation';
+
+    const label = document.createElement('span');
+    label.className = 'chip-label';
+    label.textContent = (negated ? '!' : '') + value;
+
+    const rm = document.createElement('button');
+    rm.className = 'chip-remove';
+    rm.textContent = '×';
+    rm.onclick = e => { e.stopPropagation(); chip.remove(); updatePreview(); };
+
+    chip.onclick = () => {
+        const neg = chip.dataset.negated === 'true';
+        chip.dataset.negated = String(!neg);
+        chip.classList.toggle('negated', !neg);
+        label.textContent = (!neg ? '!' : '') + chip.dataset.value;
+        updatePreview();
+    };
+
+    chip.appendChild(label);
+    chip.appendChild(rm);
+    container.appendChild(chip);
+}
+
+function rebuildFilterDropdowns() {
+    const opts = buildFieldOptions();
+    document.querySelectorAll('.filter-field-select').forEach(sel => {
+        const cur = sel.value;
+        sel.innerHTML = opts;
+        sel.value = cur; // restore if still valid
+    });
+}
+
+// ── Fields checkboxes ──────────────────────────────────────
+
+function onFieldsModeChange(mode) {
+    const container = document.getElementById('fields-checkboxes');
+    const btnAll = document.getElementById('btn-select-all');
+    if (mode === 'all') {
+        container.classList.add('hidden');
+        btnAll.classList.add('hidden');
+    } else {
+        renderFieldsCheckboxes();
+        container.classList.remove('hidden');
+        btnAll.classList.remove('hidden');
+        btnAll.textContent = 'Select all';
+    }
+    updatePreview();
+}
+
+function renderFieldsCheckboxes() {
+    const data = getFieldsData();
+
+    // Preserve checked state across rebuilds
+    const prevChecked = new Set(
+        [...document.querySelectorAll('#fields-checkboxes input:checked')].map(cb => cb.value)
+    );
+
+    const makeCheckbox = f => `<label class="field-checkbox">
+        <input type="checkbox" value="${escHtml(f.name)}" onchange="updatePreview()">
+        <span class="field-cb-name">${escHtml(f.displayname)}</span>
+        <span class="field-cb-code">(${escHtml(f.name)})</span>
+    </label>`;
+
+    let html;
+    if (fieldsSortMode === 'alpha') {
+        html = '<div class="fields-categories"><div class="fields-category"><div class="fields-cat-items">';
+        [...data.fields].sort((a, b) => a.displayname.localeCompare(b.displayname))
+            .forEach(f => { html += makeCheckbox(f); });
+        html += '</div></div></div>';
+    } else {
+        const cats = data.categories;
+        const catOrder = Object.keys(cats);
+        const byCategory = {};
+        data.fields.forEach(f => {
+            const cat = f.category || '__other__';
+            if (!byCategory[cat]) byCategory[cat] = [];
+            byCategory[cat].push(f);
+        });
+        html = '<div class="fields-categories">';
+        catOrder.forEach(cat => {
+            if (!byCategory[cat]) return;
+            html += `<div class="fields-category">
+                <div class="fields-cat-name">${escHtml(cats[cat])}</div>
+                <div class="fields-cat-items">`;
+            byCategory[cat].forEach(f => { html += makeCheckbox(f); });
+            html += '</div></div>';
+        });
+        html += '</div>';
+    }
+    document.getElementById('fields-checkboxes').innerHTML = html;
+
+    // Restore checked state
+    if (prevChecked.size > 0) {
+        document.querySelectorAll('#fields-checkboxes input[type=checkbox]').forEach(cb => {
+            if (prevChecked.has(cb.value)) cb.checked = true;
+        });
+        updatePreview();
+    }
+}
+
+let _selectAllState = false;
+function toggleSelectAll() {
+    _selectAllState = !_selectAllState;
+    document.querySelectorAll('#fields-checkboxes input[type=checkbox]').forEach(cb => { cb.checked = _selectAllState; });
+    document.getElementById('btn-select-all').textContent = _selectAllState ? 'Deselect all' : 'Select all';
+    updatePreview();
+}
+
+// ── Advanced options ───────────────────────────────────────
+
+function renderAdvancedOptions() {
+    const data = getFieldsData();
+    const enrichIndex = currentIndex === 'inventory' ? 'businesscontinuity' : 'inventory';
+    const enrichData = getFieldsData(enrichIndex);
+
+    // groupedby
+    const gb = document.getElementById('groupedby-select');
+    const gbVal = gb.value;
+    gb.innerHTML = buildFieldOptions(currentIndex, 'none');
+    gb.value = gbVal;
+
+    // unify
+    const unifyEl = document.getElementById('unify-select');
+    const unifyVal = unifyEl.value;
+    unifyEl.innerHTML = buildFieldOptions(currentIndex, 'none');
+    unifyEl.value = unifyVal;
+
+    // enrich
+    document.getElementById('enrich-index-label').textContent = enrichIndex;
+    const enrichEl = document.getElementById('enrich-field-checkboxes');
+    enrichEl.innerHTML = enrichData.fields.map(f =>
+        `<label class="compact-cb"><input type="checkbox" value="${escHtml(f.name)}" onchange="updatePreview()"> ${escHtml(f.displayname)} <span style="color:var(--text-muted)">(${escHtml(f.name)})</span></label>`
+    ).join('');
+}
+
+function onEnrichToggle(val) {
+    document.getElementById('enrich-config').classList.toggle('hidden', val === 'no');
+    updatePreview();
+}
+
+// ── Index switch ───────────────────────────────────────────
+
+function switchIndex(index) {
+    currentIndex = index;
+    document.querySelectorAll('.index-tab').forEach(t => t.classList.toggle('active', t.dataset.index === index));
+    rebuildFilterDropdowns();
+    const mode = document.querySelector('input[name="fields-mode"]:checked').value;
+    if (mode !== 'all') renderFieldsCheckboxes();
+    renderAdvancedOptions();
+    updatePreview();
+}
+
+// ── Sort mode toggle ───────────────────────────────────────
+
+function toggleSortMode() {
+    fieldsSortMode = fieldsSortMode === 'category' ? 'alpha' : 'category';
+    const btn = document.getElementById('sort-toggle-btn');
+    if (fieldsSortMode === 'alpha') {
+        btn.textContent = 'A↓ Alphabetical';
+        btn.title = 'Currently: alphabetical — click for by category';
+    } else {
+        btn.textContent = '⊞ By category';
+        btn.title = 'Currently: by category — click for alphabetical';
+    }
+    rebuildFilterDropdowns();
+    renderAdvancedOptions();
+    const mode = document.querySelector('input[name="fields-mode"]:checked').value;
+    if (mode !== 'all') renderFieldsCheckboxes();
+}
+
+// ── Fields panel collapse ──────────────────────────────────
+
+function toggleFieldsPanel() {
+    const body = document.getElementById('fields-panel-body');
+    const chevron = document.getElementById('fields-chevron');
+    const collapsed = body.classList.toggle('hidden');
+    chevron.style.transform = collapsed ? '' : 'rotate(90deg)';
+}
+
+// ── Execute ────────────────────────────────────────────────
+
+async function executeQuery() {
+    const payload = buildPayload();
+    const filtersEmpty = !payload.filters || Object.keys(payload.filters).length === 0;
+    if (filtersEmpty) {
+        showResponse(null, 0, { error: "At least one filter with at least one value is required." });
+        return;
+    }
+
+    const quickMode = document.getElementById('quick-mode-cb').checked;
+    const url = quickMode ? '/api/srvprop/?page=1' : '/api/srvprop/';
+
+    const btn = document.querySelector('.btn-execute');
+    btn.disabled = true;
+    btn.textContent = '▶ Running…';
+
+    const panel = document.getElementById('response-panel');
+    panel.classList.remove('hidden');
+    const metaEl = document.getElementById('response-meta');
+    document.getElementById('response-body').textContent = '';
+
+    const t0 = Date.now();
+    const modeTag = quickMode
+        ? '<span style="font-size:0.75rem;color:var(--accent);border:1px solid var(--accent);border-radius:3px;padding:1px 5px">quick</span>'
+        : '<span style="font-size:0.75rem;color:var(--text-muted);border:1px solid var(--border);border-radius:3px;padding:1px 5px">full</span>';
+
+    // Ticking elapsed counter
+    const tick = setInterval(() => {
+        const s = ((Date.now() - t0) / 1000).toFixed(1);
+        metaEl.innerHTML = `${modeTag}&nbsp;&nbsp;<span style="color:var(--text-muted)">Running… ${s}s</span>`;
+    }, 150);
+
+    try {
+        const resp = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: JSON.stringify(payload),
+        });
+        const elapsed = Date.now() - t0;
+        const ct = resp.headers.get('content-type') || '';
+
+        if (ct.includes('csv') || payload.format === 'csv') {
+            const blob = await resp.blob();
+            const objUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = objUrl; a.download = 'data.csv';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(objUrl);
+            metaEl.innerHTML = `${modeTag}&nbsp;&nbsp;<span class="status-ok">HTTP ${resp.status}</span>&nbsp;·&nbsp;${elapsed}ms&nbsp;·&nbsp;<em>CSV downloaded</em>`;
+            document.getElementById('response-body').textContent = '';
+        } else {
+            const data = await resp.json();
+            showResponse(resp.status, elapsed, data, quickMode, modeTag);
+        }
+    } catch (err) {
+        const elapsed = Date.now() - t0;
+        metaEl.innerHTML = `${modeTag}&nbsp;&nbsp;<span class="status-err">Error</span>&nbsp;·&nbsp;${elapsed}ms`;
+        document.getElementById('response-body').textContent = String(err);
+    } finally {
+        clearInterval(tick);
+        btn.disabled = false;
+        btn.textContent = '▶ Execute';
+    }
+}
+
+function showResponse(status, elapsed, data, quickMode, modeTag) {
+    const panel = document.getElementById('response-panel');
+    panel.classList.remove('hidden');
+    const ok = status >= 200 && status < 300;
+    const statusHtml = status
+        ? `<span class="${ok ? 'status-ok' : 'status-err'}">HTTP ${status}</span>`
+        : `<span class="status-err">Error</span>`;
+    let countInfo = '';
+    if (data && data.count !== undefined) {
+        if (quickMode && data.results) {
+            countInfo = `&nbsp;·&nbsp;showing <strong>${data.results.length}</strong> of <strong>${data.count}</strong>`;
+        } else {
+            countInfo = `&nbsp;·&nbsp;<strong>${data.count}</strong> result(s)`;
+        }
+    }
+    const timeInfo = elapsed ? `&nbsp;·&nbsp;${elapsed}ms` : '';
+    const tag = modeTag ? modeTag + '&nbsp;&nbsp;' : '';
+    document.getElementById('response-meta').innerHTML = tag + statusHtml + countInfo + timeInfo;
+    document.getElementById('response-body').textContent = JSON.stringify(data, null, 2);
+}
+
+function copyJson() {
+    const text = document.getElementById('json-preview').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.btn-copy');
+        const orig = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+    });
+}
+
+// ── Init ───────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Always reset to "All fields" on load regardless of browser form restore
+    document.querySelector('input[name="fields-mode"][value="all"]').checked = true;
+    onFieldsModeChange('all');
+
+    renderAdvancedOptions();
+    addFilterRow();
+    updatePreview();
+    // Panel "Fields to return" is open by default → chevron points down
+    document.getElementById('fields-chevron').style.transform = 'rotate(90deg)';
+});
+</script>
+
+</body>
+</html>
