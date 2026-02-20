@@ -1,4 +1,0 @@
- Dans ton template, quand une colonne BC est visible :
-  {% if server.serverunique %}
-      {{ server.serverunique.priority_asset }}
-  {% endif %}
