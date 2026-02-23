@@ -1,3 +1,5 @@
+# A comment here too
+
 import csv
 import datetime
 import django
@@ -29,7 +31,7 @@ from urllib.parse import urlencode, parse_qs, unquote
 from functools import lru_cache
 from threading import Lock
 
-from .models import AnalysisSnapshot, ServerDiscrepancy, DiscrepancyTracker, DiscrepancyAnnotation
+from .models import AnalysisSnapshot, ServerDiscrepancy, DiscrepancyTracking, DiscrepancyAnnotation
 from .utils import get_trend_data
 from .exports import generate_csv, generate_excel, EXPORT_DIR
 from userapp.models import UserProfile, SavedSearch, SavedOptions, UserPermissions
@@ -268,7 +270,7 @@ def server_view(request):
     sort_order = request.GET.get('order', 'asc')
 
     if sort_field == 'days_open':
-        oldest = DiscrepancyTracker.objects.filter(
+        oldest = DiscrepancyTracking.objects.filter(
             SERVER_ID=OuterRef('SERVER_ID')
         ).values('oldest_first_seen')[:1]
         all_servers = all_servers.annotate(oldest_issue=Subquery(oldest))
@@ -407,7 +409,7 @@ def server_view(request):
     # Fetch tracker data for current page servers
     hostnames_in_page = [s['hostname'] for s in display_servers]
     if hostnames_in_page:
-        trackers = DiscrepancyTracker.objects.filter(SERVER_ID__in=hostnames_in_page)
+        trackers = DiscrepancyTracking.objects.filter(SERVER_ID__in=hostnames_in_page)
         tracker_dict = {t.SERVER_ID: t for t in trackers}
 
         # Fields actively filtered — used for context-sensitive days_open
@@ -751,7 +753,7 @@ def _get_filtered_servers_for_export(requestfilters):
     sort_order = requestfilters.get('order', 'asc')
 
     if sort_field == 'days_open':
-        oldest = DiscrepancyTracker.objects.filter(
+        oldest = DiscrepancyTracking.objects.filter(
             SERVER_ID=OuterRef('SERVER_ID')
         ).values('oldest_first_seen')[:1]
         all_servers = all_servers.annotate(oldest_issue=Subquery(oldest))
@@ -792,7 +794,7 @@ def export_to_file(request, filetype):
     # Days open via _compute_days_open (handles oldest_first_seen + fallback)
     days_open_dict = {}
     if hostname_list:
-        for t in DiscrepancyTracker.objects.filter(SERVER_ID__in=hostname_list):
+        for t in DiscrepancyTracking.objects.filter(SERVER_ID__in=hostname_list):
             val = _compute_days_open(t)
             if val != '':
                 days_open_dict[t.SERVER_ID] = val
