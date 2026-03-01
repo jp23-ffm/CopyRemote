@@ -1,0 +1,29 @@
+<div class="exclusions-section">
+    <div class="exclusions-header">
+        <div class="exclusions-header-left">
+            <h2>Excluded Servers</h2>
+            <span class="exclusions-count" id="exclusions-count">—</span>
+        </div>
+        <div class="exclusions-header-actions">
+            <button class="excl-btn-export" onclick="exportExclusionsCSV()" title="Export to CSV">&#8595; CSV</button>
+            <button class="excl-btn-add" onclick="openAddExclusionModal()" title="Add exclusion">+</button>
+        </div>
+    </div>
+    <div class="exclusions-table-wrapper">
+        <table class="exclusions-table">
+            <thead>
+                <tr>
+                    <th>Server Name</th>
+                    <th>Reason</th>
+                    <th>Owner</th>
+                    <th>Date</th>
+                    <th>Added By</th>
+                    <th style="width:36px;"></th>
+                </tr>
+            </thead>
+            <tbody id="exclusions-tbody">
+                <tr><td colspan="6" class="exclusions-empty">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

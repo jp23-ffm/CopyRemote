@@ -1,0 +1,155 @@
+{% if diff_display %}
+<div class="diff-section">
+
+    <div class="diff-header diff-header-clickable" onclick="toggleDiffSection()">
+        <div class="diff-header-left">
+            <h2>Last Run Changes</h2>
+            <span class="diff-run-date">{{ snapshot.analysis_date|date:"d M Y H:i" }}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            {% if not diff_display.is_first_run %}
+            <div class="diff-stats-row">
+                <div class="diff-stat diff-stat-new">
+                    <span class="diff-stat-count">+{{ snapshot.new_issues_count }}</span>
+                    <span class="diff-stat-label">New</span>
+                </div>
+                <div class="diff-stat diff-stat-resolved">
+                    <span class="diff-stat-count">-{{ snapshot.resolved_issues_count }}</span>
+                    <span class="diff-stat-label">Resolved</span>
+                </div>
+                <div class="diff-stat diff-stat-changed">
+                    <span class="diff-stat-count">~{{ snapshot.changed_issues_count }}</span>
+                    <span class="diff-stat-label">Changed</span>
+                </div>
+            </div>
+            {% endif %}
+            <span class="diff-chevron" id="diff-chevron">&#9658;</span>
+        </div>
+    </div>
+
+    <div id="diff-collapsible" style="display:none;">
+
+        {% if diff_display.is_first_run %}
+        <div style="padding: 18px; color: #aaa; font-style: italic; font-size: 0.88rem;">
+            First analysis run — no previous state to compare against.
+        </div>
+        {% else %}
+
+        <div class="diff-body">
+            {% if diff_display.new %}
+            <details class="diff-details-block">
+                <summary class="diff-summary-new">
+                    New servers
+                    <span class="diff-badge diff-badge-new">{{ diff_display.new_total }}</span>
+                </summary>
+                <div class="diff-server-list">
+                    {% for srv in diff_display.new %}
+                    <span class="diff-chip">{{ srv }}</span>
+                    {% endfor %}
+                    {% if diff_display.new_more %}
+                    <span class="diff-chip diff-more">+{{ diff_display.new_more }} more</span>
+                    {% endif %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if diff_display.resolved %}
+            <details class="diff-details-block">
+                <summary class="diff-summary-resolved">
+                    Resolved servers
+                    <span class="diff-badge diff-badge-resolved">{{ diff_display.resolved_total }}</span>
+                </summary>
+                <div class="diff-server-list">
+                    {% for srv in diff_display.resolved %}
+                    <span class="diff-chip">{{ srv }}</span>
+                    {% endfor %}
+                    {% if diff_display.resolved_more %}
+                    <span class="diff-chip diff-more">+{{ diff_display.resolved_more }} more</span>
+                    {% endif %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if diff_display.changed %}
+            <details class="diff-details-block">
+                <summary class="diff-summary-changed">
+                    Changed servers
+                    <span class="diff-badge diff-badge-changed">{{ diff_display.changed_total }}</span>
+                </summary>
+                <div class="diff-server-list" style="flex-direction: column; align-items: flex-start;">
+                    {% for server_id, changes in diff_display.changed %}
+                    <div class="diff-changed-row">
+                        <span class="diff-chip diff-chip-id">{{ server_id }}</span>
+                        {% if changes.added %}
+                        <span class="diff-chip diff-chip-added">+{{ changes.added|join:", " }}</span>
+                        {% endif %}
+                        {% if changes.removed %}
+                        <span class="diff-chip diff-chip-removed">-{{ changes.removed|join:", " }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                    {% if diff_display.changed_more %}
+                    <span class="diff-chip diff-more">+{{ diff_display.changed_more }} more</span>
+                    {% endif %}
+                </div>
+            </details>
+            {% endif %}
+
+            {% if not diff_display.new and not diff_display.resolved and not diff_display.changed %}
+            <div style="padding: 14px 2px; color: #aaa; font-style: italic; font-size: 0.88rem;">
+                No changes since last run.
+            </div>
+            {% endif %}
+        </div>
+
+        {% endif %}
+
+        {% if recent_snapshots %}
+        <div class="diff-history">
+            <div class="diff-history-label">Run history (last {{ recent_snapshots|length }})</div>
+            <div class="diff-history-wrapper">
+            <table class="diff-history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th class="diff-col-new">New</th>
+                        <th class="diff-col-resolved">Resolved</th>
+                        <th class="diff-col-changed">Changed</th>
+                        <th>Total issues</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for snap in recent_snapshots %}
+                    <tr {% if forloop.first %}class="diff-row-current"{% endif %}>
+                        <td>{{ snap.analysis_date|date:"d M Y H:i" }}</td>
+                        <td class="diff-col-new">{% if snap.new_issues_count %}+{{ snap.new_issues_count }}{% else %}—{% endif %}</td>
+                        <td class="diff-col-resolved">{% if snap.resolved_issues_count %}-{{ snap.resolved_issues_count }}{% else %}—{% endif %}</td>
+                        <td class="diff-col-changed">{% if snap.changed_issues_count %}~{{ snap.changed_issues_count }}{% else %}—{% endif %}</td>
+                        <td>{{ snap.servers_with_issues }}</td>
+                        <td style="color: #aaa; font-size: 0.8rem;">
+                            {% if snap.duration_seconds %}{{ snap.duration_seconds|floatformat:1 }}s{% else %}—{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div><!-- .diff-history-wrapper -->
+        </div>
+        {% endif %}
+
+    </div><!-- #diff-collapsible -->
+
+</div>
+
+<script>
+function toggleDiffSection() {
+    const body = document.getElementById('diff-collapsible');
+    const chev = document.getElementById('diff-chevron');
+    if (!body) return;
+    const isOpen = body.style.display !== 'none';
+    body.style.display = isOpen ? 'none' : 'block';
+    chev.classList.toggle('open', !isOpen);
+}
+</script>
+{% endif %}
