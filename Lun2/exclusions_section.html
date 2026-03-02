@@ -1,0 +1,30 @@
+<div class="exclusions-section">
+    <div class="exclusions-header">
+        <div class="exclusions-header-left">
+            <h2>Excluded Servers</h2>
+            <span class="exclusions-count" id="exclusions-count">—</span>
+        </div>
+        <div class="exclusions-header-actions">
+            <button class="excl-btn-export" onclick="exportExclusionsExcel()" title="Export to Excel">&#8595; Excel</button>
+            <button class="excl-btn-export" onclick="exportExclusionsCSV()" title="Export to CSV">&#8595; CSV</button>
+            <button class="excl-btn-add" onclick="openAddExclusionModal()" title="Add exclusion">+</button>
+        </div>
+    </div>
+    <div class="exclusions-table-wrapper">
+        <table class="exclusions-table">
+            <thead>
+                <tr>
+                    <th class="excl-th-sortable" data-col="server_name">Server<span class="excl-sort-icon"> ↕</span></th>
+                    <th class="excl-th-sortable" data-col="reason">Reason<span class="excl-sort-icon"> ↕</span></th>
+                    <th class="excl-th-sortable" data-col="owner">Owner<span class="excl-sort-icon"> ↕</span></th>
+                    <th class="excl-th-sortable" data-col="exclusion_date">Excluded until<span class="excl-sort-icon"> ↕</span></th>
+                    <th class="excl-th-sortable" data-col="created_by">Added By<span class="excl-sort-icon"> ↕</span></th>
+                    <th style="width:36px;"></th>
+                </tr>
+            </thead>
+            <tbody id="exclusions-tbody">
+                <tr><td colspan="6" class="exclusions-empty">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>

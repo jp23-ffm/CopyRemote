@@ -1,0 +1,66 @@
+  Deux endroits à adapter, rien de plus :
+
+  ---
+  1. Import — ligne 13
+
+  Ajouter ExcludedServer :
+
+  # avant
+  from discrepancies.models import ServerDiscrepancy, AnalysisSnapshot, DiscrepancyTracking, ImportStatus
+
+  # après
+  from discrepancies.models import ServerDiscrepancy, AnalysisSnapshot, DiscrepancyTracking, ImportStatus,
+  ExcludedServer
+
+  ---
+  2. Fonction analyze_servers() — les deux querysets
+
+  Juste avant la construction du queryset principal (ligne ~131), charger les noms exclus une seule fois, puis
+  l'appliquer aux deux querysets.
+
+  def analyze_servers():
+      write_log("Starting analysis")
+      write_log("Checking empty fields")
+
+      # ── Exclusions ──────────────────────────────────────────────────
+      excluded_names = set(
+          ExcludedServer.objects.values_list('server_name', flat=True)
+      )
+      if excluded_names:
+          write_log(f"Excluding {len(excluded_names)} servers from analysis")
+      # ────────────────────────────────────────────────────────────────
+
+      server_data = defaultdict(lambda: { ... })
+
+      queryset = (
+          Server.objects.only(*fields_to_fetch)
+          .order_by('SERVER_ID')
+      )
+      if excluded_names:                                  # ← ajouter
+          queryset = queryset.exclude(SERVER_ID__in=excluded_names)
+
+      # ... boucle d'analyse ...
+
+      inconsistent_servers = Server.objects.only(*fields_to_fetch).filter(
+          Q(SNOW_STATUS__iexact='RETIRED') | Q(SNOW_STATUS__iexact='NON-OPERATIONAL'),
+          LIVE_STATUS__iexact='LIVE',
+      )
+      if excluded_names:                                  # ← ajouter
+          inconsistent_servers = inconsistent_servers.exclude(SERVER_ID__in=excluded_names)
+
+  ---
+  Pourquoi .exclude() et pas un filtre en iteration ?
+
+  .exclude(SERVER_ID__in=excluded_names) fait le filtrage directement en SQL — c'est sans coût supplémentaire si la
+  liste d'exclusions reste raisonnable (quelques centaines max). Si tu anticipais des milliers d'exclusions, un
+  frozenset avec un if server_id in excluded_names: continue dans la boucle serait plus robuste, mais pour un usage
+  normal c'est inutile.
+
+  ---
+  Ce qui ne change PAS
+
+  - bulk_insert_discrepancies — inchangé
+  - update_tracker — inchangé (les serveurs exclus n'apparaissent pas dans les records, donc ils ne seront jamais
+  ajoutés au tracker)
+  - create_analysis_snapshot — inchangé (les stats reflèteront le périmètre post-exclusion, ce qui est le comportement
+  attendu)
