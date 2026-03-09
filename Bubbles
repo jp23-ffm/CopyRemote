@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Server Graph Explorer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e17;
+    --bg-surface: #111827;
+    --bg-elevated: #1a2235;
+    --bg-hover: #1e2d45;
+    --border: #1e2d45;
+    --border-light: #2a3a55;
+    --text-primary: #e2e8f0;
+    --text-secondary: #8896ab;
+    --text-muted: #4a5568;
+    --accent-server: #22d3ee;
+    --accent-app: #a78bfa;
+    --accent-dc: #f97316;
+    --accent-hypervisor: #34d399;
+    --accent-os: #fb7185;
+    --accent-env: #fbbf24;
+    --accent-owner: #60a5fa;
+    --accent-database: #c084fc;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text-primary);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden; height: 100vh;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image:
+      radial-gradient(circle at 50% 50%, rgba(34,211,238,0.03) 0%, transparent 60%),
+      linear-gradient(rgba(30,45,69,0.25) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,45,69,0.25) 1px, transparent 1px);
+    background-size: 100% 100%, 40px 40px, 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+  #graph-container { position: relative; width: 100%; height: 100vh; z-index: 1; }
+  svg { width: 100%; height: 100%; display: block; }
+
+.header {
+position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+padding: 16px 28px; display: flex; align-items: center; justify-content: space-between;
+background: linear-gradient(180deg, rgba(10,14,23,0.95) 0%, rgba(10,14,23,0) 100%);
+pointer-events: none;
+}
+.header > * { pointer-events: auto; }
+.header-title {
+font-family: ‘JetBrains Mono’, monospace; font-size: 13px; font-weight: 600;
+letter-spacing: 2px; text-transform: uppercase; color: var(–accent-server);
+display: flex; align-items: center; gap: 10px;
+}
+.header-title::before {
+content: ‘’; width: 8px; height: 8px; background: var(–accent-server);
+border-radius: 50%; box-shadow: 0 0 12px rgba(34,211,238,0.3);
+animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.header-sub { font-family: ‘JetBrains Mono’, monospace; font-size: 11px; color: var(–text-muted); }
+
+.legend {
+position: fixed; top: 56px; right: 28px; z-index: 100;
+display: flex; flex-direction: column; gap: 5px;
+font-family: ‘JetBrains Mono’, monospace; font-size: 11px;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; color: var(–text-secondary); }
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+.info-panel {
+position: fixed; bottom: 24px; left: 28px; z-index: 100;
+background: var(–bg-surface); border: 1px solid var(–border);
+border-radius: 12px; padding: 20px 24px;
+min-width: 320px; max-width: 420px;
+backdrop-filter: blur(20px);
+opacity: 0; transform: translateY(20px);
+transition: all 0.35s cubic-bezier(0.16,1,0.3,1);
+pointer-events: none;
+}
+.info-panel.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.info-panel-type {
+font-family: ‘JetBrains Mono’, monospace; font-size: 10px; font-weight: 600;
+letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px;
+}
+.info-panel-name { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+.info-panel-details { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 13px; }
+.info-panel-details dt { color: var(–text-muted); font-family: ‘JetBrains Mono’, monospace; font-size: 11px; }
+.info-panel-details dd { color: var(–text-secondary); }
+.info-panel-hint {
+margin-top: 14px; padding-top: 12px; border-top: 1px solid var(–border);
+font-size: 11px; color: var(–text-muted); font-family: ‘JetBrains Mono’, monospace;
+}
+
+.tooltip {
+position: fixed; z-index: 200; background: var(–bg-elevated);
+border: 1px solid var(–border); border-radius: 8px;
+padding: 10px 14px; font-size: 12px; pointer-events: none;
+opacity: 0; transition: opacity 0.15s;
+font-family: ‘JetBrains Mono’, monospace; max-width: 300px;
+}
+.tooltip.visible { opacity: 1; }
+.tooltip-label { color: var(–text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+.tooltip-value { color: var(–text-primary); font-weight: 500; }
+
+/* Reset button */
+.reset-btn {
+position: fixed; bottom: 24px; right: 28px; z-index: 100;
+background: var(–bg-surface); border: 1px solid var(–border);
+border-radius: 10px; padding: 12px 20px;
+color: var(–text-secondary); font-family: ‘JetBrains Mono’, monospace;
+font-size: 12px; cursor: pointer; transition: all 0.2s;
+display: none; align-items: center; gap: 8px;
+}
+.reset-btn:hover { border-color: var(–accent-server); color: var(–accent-server); }
+.reset-btn.visible { display: flex; }
+
+/* Side panel */
+.side-panel {
+position: fixed; top: 0; right: 0; width: 420px; height: 100vh;
+background: var(–bg-surface); border-left: 1px solid var(–border);
+z-index: 150; display: flex; flex-direction: column;
+transform: translateX(100%);
+transition: transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+.side-panel.open { transform: translateX(0); }
+.side-panel-header { padding: 20px 24px 16px; border-bottom: 1px solid var(–border); flex-shrink: 0; }
+.side-panel-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.side-panel-type { font-family: ‘JetBrains Mono’, monospace; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+.side-panel-close {
+background: none; border: 1px solid var(–border); border-radius: 6px;
+padding: 4px 8px; color: var(–text-muted); cursor: pointer;
+font-family: ‘JetBrains Mono’, monospace; font-size: 11px; transition: all 0.2s;
+}
+.side-panel-close:hover { color: var(–text-primary); border-color: var(–text-secondary); }
+.side-panel-name { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.side-panel-count { font-family: ‘JetBrains Mono’, monospace; font-size: 11px; color: var(–text-muted); }
+.side-panel-search { padding: 12px 24px; border-bottom: 1px solid var(–border); flex-shrink: 0; }
+.side-panel-search input {
+width: 100%; background: var(–bg); border: 1px solid var(–border);
+border-radius: 8px; padding: 10px 14px; color: var(–text-primary);
+font-family: ‘JetBrains Mono’, monospace; font-size: 12px; outline: none; transition: border-color 0.2s;
+}
+.side-panel-search input::placeholder { color: var(–text-muted); }
+.side-panel-search input:focus { border-color: var(–accent-server); }
+.side-panel-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+.side-panel-list::-webkit-scrollbar { width: 6px; }
+.side-panel-list::-webkit-scrollbar-track { background: transparent; }
+.side-panel-list::-webkit-scrollbar-thumb { background: var(–border); border-radius: 3px; }
+.side-panel-item {
+display: flex; align-items: center; gap: 12px; padding: 10px 24px;
+cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent;
+}
+.side-panel-item:hover { background: var(–bg-hover); }
+.side-panel-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.side-panel-item-info { flex: 1; min-width: 0; }
+.side-panel-item-name { font-size: 13px; font-weight: 500; color: var(–text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-panel-item-sub { font-family: ‘JetBrains Mono’, monospace; font-size: 10px; color: var(–text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-panel-item-arrow { color: var(–text-muted); font-size: 14px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+.side-panel-item:hover .side-panel-item-arrow { opacity: 1; }
+.side-panel-empty { padding: 40px 24px; text-align: center; color: var(–text-muted); font-family: ‘JetBrains Mono’, monospace; font-size: 12px; }
+
+/* Hint bar */
+.hint-bar {
+position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+z-index: 100; background: var(–bg-surface); border: 1px solid var(–border);
+border-radius: 10px; padding: 10px 20px;
+font-family: ‘JetBrains Mono’, monospace; font-size: 11px; color: var(–text-muted);
+display: flex; align-items: center; gap: 16px;
+opacity: 0; transition: opacity 0.5s; pointer-events: none;
+}
+.hint-bar.visible { opacity: 1; }
+.hint-bar span { color: var(–text-secondary); }
+
+@keyframes fadeSlideIn {
+from { opacity: 0; transform: translateX(12px); }
+to { opacity: 1; transform: translateX(0); }
+}
+@keyframes nodeAppear {
+from { opacity: 0; transform: scale(0.3); }
+to { opacity: 1; transform: scale(1); }
+}
+</style>
+
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Server Graph Explorer</div>
+  <div class="header-sub">Expand / Collapse &middot; Seuil: 10</div>
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div id="graph-container"><svg id="graph"></svg></div>
+
+<div class="info-panel" id="info-panel">
+  <div class="info-panel-type" id="info-type"></div>
+  <div class="info-panel-name" id="info-name"></div>
+  <dl class="info-panel-details" id="info-details"></dl>
+  <div class="info-panel-hint" id="info-hint"></div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-label" id="tooltip-label"></div>
+  <div class="tooltip-value" id="tooltip-value"></div>
+</div>
+
+<button class="reset-btn" id="reset-btn" onclick="resetToInitial()">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+  Réinitialiser
+</button>
+
+<div class="hint-bar" id="hint-bar">
+  <span>Cliquer</span> expand/collapse &middot;
+  <span>Glisser</span> déplacer &middot;
+  <span>Centre</span> détails
+</div>
+
+<div class="side-panel" id="side-panel">
+  <div class="side-panel-header">
+    <div class="side-panel-title-row">
+      <span class="side-panel-type" id="sp-type"></span>
+      <button class="side-panel-close" onclick="closeSidePanel()">ESC &times;</button>
+    </div>
+    <div class="side-panel-name" id="sp-name"></div>
+    <div class="side-panel-count" id="sp-count"></div>
+  </div>
+  <div class="side-panel-search">
+    <input type="text" id="sp-search" placeholder="Filtrer par hostname, IP, OS, owner..." oninput="filterSidePanel()">
+  </div>
+  <div class="side-panel-list" id="sp-list"></div>
+</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const EXPAND_THRESHOLD = 10;
+
+const TYPE_CONFIG = {
+  server:     { color: '#22d3ee', glow: 'rgba(34,211,238,0.35)',  icon: '⬡', radius: 32 },
+  app:        { color: '#a78bfa', glow: 'rgba(167,139,250,0.3)',  icon: '◆', radius: 22 },
+  datacenter: { color: '#f97316', glow: 'rgba(249,115,22,0.3)',   icon: '■', radius: 26 },
+  hypervisor: { color: '#34d399', glow: 'rgba(52,211,153,0.3)',   icon: '▲', radius: 26 },
+  os:         { color: '#fb7185', glow: 'rgba(251,113,133,0.3)',  icon: '●', radius: 20 },
+  env:        { color: '#fbbf24', glow: 'rgba(251,191,36,0.3)',   icon: '◇', radius: 20 },
+  owner:      { color: '#60a5fa', glow: 'rgba(96,165,250,0.3)',   icon: '◎', radius: 20 },
+  vm:         { color: '#22d3ee', glow: 'rgba(34,211,238,0.25)',  icon: '⬡', radius: 20 },
+  database:   { color: '#c084fc', glow: 'rgba(192,132,252,0.3)', icon: '⛁', radius: 20 },
+};
+
+const LEGEND_LABELS = {
+  server: 'Serveur', app: 'Application', datacenter: 'Datacenter',
+  hypervisor: 'Hypervisor', os: 'OS', env: 'Environnement',
+  owner: 'Owner', vm: 'VM', database: 'Database'
+};
+
+// ============================================================
+// SIMULATED INVENTORY
+// ============================================================
+const INVENTORY = [];
+
+function addServer(id, hostname, apps, db, dc, hyp, os, type, env, mfr, owner, ip, region) {
+  apps.forEach(app => {
+    INVENTORY.push({
+      SERVER_ID: id, HOSTNAME: hostname, APPLICATION: app,
+      DATABASE: db, PAMELA_DATACENTER: dc, HYPERVISOR: hyp,
+      OSSHORTNAME: os, MACHINE_TYPE: type, ENVIRONMENT: env,
+      MANUFACTURER: mfr, OWNER: owner, IPADDRESS: ip,
+      LIVE_STATUS: 'ALIVE', REGION: region
+    });
+  });
+}
+
+// DC Paris
+addServer('HYP-DC1-01','esxi-paris-01',['VMware ESXi'],null,'DC-Paris-01',null,'ESXi 8.0','Physical','Infrastructure','Dell','Team Infra','10.1.0.1','EU-West');
+addServer('HYP-DC1-02','esxi-paris-02',['VMware ESXi'],null,'DC-Paris-01',null,'ESXi 8.0','Physical','Infrastructure','Dell','Team Infra','10.1.0.2','EU-West');
+addServer('SRV-0001','web-prod-01',['E-Commerce Portal','CMS Backend'],'Oracle 19c','DC-Paris-01','HYP-DC1-01','RHEL 8.6','Virtual','Production','VMware','Team Alpha','10.1.1.10','EU-West');
+addServer('SRV-0002','app-prod-02',['Payment Gateway'],'PostgreSQL 15','DC-Paris-01','HYP-DC1-01','Ubuntu 22.04','Virtual','Production','VMware','Team Beta','10.1.1.11','EU-West');
+addServer('SRV-0003','db-prod-03',['Data Warehouse'],'PostgreSQL 15','DC-Paris-01','HYP-DC1-01','RHEL 9.1','Virtual','Production','VMware','Team Alpha','10.1.1.12','EU-West');
+addServer('SRV-0004','api-prod-04',['REST API v3'],'MongoDB 7','DC-Paris-01','HYP-DC1-02','RHEL 8.6','Virtual','Production','VMware','Team Gamma','10.1.2.10','EU-West');
+addServer('SRV-0005','cache-prod-05',['Redis Cluster'],null,'DC-Paris-01','HYP-DC1-02','Ubuntu 22.04','Virtual','Production','VMware','Team Gamma','10.1.2.11','EU-West');
+
+// DC London
+addServer('HYP-LDN-01','esxi-london-01',['VMware ESXi'],null,'DC-London-01',null,'ESXi 8.0','Physical','Infrastructure','HPE','Team Infra','10.2.0.1','EU-North');
+addServer('SRV-0010','web-stg-10',['E-Commerce Portal'],'Oracle 19c','DC-London-01','HYP-LDN-01','RHEL 8.6','Virtual','Staging','VMware','Team Alpha','10.2.1.10','EU-North');
+addServer('SRV-0011','app-stg-11',['Payment Gateway'],'PostgreSQL 15','DC-London-01','HYP-LDN-01','Ubuntu 22.04','Virtual','Staging','VMware','Team Beta','10.2.1.11','EU-North');
+addServer('SRV-0012','monitoring-12',['Grafana','Prometheus'],'TimescaleDB','DC-London-01','HYP-LDN-01','CentOS 7','Virtual','Production','VMware','Team Infra','10.2.2.10','EU-North');
+
+// DC Frankfurt - lots of servers to trigger threshold
+addServer('SRV-0020','bare-metal-20',['HPC Cluster'],null,'DC-Frankfurt-01',null,'RHEL 9.1','Physical','Production','Dell','Team HPC','10.3.1.10','EU-Central');
+addServer('SRV-0021','bare-metal-21',['ML Training'],'Redis','DC-Frankfurt-01',null,'Ubuntu 22.04','Physical','Production','Dell','Team HPC','10.3.1.11','EU-Central');
+addServer('SRV-0022','legacy-22',['Legacy ERP'],'DB2','DC-Frankfurt-01',null,'AIX 7.2','Physical','Production','IBM','Team Legacy','10.3.1.12','EU-Central');
+for (let i = 30; i <= 45; i++) {
+  const os = ['RHEL 8.6','Ubuntu 22.04','RHEL 9.1','Windows 2019','CentOS 7'][i%5];
+  const owner = ['Team Alpha','Team Beta','Team Gamma','Team HPC','Team Infra'][i%5];
+  const env = ['Production','Staging','Dev'][i%3];
+  addServer(`SRV-00${i}`,`node-fk-${i}`,[`Service-${String.fromCharCode(65+(i%8))}`],
+    i%3===0?'PostgreSQL 15':null,'DC-Frankfurt-01',null,os,'Physical',env,'Dell',owner,`10.3.2.${i}`,'EU-Central');
+}
+
+// ============================================================
+// DATA HELPERS
+// ============================================================
+function getUniqueServers() {
+  const seen = new Set();
+  return INVENTORY.filter(r => { if (seen.has(r.SERVER_ID)) return false; seen.add(r.SERVER_ID); return true; });
+}
+function getServerById(id) { return INVENTORY.filter(r => r.SERVER_ID === id); }
+function getFirstServer(id) { return INVENTORY.find(r => r.SERVER_ID === id); }
+function getDistinctApps(id) { return [...new Set(INVENTORY.filter(r => r.SERVER_ID === id).map(r => r.APPLICATION).filter(Boolean))]; }
+function getDistinctDatabases(id) { return [...new Set(INVENTORY.filter(r => r.SERVER_ID === id).map(r => r.DATABASE).filter(Boolean))]; }
+function getServersByField(field, value) {
+  const seen = new Set();
+  return INVENTORY.filter(r => { if (r[field] !== value) return false; if (seen.has(r.SERVER_ID)) return false; seen.add(r.SERVER_ID); return true; });
+}
+
+// ============================================================
+// GRAPH STATE - the live graph that grows/shrinks
+// ============================================================
+let graphNodes = [];
+let graphLinks = [];
+let expandedNodes = new Set(); // IDs of nodes that have been expanded
+let rootServerId = null;
+let simulation = null;
+let sidePanelData = null;
+
+const width = window.innerWidth;
+const height = window.innerHeight;
+
+const svgEl = d3.select('#graph').attr('viewBox', `0 0 ${width} ${height}`);
+const gLinks = svgEl.append('g').attr('class', 'links-layer');
+const gNodes = svgEl.append('g').attr('class', 'nodes-layer');
+
+// Glow filters
+const defs = svgEl.append('defs');
+Object.entries(TYPE_CONFIG).forEach(([type, cfg]) => {
+  const f = defs.append('filter').attr('id', `glow-${type}`);
+  f.append('feGaussianBlur').attr('stdDeviation','4').attr('result','blur');
+  f.append('feFlood').attr('flood-color', cfg.glow).attr('result','color');
+  f.append('feComposite').attr('in','color').attr('in2','blur').attr('operator','in').attr('result','glow');
+  const m = f.append('feMerge'); m.append('feMergeNode').attr('in','glow'); m.append('feMergeNode').attr('in','SourceGraphic');
+});
+
+// ============================================================
+// FIND OR ADD NODE
+// ============================================================
+function findNode(id) { return graphNodes.find(n => n.id === id); }
+
+function addNodeIfMissing(nodeData) {
+  let existing = findNode(nodeData.id);
+  if (existing) return { node: existing, isNew: false };
+  graphNodes.push(nodeData);
+  return { node: nodeData, isNew: true };
+}
+
+function addLinkIfMissing(sourceId, targetId) {
+  const exists = graphLinks.some(l =>
+    (l.source?.id || l.source) === sourceId && (l.target?.id || l.target) === targetId ||
+    (l.source?.id || l.source) === targetId && (l.target?.id || l.target) === sourceId
+  );
+  if (!exists) {
+    graphLinks.push({ source: sourceId, target: targetId });
+  }
+}
+
+// ============================================================
+// GET CHILDREN OF A NODE (what expanding reveals)
+// ============================================================
+function getChildrenForServer(serverId) {
+  const rows = getServerById(serverId);
+  if (!rows.length) return [];
+  const server = rows[0];
+  const children = [];
+
+  getDistinctApps(serverId).forEach(app => {
+    children.push({
+      id: `app:${app}`, label: app, type: 'app',
+      expandable: true, field: 'APPLICATION', value: app,
+      childCount: getServersByField('APPLICATION', app).length
+    });
+  });
+
+  getDistinctDatabases(serverId).forEach(db => {
+    children.push({
+      id: `db:${db}`, label: db, type: 'database',
+      expandable: true, field: 'DATABASE', value: db,
+      childCount: getServersByField('DATABASE', db).length
+    });
+  });
+
+  if (server.PAMELA_DATACENTER) {
+    const count = getServersByField('PAMELA_DATACENTER', server.PAMELA_DATACENTER).length;
+    children.push({
+      id: `dc:${server.PAMELA_DATACENTER}`, label: server.PAMELA_DATACENTER,
+      type: 'datacenter', expandable: true, field: 'PAMELA_DATACENTER',
+      value: server.PAMELA_DATACENTER, childCount: count
+    });
+  }
+
+  if (server.HYPERVISOR) {
+    const count = getServersByField('HYPERVISOR', server.HYPERVISOR).length;
+    children.push({
+      id: `hyp:${server.HYPERVISOR}`, label: server.HYPERVISOR,
+      type: 'hypervisor', expandable: true, field: 'HYPERVISOR',
+      value: server.HYPERVISOR, childCount: count
+    });
+  }
+
+  if (server.OSSHORTNAME) {
+    children.push({
+      id: `os:${server.OSSHORTNAME}`, label: server.OSSHORTNAME,
+      type: 'os', expandable: true, field: 'OSSHORTNAME',
+      value: server.OSSHORTNAME, childCount: getServersByField('OSSHORTNAME', server.OSSHORTNAME).length
+    });
+  }
+
+  if (server.ENVIRONMENT) {
+    children.push({
+      id: `env:${server.ENVIRONMENT}`, label: server.ENVIRONMENT,
+      type: 'env', expandable: true, field: 'ENVIRONMENT',
+      value: server.ENVIRONMENT, childCount: getServersByField('ENVIRONMENT', server.ENVIRONMENT).length
+    });
+  }
+
+  if (server.OWNER) {
+    children.push({
+      id: `own:${server.OWNER}`, label: server.OWNER,
+      type: 'owner', expandable: true, field: 'OWNER',
+      value: server.OWNER, childCount: getServersByField('OWNER', server.OWNER).length
+    });
+  }
+
+  return children;
+}
+
+function getChildrenForField(field, value) {
+  const servers = getServersByField(field, value);
+  return servers.map(srv => ({
+    id: srv.SERVER_ID, label: srv.HOSTNAME,
+    type: srv.MACHINE_TYPE === 'Physical' ? 'server' : 'vm',
+    expandable: true, isServer: true, data: srv
+  }));
+}
+
+// ============================================================
+// EXPAND / COLLAPSE
+// ============================================================
+function expandNode(nodeId) {
+  const node = findNode(nodeId);
+  if (!node) return;
+
+  let children;
+  if (node.isServer || node.type === 'server' || node.type === 'vm') {
+    const srvId = node.data ? node.data.SERVER_ID : nodeId;
+    children = getChildrenForServer(srvId);
+  } else if (node.field) {
+    children = getChildrenForField(node.field, node.value);
+  } else {
+    return;
+  }
+
+  // Check threshold
+  if (children.length > EXPAND_THRESHOLD) {
+    openSidePanel(node, children);
+    return;
+  }
+
+  expandedNodes.add(nodeId);
+  node._expanded = true;
+
+  const parentX = node.x || width/2;
+  const parentY = node.y || height/2;
+
+  children.forEach((child, i) => {
+    // Position new nodes near parent
+    const angle = (2 * Math.PI * i) / children.length;
+    const dist = 120;
+    child.x = parentX + Math.cos(angle) * dist;
+    child.y = parentY + Math.sin(angle) * dist;
+
+    const { node: addedNode, isNew } = addNodeIfMissing(child);
+    // Track who spawned this child (for collapse)
+    if (isNew) {
+      addedNode._spawnedBy = addedNode._spawnedBy || new Set();
+      addedNode._spawnedBy.add(nodeId);
+    } else {
+      addedNode._spawnedBy = addedNode._spawnedBy || new Set();
+      addedNode._spawnedBy.add(nodeId);
+    }
+    addLinkIfMissing(nodeId, child.id);
+  });
+
+  redraw();
+}
+
+function collapseNode(nodeId) {
+  expandedNodes.delete(nodeId);
+  const node = findNode(nodeId);
+  if (node) node._expanded = false;
+
+  // Find children that were spawned by this node
+  const toRemove = new Set();
+  const toRemoveLinks = [];
+
+  graphLinks.forEach(l => {
+    const srcId = l.source?.id || l.source;
+    const tgtId = l.target?.id || l.target;
+    if (srcId === nodeId || tgtId === nodeId) {
+      const childId = srcId === nodeId ? tgtId : srcId;
+      const childNode = findNode(childId);
+      if (childNode && childNode._spawnedBy) {
+        childNode._spawnedBy.delete(nodeId);
+        // Only remove if no other parent references it
+        if (childNode._spawnedBy.size === 0 && childId !== rootServerId) {
+          // Also collapse this child if it was expanded
+          if (expandedNodes.has(childId)) {
+            collapseNode(childId);
+          }
+          toRemove.add(childId);
+        }
+      }
+    }
+  });
+
+  // Remove orphaned nodes
+  graphNodes = graphNodes.filter(n => !toRemove.has(n.id));
+  // Remove links connected to removed nodes + links from this node to its children
+  graphLinks = graphLinks.filter(l => {
+    const srcId = l.source?.id || l.source;
+    const tgtId = l.target?.id || l.target;
+    if (toRemove.has(srcId) || toRemove.has(tgtId)) return false;
+    // Also remove direct links from nodeId to removed children
+    // (already covered above, but safety)
+    return true;
+  });
+
+  redraw();
+}
+
+function toggleNode(nodeId) {
+  if (expandedNodes.has(nodeId)) {
+    collapseNode(nodeId);
+  } else {
+    expandNode(nodeId);
+  }
+}
+
+// ============================================================
+// START FROM SERVER (entry point from table click)
+// ============================================================
+function startFromServer(serverId) {
+  graphNodes = [];
+  graphLinks = [];
+  expandedNodes = new Set();
+  rootServerId = serverId;
+  closeSidePanel();
+
+  const server = getFirstServer(serverId);
+  if (!server) return;
+
+  const rootNode = {
+    id: serverId, label: server.HOSTNAME,
+    type: server.MACHINE_TYPE === 'Physical' ? 'server' : 'vm',
+    isCenter: true, isServer: true, data: server,
+    expandable: true,
+    fx: width / 2, fy: height / 2
+  };
+  graphNodes.push(rootNode);
+
+  // Auto-expand the root
+  expandNode(serverId);
+  // Unpin after a short delay so the graph can breathe
+  setTimeout(() => { rootNode.fx = null; rootNode.fy = null; }, 1500);
+
+  document.getElementById('reset-btn').classList.add('visible');
+  showHint();
+}
+
+// ============================================================
+// REDRAW (update D3 with current graphNodes/graphLinks)
+// ============================================================
+function redraw() {
+  updateLegend();
+
+  // -- LINKS --
+  const linkSel = gLinks.selectAll('line').data(graphLinks, d => {
+    const s = d.source?.id || d.source;
+    const t = d.target?.id || d.target;
+    return `${s}--${t}`;
+  });
+
+  linkSel.exit().transition().duration(300).attr('opacity', 0).remove();
+
+  const linkEnter = linkSel.enter().append('line')
+    .attr('stroke-width', 1.5)
+    .attr('opacity', 0);
+
+  const linkMerge = linkEnter.merge(linkSel);
+  linkMerge.transition().duration(400).attr('opacity', 1)
+    .attr('stroke', d => {
+      const tgt = findNode(d.target?.id || d.target);
+      if (!tgt) return '#1e2d4530';
+      // Cross-links (node existed before) get a dashed look
+      return TYPE_CONFIG[tgt.type]?.color + '30';
+    });
+
+  // Detect cross-links (both endpoints already existed)
+  linkMerge.attr('stroke-dasharray', d => {
+    const srcNode = findNode(d.source?.id || d.source);
+    const tgtNode = findNode(d.target?.id || d.target);
+    if (srcNode && tgtNode && srcNode._spawnedBy && srcNode._spawnedBy.size > 1) return '6,3';
+    if (tgtNode && tgtNode._spawnedBy && tgtNode._spawnedBy.size > 1) return '6,3';
+    return null;
+  });
+
+  // -- NODES --
+  const nodeSel = gNodes.selectAll('g.node').data(graphNodes, d => d.id);
+
+  nodeSel.exit().each(function(d) {
+    d3.select(this).transition().duration(300)
+      .attr('opacity', 0)
+      .attr('transform', `translate(${d.x},${d.y}) scale(0.3)`)
+      .remove();
+  });
+
+  const nodeEnter = nodeSel.enter().append('g')
+    .attr('class', 'node')
+    .attr('opacity', 0)
+    .attr('cursor', 'pointer');
+
+  // Glow circle
+  nodeEnter.append('circle').attr('class', 'glow-ring');
+  // Main circle
+  nodeEnter.append('circle').attr('class', 'main-ring');
+  // Expanded indicator ring
+  nodeEnter.append('circle').attr('class', 'expand-ring')
+    .attr('fill', 'none').attr('stroke-width', 1).attr('opacity', 0).attr('stroke-dasharray', '3,3');
+  // Icon
+  nodeEnter.append('text').attr('class', 'icon-text')
+    .attr('text-anchor', 'middle').attr('dominant-baseline', 'central');
+  // Label
+  nodeEnter.append('text').attr('class', 'label-text')
+    .attr('text-anchor', 'middle')
+    .attr('font-family', "'JetBrains Mono', monospace");
+  // Badge
+  nodeEnter.append('text').attr('class', 'badge-text')
+    .attr('text-anchor', 'middle')
+    .attr('font-family', "'JetBrains Mono', monospace");
+
+  // Merge
+  const nodeMerge = nodeEnter.merge(nodeSel);
+
+  // Update all attributes
+  nodeMerge.each(function(d) {
+    const g = d3.select(this);
+    const cfg = TYPE_CONFIG[d.type];
+    const isExp = expandedNodes.has(d.id);
+
+    g.select('.glow-ring')
+      .attr('r', cfg.radius + (d.isCenter ? 6 : 3))
+      .attr('fill', 'none')
+      .attr('stroke', cfg.color)
+      .attr('stroke-width', d.isCenter ? 2 : 1)
+      .attr('opacity', 0.15)
+      .attr('filter', `url(#glow-${d.type})`);
+
+    g.select('.main-ring')
+      .attr('r', cfg.radius)
+      .attr('fill', isExp ? cfg.color + '25' : cfg.color + '12')
+      .attr('stroke', cfg.color)
+      .attr('stroke-width', d.isCenter ? 2.5 : isExp ? 2 : 1.5);
+
+    g.select('.expand-ring')
+      .attr('r', cfg.radius + 8)
+      .attr('stroke', cfg.color)
+      .attr('opacity', isExp ? 0.3 : 0);
+
+    g.select('.icon-text')
+      .text(cfg.icon)
+      .attr('font-size', d.isCenter ? 16 : 12)
+      .attr('fill', cfg.color)
+      .attr('opacity', 0.8);
+
+    const label = d.label.length > 20 ? d.label.slice(0, 18) + '…' : d.label;
+    g.select('.label-text')
+      .text(label)
+      .attr('dy', cfg.radius + 16)
+      .attr('font-size', d.isCenter ? 12 : 10)
+      .attr('font-weight', d.isCenter ? 600 : 400)
+      .attr('fill', d.isCenter ? cfg.color : isExp ? cfg.color + 'cc' : '#8896ab');
+
+    // Badge: show count + mode
+    let badge = '';
+    if (d.childCount != null && !d.isServer && !isExp) {
+      badge = `${d.childCount} srv`;
+      if (d.childCount > EXPAND_THRESHOLD) badge += ' · liste';
+    }
+    if (isExp) badge = '▾ ouvert';
+    g.select('.badge-text')
+      .text(badge)
+      .attr('dy', cfg.radius + 28)
+      .attr('font-size', 9)
+      .attr('fill', isExp ? cfg.color + '80' : var_text_muted());
+  });
+
+  // Animate entering nodes
+  nodeEnter.transition().duration(500)
+    .attr('opacity', 1);
+
+  // Events
+  nodeMerge
+    .on('click', (event, d) => handleClick(event, d))
+    .on('mouseenter', (event, d) => showTooltip(event, d))
+    .on('mouseleave', () => hideTooltip())
+    .on('mousemove', (event) => moveTooltip(event));
+
+  // Drag
+  nodeMerge.call(
+    d3.drag()
+      .on('start', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+      .on('end', (event, d) => {
+        if (!event.active) simulation.alphaTarget(0);
+        // Keep center pinned? No, let it float
+        d.fx = null; d.fy = null;
+      })
+  );
+
+  // -- SIMULATION --
+  if (simulation) simulation.stop();
+
+  simulation = d3.forceSimulation(graphNodes)
+    .force('link', d3.forceLink(graphLinks).id(d => d.id).distance(d => {
+      // Shorter links for cross-references
+      return 140;
+    }).strength(0.6))
+    .force('charge', d3.forceManyBody().strength(d => d.isCenter ? -500 : -250))
+    .force('center', d3.forceCenter(width / 2, height / 2).strength(0.03))
+    .force('collision', d3.forceCollide().radius(d => TYPE_CONFIG[d.type].radius + 25))
+    .alphaDecay(0.02)
+    .on('tick', () => {
+      gLinks.selectAll('line')
+        .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+      gNodes.selectAll('g.node')
+        .attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+}
+
+function var_text_muted() { return '#4a5568'; }
+
+// ============================================================
+// CLICK HANDLER
+// ============================================================
+function handleClick(event, d) {
+  event.stopPropagation();
+  hideInfoPanel();
+
+  // If it's expandable, toggle
+  if (d.expandable) {
+    toggleNode(d.id);
+    return;
+  }
+}
+
+// Long-press or right-click for info? Let's just show info panel on hover of center
+// Actually, let's show info on clicking center node that's already expanded
+// Revised: center node toggles like any other. Info shown on hover via tooltip.
+
+// ============================================================
+// INITIAL VIEW: pick a server
+// ============================================================
+function showInitialView() {
+  graphNodes = [];
+  graphLinks = [];
+  expandedNodes = new Set();
+  rootServerId = null;
+  closeSidePanel();
+
+  if (simulation) simulation.stop();
+  gLinks.selectAll('*').remove();
+  gNodes.selectAll('*').remove();
+
+  const servers = getUniqueServers();
+  const initNodes = [];
+  const initLinks = [];
+
+  initNodes.push({ id: '__c__', label: '', type: 'server', fx: width/2, fy: height/2, hidden: true });
+  servers.forEach(srv => {
+    initNodes.push({
+      id: srv.SERVER_ID, label: srv.HOSTNAME,
+      type: srv.MACHINE_TYPE === 'Physical' ? 'server' : 'vm',
+      data: srv
+    });
+    initLinks.push({ source: '__c__', target: srv.SERVER_ID });
+  });
+
+  const visible = initNodes.filter(n => !n.hidden);
+  updateLegendFromNodes(visible);
+
+  const nodeEls = gNodes.selectAll('g').data(visible).join('g')
+    .attr('cursor', 'pointer')
+    .attr('opacity', 0)
+    .on('click', (event, d) => startFromServer(d.data.SERVER_ID))
+    .on('mouseenter', (event, d) => showTooltip(event, d))
+    .on('mouseleave', () => hideTooltip())
+    .on('mousemove', (event) => moveTooltip(event));
+
+  nodeEls.append('circle')
+    .attr('r', d => TYPE_CONFIG[d.type].radius + 3)
+    .attr('fill', 'none').attr('stroke', d => TYPE_CONFIG[d.type].color)
+    .attr('stroke-width', 1).attr('opacity', 0.12)
+    .attr('filter', d => `url(#glow-${d.type})`);
+
+  nodeEls.append('circle')
+    .attr('r', d => TYPE_CONFIG[d.type].radius)
+    .attr('fill', d => TYPE_CONFIG[d.type].color + '12')
+    .attr('stroke', d => TYPE_CONFIG[d.type].color)
+    .attr('stroke-width', 1.5);
+
+  nodeEls.append('text')
+    .text(d => TYPE_CONFIG[d.type].icon)
+    .attr('text-anchor', 'middle').attr('dominant-baseline', 'central')
+    .attr('font-size', 12).attr('fill', d => TYPE_CONFIG[d.type].color).attr('opacity', 0.7);
+
+  nodeEls.append('text')
+    .text(d => d.label)
+    .attr('text-anchor', 'middle').attr('dy', d => TYPE_CONFIG[d.type].radius + 16)
+    .attr('font-family', "'JetBrains Mono', monospace")
+    .attr('font-size', 10).attr('fill', '#8896ab');
+
+  nodeEls.transition().duration(500).delay((d, i) => i * 30).attr('opacity', 1);
+
+  simulation = d3.forceSimulation(initNodes)
+    .force('link', d3.forceLink(initLinks).id(d => d.id).distance(100))
+    .force('charge', d3.forceManyBody().strength(-150))
+    .force('center', d3.forceCenter(width/2, height/2).strength(0.08))
+    .force('collision', d3.forceCollide().radius(45))
+    .on('tick', () => {
+      nodeEls.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+  nodeEls.call(
+    d3.drag()
+      .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+      .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+  );
+
+  document.getElementById('reset-btn').classList.remove('visible');
+  hideHint();
+}
+
+function resetToInitial() {
+  showInitialView();
+}
+
+// ============================================================
+// SIDE PANEL
+// ============================================================
+function openSidePanel(nodeData, children) {
+  const panel = document.getElementById('side-panel');
+  const servers = children.filter(c => c.isServer).length > 0
+    ? children.map(c => c.data).filter(Boolean)
+    : getServersByField(nodeData.field, nodeData.value);
+
+  document.getElementById('sp-type').textContent = LEGEND_LABELS[nodeData.type] || nodeData.type;
+  document.getElementById('sp-type').style.color = TYPE_CONFIG[nodeData.type].color;
+  document.getElementById('sp-name').textContent = nodeData.label;
+  document.getElementById('sp-name').style.color = TYPE_CONFIG[nodeData.type].color;
+  document.getElementById('sp-count').textContent = `${servers.length} serveurs · Cliquer pour explorer`;
+
+  sidePanelData = { servers, nodeData };
+  document.getElementById('sp-search').value = '';
+  renderSidePanelList(servers);
+  panel.classList.add('open');
+  setTimeout(() => document.getElementById('sp-search').focus(), 400);
+}
+
+function closeSidePanel() {
+  document.getElementById('side-panel').classList.remove('open');
+  sidePanelData = null;
+}
+
+function filterSidePanel() {
+  if (!sidePanelData) return;
+  const q = document.getElementById('sp-search').value.toLowerCase().trim();
+  const filtered = sidePanelData.servers.filter(srv =>
+    srv.HOSTNAME.toLowerCase().includes(q) || srv.SERVER_ID.toLowerCase().includes(q) ||
+    (srv.IPADDRESS && srv.IPADDRESS.toLowerCase().includes(q)) ||
+    (srv.OSSHORTNAME && srv.OSSHORTNAME.toLowerCase().includes(q)) ||
+    (srv.OWNER && srv.OWNER.toLowerCase().includes(q)) ||
+    (srv.ENVIRONMENT && srv.ENVIRONMENT.toLowerCase().includes(q))
+  );
+  renderSidePanelList(filtered);
+  document.getElementById('sp-count').textContent = `${filtered.length} / ${sidePanelData.servers.length} serveurs`;
+}
+
+function renderSidePanelList(servers) {
+  const list = document.getElementById('sp-list');
+  if (!servers.length) { list.innerHTML = '<div class="side-panel-empty">Aucun résultat</div>'; return; }
+  list.innerHTML = servers.map((srv, i) => {
+    const typeKey = srv.MACHINE_TYPE === 'Physical' ? 'server' : 'vm';
+    const color = TYPE_CONFIG[typeKey].color;
+    return `<div class="side-panel-item" onclick="selectFromPanel('${srv.SERVER_ID}')" style="animation:fadeSlideIn 0.3s ${i*20}ms both">
+      <div class="side-panel-item-dot" style="background:${color};box-shadow:0 0 6px ${color}40"></div>
+      <div class="side-panel-item-info">
+        <div class="side-panel-item-name">${srv.HOSTNAME}</div>
+        <div class="side-panel-item-sub">${srv.SERVER_ID} · ${srv.OSSHORTNAME||'?'} · ${srv.ENVIRONMENT||'?'} · ${srv.OWNER||'?'}</div>
+      </div>
+      <div class="side-panel-item-arrow">›</div>
+    </div>`;
+  }).join('');
+}
+
+window.selectFromPanel = function(serverId) {
+  closeSidePanel();
+  startFromServer(serverId);
+};
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidePanel(); });
+
+// ============================================================
+// UI HELPERS
+// ============================================================
+function updateLegend() {
+  const types = [...new Set(graphNodes.map(n => n.type))];
+  document.getElementById('legend').innerHTML = types.map(t =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${TYPE_CONFIG[t].color};box-shadow:0 0 8px ${TYPE_CONFIG[t].glow}"></div>${LEGEND_LABELS[t]||t}</div>`
+  ).join('');
+}
+
+function updateLegendFromNodes(nodes) {
+  const types = [...new Set(nodes.map(n => n.type))];
+  document.getElementById('legend').innerHTML = types.map(t =>
+    `<div class="legend-item"><div class="legend-dot" style="background:${TYPE_CONFIG[t].color};box-shadow:0 0 8px ${TYPE_CONFIG[t].glow}"></div>${LEGEND_LABELS[t]||t}</div>`
+  ).join('');
+}
+
+function showTooltip(event, d) {
+  const tip = document.getElementById('tooltip');
+  document.getElementById('tooltip-label').textContent = LEGEND_LABELS[d.type] || d.type;
+  let value = d.label;
+  if (d.data) {
+    value = `${d.data.HOSTNAME} · ${d.data.SERVER_ID}`;
+    value += `\n${d.data.OSSHORTNAME || ''} · ${d.data.ENVIRONMENT || ''} · ${d.data.OWNER || ''}`;
+  }
+  if (d.childCount != null && !expandedNodes.has(d.id)) {
+    value += ` · ${d.childCount} srv`;
+    if (d.childCount > EXPAND_THRESHOLD) value += ' (liste)';
+  }
+  if (expandedNodes.has(d.id)) value += ' · cliquer pour replier';
+  document.getElementById('tooltip-value').textContent = value;
+  tip.style.left = (event.clientX + 16) + 'px';
+  tip.style.top = (event.clientY - 10) + 'px';
+  tip.classList.add('visible');
+}
+function moveTooltip(event) {
+  const tip = document.getElementById('tooltip');
+  tip.style.left = (event.clientX + 16) + 'px';
+  tip.style.top = (event.clientY - 10) + 'px';
+}
+function hideTooltip() { document.getElementById('tooltip').classList.remove('visible'); }
+
+function hideInfoPanel() { document.getElementById('info-panel').classList.remove('visible'); }
+
+function showHint() {
+  const el = document.getElementById('hint-bar');
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 5000);
+}
+function hideHint() { document.getElementById('hint-bar').classList.remove('visible'); }
+
+// ============================================================
+// INIT
+// ============================================================
+showInitialView();
+</script>
+
+</body>
+</html>
