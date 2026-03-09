@@ -1,0 +1,243 @@
+{
+
+    "categories" : {
+
+	    "cat1" : "Application",
+	    "cat2" : "Hardware",
+	    "cat3" : "Operating System",
+	    "cat4" : "Perimeter/Scope",
+	    "cat5" : "Product",
+	    "cat6" : "Status",
+	    "cat7" : "Virtual"
+    },
+	    
+    "permanentfilters": {
+        "Windows":  {"OSFAMILY": ["WINDOWS"]},
+        "Linux":    {"OSFAMILY": ["LINUX"]},
+        "Unix":     {"OSFAMILY": ["UNIX"]},
+        "EMEA":     {"REGION":   ["EMEA"]},
+        "AMER":     {"REGION":   ["AMER"]},
+        "APAC":     {"REGION":   ["APAC"]},
+        "Physical": {"MACHINE_TYPE": ["PHYSICAL"]},
+        "Virtual":  {"MACHINE_TYPE": ["VIRTUAL"]}
+    },
+
+    "validation_errors": {
+        "alive_status_inconsistent": {
+            "affected_fields": ["LIVE_STATUS", "SNOW_STATUS"],
+            "css_class": "error-inconsistent",
+            "display_name": "ALIVE Inconsistency"
+        },
+        "dead_status_inconsistent": {
+            "affected_fields": ["LIVE_STATUS", "SNOW_STATUS"],
+            "css_class": "error-inconsistent",
+            "display_name": "DEAD Inconsistency"
+        }        
+    },
+    
+    "fields" : {
+ 
+ 	    "SERVER_ID" : {
+	      "displayname" : "Server Name",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",
+	      "ischeckeddisabled" : "True",
+	      "inputname" : "server"
+	    },
+
+	    "alive_status_inconsistent" : {
+	      "displayname" : "Alive Inconsistencies",
+	      "selectionsection" : "cat0",
+	      "ischecked" : "False",
+	      "inputname" : "alive_status_inconsistent"
+	    },
+
+	    "dead_status_inconsistent" : {
+	      "displayname" : "Dead Inconsistencies",
+	      "selectionsection" : "cat0",
+	      "ischecked" : "False",
+	      "inputname" : "dead_status_inconsistent"
+	    },   
+   
+	    "OSFAMILY" : {
+	      "displayname" : "OS Family",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "listbox" : "osfamilys",
+	      "listboxmsg" : "OS Family",
+	      "listid" : "osfamily",	 	      
+	      "inputname" : "osfamily"
+	    },	    
+
+	    "OSSHORTNAME" : {
+	      "displayname" : "OS Name",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "listbox" : "osshortnames",
+	      "listboxmsg" : "OS Name",
+	      "listid" : "osshortname",
+	      "inputname" : "osshortname"
+	    },
+	    
+	    "SNOW_SUPPORTGROUP" : {
+	      "displayname" : "Server Support Group",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",
+	      "listbox" : "serversupportgroups",
+	      "listboxmsg" : "Server Support Group",
+	      "listid" : "serversupportgroup",	      
+	      "inputname" : "serversupportgroup"
+	    },			    
+	    
+	    "APP_NAME_VALUE" : {
+	      "displayname" : "Application Name",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "listbox" : "app_names",
+	      "listboxmsg" : "Application Name",
+	      "listid" : "app_name", 
+          "listempty" : "True", 
+	      "inputname" : "app_name"
+	    },
+	    
+	    "APP_AUID_VALUE" : {
+	      "displayname" : "Application AUID",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "listbox" : "app_auids",
+	      "listboxmsg" : "Application AUID",
+	      "listid" : "app_auid", 
+          "listempty" : "True", 	      
+	      "inputname" : "app_auid"
+	    },	    
+
+	    "LIVE_STATUS" : {
+	      "displayname" : "Live Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "livestatuss",
+	      "listboxmsg" : "Live Status",
+	      "listid" : "livestatus",	      
+	      "inputname" : "livestatus"
+	    },		
+
+	    "SNOW_STATUS" : {
+	      "displayname" : "Snow Status",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "listbox" : "snowstatuss",
+	      "listboxmsg" : "Snow Status",
+	      "listid" : "snowstatus",	      
+	      "inputname" : "snowstatus"
+	    },
+
+	    "INFRAVERSION" : {
+	      "displayname" : "Infra Version",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",	      
+	      "listbox" : "infraversions",
+	      "listboxmsg" : "Infra Version",
+	      "listid" : "infraversion",		      
+	      "inputname" : "infraversion"
+	    },	    
+
+	    "IPADDRESS" : {
+	      "displayname" : "IP Address",
+	      "selectionsection" : "cat3",
+	      "ischecked" : "True",	      
+	      "listbox" : "ipaddresss",
+	      "listboxmsg" : "IP Address",
+	      "listid" : "ipaddress", 
+          "listempty" : "True",
+	      "inputname" : "ipaddress"
+	    },
+
+	    "MACHINE_TYPE" : {
+	      "displayname" : "Machine Type",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",	      
+	      "listbox" : "machinetypes",
+	      "listboxmsg" : "Machine Type",
+	      "listid" : "machinetype",	      
+	      "inputname" : "machinetype"
+	    },
+	    
+	    "IDRAC_NAME" : {
+	      "displayname" : "iDRAC Name",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",	      
+	      "listbox" : "idracnames",
+	      "listboxmsg" : "iDRAC Name",
+	      "listid" : "idracname",
+	      "listempty" : "True",
+	      "inputname" : "idracname"
+	    },
+	    
+	    "IDRAC_IP" : {
+	      "displayname" : "iDRAC IP",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",	      
+	      "listbox" : "idracips",
+	      "listboxmsg" : "iDRAC IP",
+	      "listid" : "idracip",
+	      "listempty" : "True",	       
+	      "inputname" : "idracip"
+	    },	  	      
+	    
+	    "MANUFACTURER" : {
+	      "displayname" : "Manufacturer",
+	      "selectionsection" : "cat2",
+	      "ischecked" : "True",	      
+	      "listbox" : "manufacturers",
+	      "listboxmsg" : "Manufacturer",
+	      "listid" : "manufacturer",		      
+	      "inputname" : "manufacturer"
+	    },
+
+	    "REGION" : {
+	      "displayname" : "Region",
+	      "selectionsection" : "cat4",
+	      "ischecked" : "True",	      
+	      "listbox" : "regions",
+	      "listboxmsg" : "Region",
+	      "listid" : "region",
+	      "inputname" : "region"		      
+	    },
+	    	    
+	    "COUNTRY" : {
+	      "displayname" : "Country",
+	      "selectionsection" : "cat4",
+	      "ischecked" : "True",	      
+	      "listbox" : "countrys",
+	      "listboxmsg" : "Country",
+	      "listid" : "country",		      
+	      "inputname" : "country"
+	    },
+	    
+	    "CITY" : {
+	      "displayname" : "City",
+	      "selectionsection" : "cat4",
+	      "ischecked" : "True",	      
+	      "listbox" : "citys",
+	      "listboxmsg" : "City",
+	      "listid" : "city",			      
+	      "inputname" : "city"
+	    },
+
+	    "days_open" : {
+	      "displayname" : "Days Open",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "inputname" : "daysopen"
+	    },
+
+	    "ANNOTATION" : {
+	      "displayname" : "Annotation",
+	      "selectionsection" : "cat6",
+	      "ischecked" : "True",
+	      "inputname" : "annotation"
+	    }
+
+    }
+
+}
