@@ -1,0 +1,285 @@
+<div id="settingsModal" class="settingsModal">
+    <div class="settingsModal-dialog">
+        <div class="settingsModal-content">
+            <div>
+                <button class="close" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            <div class="settingsModal-header">
+                <h5>⚙️ Parameters</h5>
+            </div>
+            <div class="separator"></div>
+            <div class="settingsModal-body">
+                <!-- Dark Mode -->
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <div class="setting-label">
+                            <strong>🌓 Dark Mode</strong>
+                        </div>
+                        <span class="setting-description">Switch between light and dark theme</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="themeToggle" onchange="toggleThemeFromSettings()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                
+                <div class="settingsModal-divider"></div>
+
+                <!-- Filter Mode (discrepancies only — shown via JS) -->
+                <div id="pf-mode-setting" class="setting-item" style="display:none;">
+                    <div class="setting-info">
+                        <div class="setting-label">
+                            <strong>🔍 Filter Mode</strong>
+                        </div>
+                        <span class="setting-description">Use 3 listboxes (Region, OS, My Searches) instead of a dropdown</span>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="pfModeToggle" onchange="togglePfMode()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div id="pf-mode-divider" class="settingsModal-divider" style="display:none;"></div>
+
+                <!-- Documentation Link -->
+
+                <div class="setting-item" style="flex-direction: column; align-items: flex-start;">
+
+                    <div class="setting-label" style="margin-bottom: 8px;">
+                        <strong>📚 Documentation</strong>
+                    </div>
+
+                    {% if appname == 'inventory' %}
+                        <a href="https://wiki.cib.echonet/spaces/czchimera/pages/551509293/Inventory+View"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="wiki-link">
+                            📖 Access to the Inventory documentation
+                        </a>
+                    {% else %}
+                        <a href="https://wiki.cib.echonet/spaces/czchimera/pages/544822866/Continuity+View"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="wiki-link">
+                            📖 Access to the Continuity documentation
+                        </a>
+                    {% endif %}
+
+                    <div style="font-size: 12px; opacity: 0.8; margin-top: 8px;">
+                        Wiki access MyIAM entitlement: wikicib_czchimera_readonly
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<style>
+
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --modal-bg: #ffffff;
+    --modal-border: #dddddd;
+    --toggle-bg: #ccc;
+    --toggle-active: #4CAF50;
+    --shadow: rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark-mode"] {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --modal-bg: #2d2d2d;
+    --modal-border: #444444;
+    --toggle-bg: #555;
+    --toggle-active: #66bb6a;
+    --shadow: rgba(0, 0, 0, 0.5);
+}
+    
+.settingsModal {
+    display: none;
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 24px;
+    width: 400px;
+    max-width: 90vw;
+    background-color: transparent;
+    z-index: 9999;
+}
+
+.settingsModal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settingsModal-dialog {
+    width: 100%;
+    max-width: 500px;
+}
+
+.settingsModal-content {
+    background-color: var(--modal-bg);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.settingsModal-header {
+    padding: 30px 20px 0px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.settingsModal-header h5 {
+    margin: 15px 0 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.settingsModal-content .close {
+float: right;
+    background: none;
+    border: none;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 10px;
+}
+
+.settingsModal-content .close:hover {
+    color: red;
+}
+
+.settingsModal-body {
+    padding: 20px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+}
+
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.setting-label strong {
+    font-size: 15px;
+    color: var(--text-primary);
+}
+
+.setting-description {
+    display: block;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.settingsModal-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 8px 0;
+}
+
+.wiki-link {
+    color: var(--btn-success);
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.wiki-link:hover {
+    text-decoration: underline;
+}
+
+
+.settingsModal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 28px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #5cb85c;
+}
+
+input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+.slider:hover {
+    opacity: 0.9;
+}
+
+.separator {
+    border-top: 1px solid var(--text-color);
+    margin: 10px 50px 0px 20px;
+}
+
+/* Dark mode adjustments */
+:root.dark-mode .slider {
+    background-color: #555;
+}
+
+:root.dark-mode input:checked + .slider {
+    background-color: #4a9d4a;
+}
+</style>

@@ -1,0 +1,80 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{% static 'discrepancies/img/favicon.svg' %}">
+
+    <!-- Chart.js library -->
+    <script src="{% static 'common/js/chart.umd.js' %}"></script>
+    
+    <!-- Common dashboard CSS -->
+    <link rel="stylesheet" href="{% static 'discrepancies/css/discrepancies_dashboard.css' %}">
+    
+    {% block extra_css %}
+        <!-- App-specific CSS -->
+    {% endblock %}
+    
+</head>
+
+<body {% block body_attrs %}{% endblock %}>
+
+    <script>
+
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+        if (isDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark-mode');
+        }
+        
+    </script>
+    
+    <!-- Dashboard Header -->
+    <div class="dashboard-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <h1>{% block dashboard_title %}Dashboard{% endblock %}</h1>
+        <div style="display:flex;align-items:center;gap:12px;">
+            <div class="dashboard-meta">{% block dashboard_meta %}{% endblock %}</div>
+            <button onclick="openSettingsModal()" title="Settings" style="background:none;border:none;font-size:1.3rem;cursor:pointer;padding:4px 8px;color:var(--text-6,#555);line-height:1;flex-shrink:0;">⚙️</button>
+        </div>
+    </div>
+    
+    {% if no_data %}
+        <!-- No data message -->
+        <div class="no-data-message">
+            <h2>No Data Available</h2>
+            <p>{% block no_data_message %}No analysis has been run yet.{% endblock %}</p>
+        </div>
+        <div class="dashboard">
+            {% block no_data_additional_sections %}{% endblock %}
+        </div>        
+    {% else %}
+        <div class="dashboard">
+            <!-- Hero gauge section -->
+            {% block hero_section %}{% endblock %}
+            
+            <!-- Mini gauges grid -->
+            {% block widgets_grid %}{% endblock %}
+            
+            <!-- Historic trend section -->
+            {% block historic_section %}{% endblock %}
+            
+            <!-- Additional custom sections -->
+            {% block additional_sections %}{% endblock %}
+        </div>
+    {% endif %}
+    
+    <!-- Common gauge JS -->
+    <script src="{% static 'discrepancies/js/gauges.js' %}"></script>
+    
+    <!-- App-specific JS -->
+    {% block extra_js %}
+    {% endblock %}
+    
+</body>
+
+</html>
+
