@@ -1,0 +1,21 @@
+  Avant :
+  inputname = field_to_inputname.get(field, field.lower())
+  for v in values:
+      link_parts.append(f'{inputname}={v}')
+
+  Après :
+  inputname = field_to_inputname.get(field, field.lower())
+  link_parts.append(f'{inputname}={",".join(values)}')
+
+  Et dans dashboard_view (~ligne 434), le strip des @/! dans la description affichée :
+
+  Avant :
+  permanent_filter_description = ' & '.join(
+      f'{field_displayname.get(f, f)} = {", ".join(v)}' for f, v in pf_def.items()
+  )
+
+  Après :
+  permanent_filter_description = ' & '.join(
+      f'{field_displayname.get(f, f)} = {", ".join(val.lstrip("@!") for val in v)}'
+      for f, v in pf_def.items()
+  )
