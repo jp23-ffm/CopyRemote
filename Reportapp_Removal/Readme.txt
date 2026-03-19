@@ -1,0 +1,1 @@
+ common est listé avant reportapp dans INSTALLED_APPS, donc les patches/signals seront bien enregistrés en premier. Un redémarrage du serveur suffira pour valider.
