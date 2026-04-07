@@ -1,0 +1,26 @@
+line 1516
+
+            if (mode === 'multi') {
+                _restoreMultiDdState();
+            } else {
+                if (PF_CURRENT && PF_CURRENT !== 'All Servers') {
+                    selectFilter(PF_CURRENT, PF_CURRENT_LABEL || PF_CURRENT);
+                } else if (_daysOpen > 0) {
+                    _refreshDashboard('All Servers');
+                }
+            }
+			
+			
+            if (mode === 'multi') {
+                _restoreMultiDdState();
+                // In multi mode with no active filter, still refresh if days_open is set
+                if ((!PF_CURRENT || PF_CURRENT === 'All Servers') && _daysOpen > 0) {
+                    _refreshDashboard(_currentPfFilter);
+                }
+            } else {
+                if (PF_CURRENT && PF_CURRENT !== 'All Servers') {
+                    selectFilter(PF_CURRENT, PF_CURRENT_LABEL || PF_CURRENT);
+                } else if (_daysOpen > 0) {
+                    _refreshDashboard('All Servers');
+                }
+            }
