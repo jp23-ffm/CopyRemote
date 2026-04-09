@@ -1,0 +1,87 @@
+----------------------------------- server_view
+
+    combined_filter_query = Q()
+    for key, values in filters.items():
+        if not values:
+            continue
+
+        # Build the query for this field
+        query = construct_query(key, values)
+        combined_filter_query &= query  # Combine with AND
+
+    if combined_filter_query:
+        all_servers = all_servers.filter(combined_filter_query)
+
+    # any_inconsistency=KO → OR between alive and dead inconsistency (virtual param)
+	
+------------
+
+    combined_filter_query = Q()
+    for key, values in filters.items():
+        if not values:
+            continue
+        if key in ('ANNOTATION', 'days_open'):
+            continue
+
+        # Build the query for this field
+        query = construct_query(key, values)
+        combined_filter_query &= query  # Combine with AND
+
+    if combined_filter_query:
+        all_servers = all_servers.filter(combined_filter_query)
+
+    # Handle ANNOTATION filter: filter servers by annotation comment
+    annotation_terms = [v for v in filters.get('ANNOTATION', []) if v]
+    if annotation_terms:
+        matching_ids = DiscrepancyAnnotation.objects.filter(
+            construct_query('comment', annotation_terms)
+        ).values_list('SERVER_ID', flat=True)
+        all_servers = all_servers.filter(SERVER_ID__in=matching_ids)
+
+    # any_inconsistency=KO → OR between alive and dead inconsistency (virtual param)
+
+
+----------------------------------- get_filtered_servers
+
+    for key, value in filters.items():
+        if isinstance(value, str) and ',' in value:
+            terms = value.split(',')
+        else:
+            terms = [value]
+        query = construct_query(key, terms)        
+        servers = servers.filter(query)
+    
+    # Apply the permanent filter, if selected
+	
+------------
+
+    for key, value in filters.items():
+        if key in ('ANNOTATION', 'days_open'):
+            continue
+        if isinstance(value, str) and ',' in value:
+            terms = value.split(',')
+        else:
+            terms = [value]
+        query = construct_query(key, terms)
+        servers = servers.filter(query)
+
+    # Handle ANNOTATION filter: filter servers by annotation comment
+    annotation_raw = requestfilters.get('annotation', '')
+    if annotation_raw:
+        ann_terms = [v for v in annotation_raw.split(',') if v]
+        if ann_terms:
+            matching_ids = DiscrepancyAnnotation.objects.filter(
+                construct_query('comment', ann_terms)
+            ).values_list('SERVER_ID', flat=True)
+            servers = servers.filter(SERVER_ID__in=matching_ids)
+
+    # Handle days_open filter: restrict to servers open for at least N days
+    days_open_raw = requestfilters.get('days_open', '').strip()
+    if days_open_raw.isdigit() and int(days_open_raw) > 0:
+        cutoff = timezone.now() - datetime.timedelta(days=int(days_open_raw))
+        matching_ids = DiscrepancyTracking.objects.filter(
+            oldest_first_seen__lte=cutoff
+        ).values_list('SERVER_ID', flat=True)
+        servers = servers.filter(SERVER_ID__in=matching_ids)
+    
+    # Apply the permanent filter, if selected
