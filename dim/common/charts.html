@@ -1,0 +1,761 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Analytics - Chimera Inventory</title>
+    <script src="{% static 'common/js/chart.umd.js' %}"></script>
+    <script src="{% static 'common/js/jspdf.umd.min.js' %}"></script>
+    
+    <style>
+
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-header: #5cb85c;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #ddd;
+            --border-table: #dee2e6;
+            --hover-bg: #f0f0f0;
+            --btn-success: #5cb85c;
+            --btn-success-hover: #4cae4c;
+            --btn-secondary: #6c757d;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark-mode"] {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #242424;
+            --bg-header: #2d5a2d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --border-color: #404040;
+            --border-table: #404040;
+            --hover-bg: #2a2a2a;
+            --btn-success: #4a9d4a;
+            --btn-success-hover: #5cb85c;
+            --btn-secondary: #505050;
+            --shadow: rgba(0, 0, 0, 0.4);
+        }
+        
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        
+        .header {
+            background: var(--bg-header);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px var(--shadow);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-success {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        
+        .btn-success:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--btn-secondary);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: var(--btn-secondary-hover);
+        }
+        
+        .container {
+            padding: 30px;
+        }
+        
+        .info-banner {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 12px 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .filter-chip {
+            display: inline-block;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2px 10px;
+            font-size: 0.88em;
+            white-space: nowrap;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+        }
+        
+        .chart-container {
+            background: var(--bg-secondary);
+            padding: 25px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+        
+        .chart-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+        }
+        
+        canvas {
+            max-height: 400px;
+            margin-bottom: 15px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .chart-actions {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .chart-actions button {
+            flex: 1;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+                
+        .chart-summary-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .chart-summary-table thead {
+            background: var(--bg-primary);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .chart-summary-table th {
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-summary-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-table);
+            color: var(--text-primary);
+        }
+
+        .chart-summary-table tbody tr:hover {
+            background: var(--hover-bg);
+        }
+
+        .chart-summary-table .total-row {
+            background: var(--bg-primary);
+            border-top: 2px solid var(--border-color);
+        }
+
+        .chart-summary-table .total-row td {
+            padding: 12px 10px;
+            border-bottom: none;
+        }
+
+        .table-wrapper {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        /* Print styles */
+        @media print {
+            .header-actions,
+            .export-toolbar,
+            .chart-actions {
+                display: none !important;
+            }
+            
+            .chart-container {
+                page-break-inside: avoid;
+                page-break-after: always;
+            }
+            
+            body {
+                background: white;
+            }
+        }
+        
+        /* Animations */
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(400px); opacity: 0; }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Analytics Dashboard</h1>
+        <div class="header-actions">
+            <button class="btn btn-success" onclick="exportAllChartsToPDF()">
+                📄 Export All as PDF
+            </button>
+            <button class="btn btn-success" onclick="window.print()">
+                🖨️ Print
+            </button>
+            <button class="btn btn-success" onclick="saveThisChartView()">
+                💾 Save this View
+            </button>            
+        </div>        
+    </div>
+    
+    <div class="container">
+        <div class="info-banner">
+            <span><strong>{{ total_servers }}</strong> servers analyzed</span>
+            {% if filter_parts %}
+                <span style="color:var(--text-secondary); font-size:0.9em;">with filters:</span>
+                {% for part in filter_parts %}
+                    <span class="filter-chip">{{ part }}</span>
+                {% endfor %}
+            {% endif %}
+        </div>
+        
+        {% if charts_data %}
+            <div class="charts-grid" id="chartsGrid"></div>
+            {% else %}
+            <div class="no-data">
+                <h2>No charts to display</h2>
+                <p>Please select at least one field to visualize.</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script>
+        
+        const chartsData = {{ charts_data|safe }};
+        const chartsGrid = document.getElementById('chartsGrid');
+        const chartCanvases = []; // for the PDF Export
+        
+        // Colors
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+        if (isDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark-mode');
+        }
+        //const isDarkMode = false;
+        const colorPalette = isDarkMode ? [
+            '#4a9d4a', '#ff5252', '#ffb74d', '#81c784', '#64b5f6', '#ba68c8', '#ff8a65', '#4db6ac', '#ffd54f', '#e57373',
+            '#90caf9', '#ce93d8', '#ffab91', '#80deea', '#fff59d', '#a5d6a7', '#ef9a9a', '#b39ddb', '#80cbc4', '#ffe082'
+            /*'#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', 
+            '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'*/
+            
+        ] : [
+            '#5cb85c', '#ff6b6b', '#ffa726', '#42a5f5', '#ab47bc', '#ff7043', '#26a69a', '#ffca28', '#64b5f6', '#ef5350', 
+            '#ba68c8', '#ff8a65', '#4dd0e1', '#66bb6a', '#fff176', '#81c784', '#e57373', '#9575cd', '#4db6ac', '#ffd54f'
+            /*'#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#42d4f4', '#f032e6', '#bfef45', '#fabed4', 
+            '#469990', '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1', '#000075', '#a9a9a9'*/
+        ];
+        
+        // Colors for Chart.js
+        const textColor = isDarkMode ? '#e0e0e0' : '#333333';
+        const gridColor = isDarkMode ? '#404040' : '#e0e0e0';
+        
+        chartsData.forEach((chartData, index) => {
+            const container = document.createElement('div');
+            container.className = 'chart-container';
+            
+            const title = document.createElement('div');
+            title.className = 'chart-title';
+            title.textContent = `${chartData.field}`;
+            
+            const canvas = document.createElement('canvas');
+            canvas.id = `chart-${index}`;
+            
+            // Save canvas info for the PDF export
+            chartCanvases.push({
+                canvas: canvas,
+                name: chartData.field,
+                data: chartData
+            });
+            
+            // Action button
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'chart-actions';
+            
+            const exportPngBtn = document.createElement('button');
+            exportPngBtn.className = 'btn btn-secondary';
+            exportPngBtn.textContent = '📷 PNG';
+            exportPngBtn.onclick = () => exportChartAsPNG(canvas, chartData.field);
+            
+            const exportCsvBtn = document.createElement('button');
+            exportCsvBtn.className = 'btn btn-secondary';
+            exportCsvBtn.textContent = '📥 CSV';
+            exportCsvBtn.onclick = () => exportTableToCSV(chartData, index);
+            
+            actionsDiv.appendChild(exportPngBtn);
+            actionsDiv.appendChild(exportCsvBtn);
+            
+            
+            // Summary Table
+            const table = document.createElement('table');
+            table.className = 'chart-summary-table';
+            
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th>${chartData.field} (${chartData.different_values})</th>
+                    <th style="text-align: right;">Count</th>
+                    <th style="text-align: right;">Percentage</th>
+                </tr>
+            `;
+            
+            const tbody = document.createElement('tbody');
+            const total = chartData.values.reduce((a, b) => a + b, 0);
+            
+            chartData.table_labels.forEach((label, i) => {
+                const count = chartData.table_values[i];
+                const percentage = ((count / total) * 100).toFixed(1);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${label}</td>
+                    <td style="text-align: right; font-weight: 600;">${count}</td>
+                    <td style="text-align: right; color: var(--text-secondary);">${percentage}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Total row
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'total-row';
+            totalRow.innerHTML = `
+                <td><strong>Total</strong></td>
+                <td style="text-align: right;"><strong>${total}</strong></td>
+                <td style="text-align: right;"><strong>100%</strong></td>
+            `;
+            tbody.appendChild(totalRow);
+            
+            table.appendChild(thead);
+            table.appendChild(tbody);
+			
+			
+			const tableWrapper = document.createElement('div');
+            tableWrapper.className = 'table-wrapper';
+            tableWrapper.appendChild(table);
+			
+            
+            container.appendChild(title);
+            container.appendChild(canvas);
+            container.appendChild(tableWrapper);
+            chartsGrid.appendChild(container);
+            
+            // Configuration Chart.js
+            const isLine = chartData.type === 'line';
+            const isHBar = chartData.type === 'hbar';
+            const lineColor = colorPalette[0];
+            const chartJsType = isHBar ? 'bar' : chartData.type;
+            new Chart(canvas, {
+                type: chartJsType,
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Number of servers',
+                        data: chartData.values,
+                        backgroundColor: isLine ? lineColor : colorPalette,
+                        borderColor: isLine ? lineColor : (isDarkMode ? '#1a1a1a' : '#ffffff'),
+                        borderWidth: 2,
+                        ...(isLine && { tension: 0.3, pointRadius: 4, fill: false }),
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    ...(isHBar && { indexAxis: 'y' }),
+                    plugins: {
+                        legend: {
+                            display: chartData.type === 'pie' || chartData.type === 'doughnut',
+                            position: 'right',
+                            labels: {
+                                color: textColor,
+                                padding: 15,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: isDarkMode ? '#2a2a2a' : '#ffffff',
+                            titleColor: textColor,
+                            bodyColor: textColor,
+                            borderColor: isDarkMode ? '#404040' : '#ddd',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    const dataTotal = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const value = context.parsed.y !== undefined ? context.parsed.y : context.parsed;
+                                    const percentage = ((value / dataTotal) * 100).toFixed(1);
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    },
+                    scales: chartData.type === 'bar' || chartData.type === 'line' || isHBar ? {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: textColor,
+                                ...(isHBar ? {} : {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                        return Number.isInteger(value) ? value : null;
+                                    }
+                                })
+                            },
+                            grid: { color: isHBar ? 'transparent' : gridColor }
+                        },
+                        x: {
+                            beginAtZero: isHBar ? true : undefined,
+                            ticks: {
+                                color: textColor,
+                                ...(isHBar ? {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                        return Number.isInteger(value) ? value : null;
+                                    }
+                                } : {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                })
+                            },
+                            grid: { color: gridColor }
+                        }
+                    } : {}
+                }
+            });         
+            
+        });
+        
+        // Export PNG
+        function exportChartAsPNG(canvas, chartName) {
+            const url = canvas.toDataURL('image/png');
+            const link = document.createElement('a');
+            link.download = `${chartName.replace(/\s+/g, '_')}_chart.png`;
+            link.href = url;
+            link.click();
+            showToast(`Chart exported: ${chartName}`);
+        }
+        
+        // Export CSV
+        function exportTableToCSV(chartData, index) {
+            let csv = `${chartData.field},Count,Percentage\n`;
+            const total = chartData.table_values.reduce((a, b) => a + b, 0);
+            
+            chartData.table_labels.forEach((label, i) => {
+                const count = chartData.table_values[i];
+                const percentage = ((count / total) * 100).toFixed(1);
+                csv += `"${label}",${count},${percentage}%\n`;
+            });
+            
+            csv += `Total,${total},100%\n`;
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            link.href = url;
+            link.download = `${chartData.field.replace(/\s+/g, '_')}_data.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            showToast(`Data exported: ${chartData.field}`);
+        }
+        
+        async function exportAllChartsToPDF() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 20;
+            const contentWidth = pageWidth - (2 * margin);
+            
+            // Page Title
+            pdf.setFontSize(22);
+            pdf.text('Chimera Report', margin, 30);
+            pdf.setFontSize(11);
+            pdf.text(`Generated: ${new Date().toLocaleString()}`, margin, 40);
+            pdf.text(`Total Servers Analyzed: {{ total_servers }}`, margin, 47);
+            
+            let currentPage = 1;
+            let yPosition = 65;
+            
+            for (let i = 0; i < chartCanvases.length; i++) {
+                const { canvas, name, data } = chartCanvases[i];
+                
+                const maxChartWidth = contentWidth;
+                const maxChartHeight = 100; // Maximum height in mm
+                
+                const originalRatio = canvas.width / canvas.height;
+                let pdfChartWidth = maxChartWidth;
+                let pdfChartHeight = pdfChartWidth / originalRatio;
+                
+                if (pdfChartHeight > maxChartHeight) {
+                    pdfChartHeight = maxChartHeight;
+                    pdfChartWidth = pdfChartHeight * originalRatio;
+                }
+                
+                const xPosition = margin + (contentWidth - pdfChartWidth) / 2;
+                
+                const requiredSpace = pdfChartHeight + 40; // graph + title + stats
+                if (yPosition + requiredSpace > pageHeight - margin && i > 0) {
+                    pdf.addPage();
+                    currentPage++;
+                    yPosition = margin;
+                }
+                
+                pdf.setFontSize(14);
+                pdf.setFont(undefined, 'bold');
+                pdf.text(name, pageWidth / 2, yPosition, { align: 'center' });
+                yPosition += 8;
+                
+                // Recreate the graph with Chart.js in a clean canvas
+                const exportCanvas = document.createElement('canvas');
+                
+                // High resolution
+                const dpiScale = 2;  //4
+                exportCanvas.width = pdfChartWidth * dpiScale * 3.78; // mm to px
+                exportCanvas.height = pdfChartHeight * dpiScale * 3.78;
+                
+                const exportCtx = exportCanvas.getContext('2d');
+                
+                exportCtx.fillStyle = '#ffffff';
+                exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+                
+                exportCtx.drawImage(canvas, 0, 0, exportCanvas.width, exportCanvas.height);
+                
+                const imgData = exportCanvas.toDataURL('image/png', 1.0);
+                pdf.addImage(imgData, 'PNG', xPosition, yPosition, pdfChartWidth, pdfChartHeight);
+                yPosition += pdfChartHeight + 8;
+                
+                pdf.setFontSize(10);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Summary:', margin, yPosition);
+                yPosition += 5;
+                
+                const total = data.table_values.reduce((a, b) => a + b, 0);
+                const tableData = [];
+                
+                data.table_labels.slice(0, 15).forEach((label, idx) => {
+                    const value = data.table_values[idx];
+                    const percentage = ((value / total) * 100).toFixed(1);
+                    tableData.push([label, value.toString(), `${percentage}%`]);
+                });
+                
+                pdf.setFont(undefined, 'normal');
+                pdf.setFontSize(9);
+                
+                const colWidths = [contentWidth * 0.5, contentWidth * 0.25, contentWidth * 0.25];
+                const rowHeight = 5;
+                
+                // Headers
+                pdf.setFont(undefined, 'bold');
+                pdf.text('Item', margin, yPosition);
+                pdf.text('Count', margin + colWidths[0], yPosition);
+                pdf.text('Percentage', margin + colWidths[0] + colWidths[1], yPosition);
+                yPosition += rowHeight;
+                
+                // Separator
+                //pdf.setDrawColor(200);
+                //pdf.line(margin, yPosition - 1, pageWidth - margin, yPosition - 1);
+                
+                // Data
+                pdf.setFont(undefined, 'normal');
+                tableData.forEach(row => {
+                    pdf.text(row[0].substring(0, 35), margin, yPosition);
+                    pdf.text(row[1], margin + colWidths[0], yPosition);
+                    pdf.text(row[2], margin + colWidths[0] + colWidths[1], yPosition);
+                    yPosition += rowHeight;
+                });
+                
+                yPosition += 10; // Espace avant le prochain graphe
+            }
+            
+            const totalPages = pdf.internal.getNumberOfPages();
+            pdf.setFontSize(9);
+            pdf.setTextColor(150);
+            
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+                pdf.text(
+                    `Page ${i} of ${totalPages}`,
+                    pageWidth / 2,
+                    pageHeight - 10,
+                    { align: 'center' }
+                );
+                pdf.text('Chimera Inventory', margin, pageHeight - 10);
+                const currentDate = new Date().toLocaleDateString();
+                pdf.text(currentDate, pageWidth - margin, pageHeight - 10, { align: 'right' });
+            }
+            
+            const filename = `analytics_report_${new Date().toISOString().split('T')[0]}.pdf`;
+            pdf.save(filename);
+            
+            showToast('✓ PDF exported successfully!');
+        }
+
+
+
+        function saveThisChartView() {
+            const name = prompt('Enter a name for this chart view:');
+            if (!name) return;
+            
+            // Récupérer tous les paramètres de l'URL actuelle
+            const params = new URLSearchParams(window.location.search);
+            
+            // Construire l'objet filters
+            const filters = {};
+            for (let [key, value] of params.entries()) {
+                if (key === 'fields' || key === 'types') {
+                    if (!filters[key]) filters[key] = [];
+                    filters[key].push(value);
+                } else {
+                    filters[key] = value;
+                }
+            }
+            
+            // Get the app from the URL (inventory ou businesscontinuity)
+            const pathParts = window.location.pathname.split('/');
+            const appName = pathParts[1] || 'inventory';  // Ex: /inventory/charts/ → 'inventory'
+            
+            // Sauvegarder
+            fetch('/common/api/charts/save/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    name: name,
+                    filters: filters,
+                    app_name: appName
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(`✅ Chart view "${name}" saved successfully!`);
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('❌ Error saving chart view');
+            });
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        // Toast notifications
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: var(--btn-success);
+                color: white;
+                padding: 12px 20px;
+                border-radius: 6px;
+                box-shadow: 0 4px 12px var(--shadow);
+                z-index: 10001;
+                animation: slideIn 0.3s ease;
+            `;
+            
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }        
+        
+    </script>
+</body>
+</html>

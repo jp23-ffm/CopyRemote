@@ -1,0 +1,132 @@
+Chimera — Discrepancies fixes & improvements
+Session du 2026-04-11
+================================================================================
+
+1. FIX — Sort sur colonne Annotation (server_view)
+   Fichier : discrepancies/views.py
+   Fonction : server_view
+
+   AVANT :
+       else:
+           valid_sort_fields = {f_key for f_key in json_data.get('fields', {}).keys()}
+           if sort_field not in valid_sort_fields:
+               sort_field = 'SERVER_ID'
+           order_expr = F(sort_field).asc(...) ...
+
+   APRÈS :
+       elif sort_field == 'ANNOTATION':
+           # ANNOTATION is not a real DB field — fall back to SERVER_ID sort
+           order_expr = F('SERVER_ID').asc(nulls_last=True)
+       else:
+           valid_sort_fields = {f_key for f_key in json_data.get('fields', {}).keys()
+                                if f_key not in ('days_open', 'ANNOTATION')}
+           ...
+
+   Cause : ANNOTATION est un champ virtuel (pas en base). Il passait la
+   validation et provoquait "Cannot resolve keyword 'ANNOTATION' into field".
+
+
+--------------------------------------------------------------------------------
+
+2. FIX — Filtre days_open ignoré à l'export CSV/XLSX
+   Fichier : discrepancies/views.py
+   Fonction : _get_filtered_servers_for_export
+
+   AVANT : days_open skippé dans la boucle de filtres, jamais appliqué ensuite.
+
+   APRÈS (ajout après le bloc excluded_names) :
+       # days_open filter: restrict to servers with issues open for at least N days
+       days_open_raw = requestfilters.get('days_open', '').strip()
+       if days_open_raw.isdigit() and int(days_open_raw) > 0:
+           cutoff = timezone.now() - datetime.timedelta(days=int(days_open_raw))
+           matching_ids = DiscrepancyTracking.objects.filter(
+               oldest_first_seen__lte=cutoff
+           ).values_list('SERVER_ID', flat=True)
+           all_servers = all_servers.filter(SERVER_ID__in=matching_ids)
+
+   Cause : server_view et get_filtered_servers appliquaient le filtre,
+   mais pas _get_filtered_servers_for_export.
+
+
+--------------------------------------------------------------------------------
+
+3. OPTIM — Dashboard : suppression du calcul serveur des widgets
+   Fichier : discrepancies/views.py
+   Fonction : dashboard_view
+
+   AVANT : ~50 lignes de requêtes DB (counts InventoryServer, ServerDiscrepancy,
+   DiscrepancyTracking) calculant les valeurs de chaque widget à chaque
+   chargement de page.
+
+   APRÈS : valeurs placeholder (value=0, display_value='—'). Les vraies valeurs
+   sont toujours fournies par l'appel API JS (_refreshDashboard) qui est
+   systématiquement déclenché au chargement.
+
+   Gain : plusieurs requêtes DB supprimées à chaque chargement de page.
+
+
+--------------------------------------------------------------------------------
+
+4. OPTIM — Dashboard : suppression du flash de valeurs non filtrées
+   Fichier : discrepancies/templates/discrepancies/discrepancies_dashboard.html
+
+   AVANT :
+       <div id="pf-loading-veil"></div>
+       (veil invisible jusqu'à ce que le JS le rende visible)
+
+   APRÈS :
+       <div id="pf-loading-veil" style="display:block"></div>
+       (veil visible dès le rendu HTML, caché par _setLoading(false) après l'API)
+
+   Cause : le navigateur affichait brièvement les valeurs serveur (sans filtres)
+   avant que le JS ne déclenche le refresh. Le veil couvre maintenant
+   immédiatement la page.
+
+
+--------------------------------------------------------------------------------
+
+5. FIX — Quality Trend : fenêtre de 30 jours trop courte
+   Fichier : discrepancies/discrepancies_dashboard.json
+
+   AVANT :
+       "days": 30
+
+   APRÈS :
+       "days": 90
+
+   Cause : les snapshots disponibles dataient de plus de 30 jours,
+   donc la requête ne retournait rien.
+
+
+--------------------------------------------------------------------------------
+
+6. FIX — Quality Trend : metric switch ignorait la fenêtre de jours
+   Fichier : discrepancies/static/discrepancies/js/trend.js
+   Fichier : discrepancies/templates/discrepancies/discrepancies_dashboard.html
+
+   AVANT (trend.js) :
+       const response = await fetch(`/discrepancies/api/trend/?metric=${metric}`);
+       (days non transmis → défaut API = 30j → graphe vide)
+
+   APRÈS (template — injection de la constante) :
+       const TREND_DAYS = {{ historic_config.days }};
+
+   APRÈS (trend.js) :
+       const days = (typeof TREND_DAYS !== 'undefined') ? TREND_DAYS : 90;
+       const response = await fetch(`/discrepancies/api/trend/?metric=${metric}&days=${days}`);
+
+
+--------------------------------------------------------------------------------
+
+7. UX — Header Quality Trend : indication "Global" + nb jours
+   Fichier : discrepancies/templates/discrepancies/discrepancies_dashboard.html
+
+   AVANT :
+       <h2>📈 {{ historic_config.title }}</h2>
+       → affichait "Quality Trend"
+
+   APRÈS :
+       <h2>📈 Global {{ historic_config.title }} ({{ historic_config.days }} days)</h2>
+       → affiche "Global Quality Trend (90 days)"
+
+   Raison : le trend est toujours global (insensible aux filtres région/OS).
