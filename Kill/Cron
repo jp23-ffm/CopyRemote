@@ -1,2 +1,0 @@
-# Check et kill des workers Gunicorn obèses toutes les 5 minutes
-*/5 * * * * /usr/local/bin/kill_fat_gunicorn_workers.sh
