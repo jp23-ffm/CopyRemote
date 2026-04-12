@@ -1,0 +1,51 @@
+{
+  "relations": [
+    {
+      "field":       "APP_NAME_VALUE",
+      "label":       "Application",
+      "group_label": "Applications",
+      "color":       "app",
+      "type":        "property"
+    },
+    {
+      "field":       "ENVIRONMENT",
+      "label":       "Environment",
+      "color":       "env",
+      "type":        "property",
+      "parent":      "APP_NAME_VALUE"
+    },
+    {
+      "field":       "SNOW_DATACENTER",
+      "label":       "Datacenter",
+      "group_label": "Datacenters",
+      "color":       "datacenter",
+      "type":        "property"
+    },
+    {
+      "field":       "VPIC_CLUSTER",
+      "label":       "Cluster",
+      "group_label": "Clusters",
+      "color":       "cluster",
+      "type":        "property"
+    },
+    {
+      "field":       "VPIC_HOST",
+      "label":       "VPIC Host",
+      "group_label": "VPIC Hosts",
+      "color":       "hypervisor",
+      "type":        "property"
+    },
+    {
+      "field":  "HYPERVISOR",
+      "label":  "Hypervisor",
+      "color":  "hypervisor",
+      "type":   "server",
+      "pivot":  true
+    }
+  ],
+  "hosted_vms": {
+    "query_field": "VPIC_HOST",
+    "label":       "VMs hosted",
+    "max_list":    10
+  }
+}
