@@ -1,0 +1,606 @@
+
+{% load static %}
+{% load discrepancy_filters %}
+
+<style>
+.error-missing {
+    background-color: #fee2e2 !important; /* Light red */
+    color: #991b1b;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .error-missing {
+    background-color: #7f1d1d !important;
+    color: #fca5a5;
+}
+
+.error-inconsistent {
+    background-color: #fed7aa !important; /* Light orange */
+    color: #9a3412;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .error-inconsistent {
+    background-color: #7c2d12 !important;
+    color: #fdba74;
+}
+
+.sort-context-menu {
+    position: fixed;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    min-width: 160px;
+    padding: 4px 0;
+    display: none;
+}
+
+[data-theme="dark"] .sort-context-menu {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+.sort-context-menu div {
+    padding: 6px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #374151;
+}
+
+[data-theme="dark"] .sort-context-menu div {
+    color: #d1d5db;
+}
+
+.sort-context-menu div:hover {
+    background: #f3f4f6;
+}
+
+[data-theme="dark"] .sort-context-menu div:hover {
+    background: #374151;
+}
+
+/* ── Server detail modal ── */
+:root {
+    --disc-modal-overlay-bg: rgba(0,0,0,0.72);
+    --disc-modal-bg: #ffffff;
+    --disc-modal-border: #e5e7eb;
+    --disc-modal-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    --disc-modal-header-bg: #f9fafb;
+    --disc-modal-header-border: #e5e7eb;
+    --disc-modal-title-color: #111827;
+    --disc-modal-close-color: #6b7280;
+    --disc-modal-close-hover-bg: #f3f4f6;
+    --disc-modal-section-bg: #f3f4f6;
+    --disc-modal-section-border: #e5e7eb;
+    --disc-modal-section-title-color: #374151;
+    --disc-modal-row-border: #e5e7eb;
+    --disc-modal-label-color: #6b7280;
+    --disc-modal-value-color: #111827;
+    --disc-modal-empty-color: #9ca3af;
+}
+[data-theme="dark-mode"] {
+    --disc-modal-overlay-bg: rgba(0,0,0,0.85);
+    --disc-modal-bg: #1f2937;
+    --disc-modal-border: #374151;
+    --disc-modal-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    --disc-modal-header-bg: #111827;
+    --disc-modal-header-border: #374151;
+    --disc-modal-title-color: #f9fafb;
+    --disc-modal-close-color: #9ca3af;
+    --disc-modal-close-hover-bg: #374151;
+    --disc-modal-section-bg: #111827;
+    --disc-modal-section-border: #374151;
+    --disc-modal-section-title-color: #d1d5db;
+    --disc-modal-row-border: #374151;
+    --disc-modal-label-color: #9ca3af;
+    --disc-modal-value-color: #e5e7eb;
+    --disc-modal-empty-color: #6b7280;
+}
+.disc-detail-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--disc-modal-overlay-bg);
+    z-index: 10000;
+    overflow: auto;
+    padding: 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+}
+.disc-detail-content {
+    background: var(--disc-modal-bg);
+    width: 100%;
+    max-width: 1200px;
+    margin-top: 30px;
+    border-radius: 12px;
+    box-shadow: var(--disc-modal-shadow);
+    animation: discModalIn 0.22s ease-out;
+}
+@keyframes discModalIn {
+    from { transform: translateY(-24px); opacity: 0; }
+    to   { transform: translateY(0);     opacity: 1; }
+}
+.disc-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 28px;
+    background: var(--disc-modal-header-bg);
+    border-bottom: 1px solid var(--disc-modal-header-border);
+    border-radius: 12px 12px 0 0;
+}
+.disc-detail-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--disc-modal-title-color);
+}
+.disc-detail-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--disc-modal-close-color);
+    cursor: pointer;
+    padding: 0;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+.disc-detail-close:hover { background: var(--disc-modal-close-hover-bg); }
+.disc-detail-body {
+    padding: 24px 28px 28px;
+    max-height: calc(100vh - 160px);
+    overflow-y: auto;
+}
+.disc-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: 16px;
+}
+.disc-detail-section {
+    background: var(--disc-modal-section-bg);
+    border: 1px solid var(--disc-modal-section-border);
+    border-radius: 8px;
+    padding: 16px 18px;
+}
+.disc-detail-section h3 {
+    margin: 0 0 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--disc-modal-section-title-color);
+    border-bottom: 1px solid var(--disc-modal-row-border);
+    padding-bottom: 8px;
+}
+.disc-detail-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 160px) 1fr;
+    gap: 12px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--disc-modal-row-border);
+    font-size: 12.5px;
+}
+.disc-detail-row:last-child { border-bottom: none; }
+.disc-detail-label {
+    font-weight: 600;
+    color: var(--disc-modal-label-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.disc-detail-value {
+    color: var(--disc-modal-value-color);
+    word-break: break-word;
+}
+.disc-detail-value.empty { color: var(--disc-modal-empty-color); font-style: italic; }
+
+/* Row context menu item */
+.sort-context-menu .row-ctx-separator {
+    height: 1px;
+    background: var(--disc-modal-row-border, #e5e7eb);
+    margin: 3px 0;
+    padding: 0;
+    cursor: default;
+}
+.sort-context-menu .row-ctx-separator:hover { background: var(--disc-modal-row-border, #e5e7eb); }
+
+/* Days Open tooltip */
+.tracker-tooltip {
+    position: fixed;
+    background: #334155;
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-family: monospace;
+    z-index: 9999;
+    pointer-events: none;
+    display: none;
+    min-width: 180px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+[data-theme="dark"] .tracker-tooltip {
+    background: #1e293b;
+    color: #e2e8f0;
+    border-color: #334155;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+.tracker-tooltip .tt-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 2px 0;
+}
+.tracker-tooltip .tt-field {
+    color: #94a3b8;
+}
+.tracker-tooltip .tt-days {
+    font-weight: 600;
+    color: #f1f5f9;
+    white-space: nowrap;
+}
+
+</style>
+
+
+<table id="serversTable">
+
+    <thead class="tablehead">
+
+        {% for field in table_fields %}
+
+            {% if field.selectionsection == 'cat0' %}
+                {% comment %} Do nothing {% endcomment %}
+            {% else %}
+
+            <th draggable="true" data-field="{{ field.name }}" class="{{ field.name }} resizable {% if field.name == 'SERVER_ID'%}sticky-col-1{% endif %}">
+
+                <input type="text" class="search-input" name="{{ field.inputname }}" placeholder="Search {{ field.displayname }}">
+                {% if field.listbox != '' %}
+                    <div class="column-title column-title-hidden">{{ field.displayname }}</div>
+                    <select id="{{ field.listid }}-listbox" class="{{ field.listid }}-listbox listbox-centered">
+                        <option value="">{{ field.listboxmsg }}</option>
+                        {% for listboxentry in field.listbox %}
+                            <option value="{{ listboxentry }}">{{ listboxentry }}</option>
+                        {% endfor %}
+                        {% if field.listid == "infraversion" %}
+                            <option value="IV1,IV2,IBM">Our Infra (IV1+IV2+IBM)</option>
+                        {% endif %}
+                    </select>
+
+                {% else %}
+                    <div class="column-title">{{ field.displayname }}</div>
+                {% endif %}
+
+            </th>
+
+            {% endif %}
+
+        {% endfor %}
+        
+    </thead>
+
+    <tbody>
+
+        {% for server_group in page_obj.object_list %}
+
+            <!-- Main row (adapted according to mode) -->
+            <tr class="server-row flat-row" 
+                data-hostname="{{ server_group.hostname }}" 
+                id="{{ server_group.hostname|slugify }}-{{ forloop.counter }}">
+            
+                {% for field in model_fields %}
+
+                    {% if field.name == 'days_open' %}
+                    <td class="days_open field-value" data-issues="{{ server_group.tracker_json }}">
+                        {% with field_value=server_group.primary_server|lookup:field.name %}
+                        {% if field_value %}{{ field_value }}d{% else %}<span class="empty-field">-</span>{% endif %}
+                        {% endwith %}
+                    </td>
+                    {% elif field.name == 'ANNOTATION' %}
+                    <td class="ANNOTATION field-value">
+                        <div class="annotation-display">
+                            <button class="btn-edit-annotation"
+                                onclick="editAnnotation('{{ server_group.hostname }}');">
+                                {% if server_group.annotation and server_group.annotation.comment %}&#9998;{% else %}&#10133;{% endif %}
+                            </button>
+                            {% if server_group.annotation and server_group.annotation.comment %}
+                                <span class="annotation-notes">
+                                    {{ server_group.annotation.comment|truncatechars:50 }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    {% else %}
+         
+                    {% with field_value=server_group.primary_server|lookup:field.name %}
+                    
+                    {# Get error CSS class dynamically using custom filter #}
+                    {% get_cell_error_class server_group.primary_server field.name validation_errors as error_class %}
+
+                    <td class="{{ field.name }} field-value {{ error_class }} {% if field.is_hostname %}hostname-cell sticky-col-1{% endif %}">
+
+                        {% if field.is_hostname %}
+                            <strong>{{ field_value }}</strong>
+                        {% elif field_value == 'MISSING' %}
+                            <span class="empty-field">MISSING</span>
+                        {% elif field_value or field_value == 0 %}
+                            {{ field_value }}
+                        {% else %}
+                            <span class="empty-field">-</span>
+                        {% endif %}
+
+                    </td>
+
+                    {% endwith %}
+                    
+                    {% endif %}                                   
+
+                {% endfor %}
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+                <td colspan="{{ model_fields|length }}" style="text-align: left; padding: 100px; color: #6c757d;">
+                    No servers found.
+                </td>
+            </tr>
+
+        {% endfor %}
+
+    </tbody>
+
+</table>
+
+<!-- Sort context menu (header right-click) -->
+<div id="sortContextMenu" class="sort-context-menu">
+    <div data-action="asc">Sort ascending</div>
+    <div data-action="desc">Sort descending</div>
+</div>
+
+<!-- Row context menu (body row right-click) -->
+<div id="rowContextMenu" class="sort-context-menu">
+    <div onclick="openServerDetailFromCtx()">Server Details</div>
+</div>
+
+<!-- Server detail modal -->
+<div id="serverDetailModal" class="disc-detail-overlay" style="display:none;">
+    <div class="disc-detail-content">
+        <div class="disc-detail-header">
+            <h2 id="serverDetailTitle">Server Details</h2>
+            <button class="disc-detail-close" onclick="closeServerDetail()">&times;</button>
+        </div>
+        <div class="disc-detail-body">
+            <div id="serverDetailGrid" class="disc-detail-grid"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const menu = document.getElementById('sortContextMenu');
+    let targetField = null;
+
+    // Right-click on <th>
+    document.querySelectorAll('#serversTable thead th[data-field]').forEach(function(th) {
+        th.style.cursor = 'context-menu';
+        th.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            targetField = th.getAttribute('data-field');
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.style.display = 'block';
+        });
+    });
+
+    // Click on menu item
+    menu.querySelectorAll('div[data-action]').forEach(function(item) {
+        item.addEventListener('click', function() {
+            if (!targetField) return;
+            menu.style.display = 'none';
+            var order = item.getAttribute('data-action');
+            var url = new URL(window.location.href);
+            url.searchParams.set('sort', targetField);
+            url.searchParams.set('order', order);
+            url.searchParams.set('page', '1');
+            window.location.href = url.toString();
+        });
+    });
+
+    // Close menu on click outside
+    document.addEventListener('click', function() {
+        menu.style.display = 'none';
+    });
+})();
+
+// Days Open tooltip
+(function() {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tracker-tooltip';
+    document.body.appendChild(tooltip);
+
+    let showTimer = null;
+    let mouseX = 0, mouseY = 0;
+
+    function buildContent(cell) {
+        let issues;
+        try { issues = JSON.parse(cell.dataset.issues); } catch { return null; }
+        const entries = Object.entries(issues);
+        if (!entries.length) return null;
+        const now = Date.now();
+        return entries
+            .map(([field, data]) => {
+                const days = Math.floor((now - new Date(data.first_seen).getTime()) / 86400000) + 1;
+                return { field, days };
+            })
+            .sort((a, b) => b.days - a.days)
+            .map(({ field, days }) =>
+                `<div class="tt-row"><span class="tt-field">${field}</span><span class="tt-days">${days}d</span></div>`
+            ).join('');
+    }
+
+    document.addEventListener('mouseover', function(e) {
+        const cell = e.target.closest('td.days_open');
+        clearTimeout(showTimer);
+        tooltip.style.display = 'none';
+        if (!cell || !cell.dataset.issues) return;
+        showTimer = setTimeout(function() {
+            const html = buildContent(cell);
+            if (!html) return;
+            tooltip.innerHTML = html;
+            tooltip.style.left = (mouseX + 14) + 'px';
+            tooltip.style.top  = (mouseY + 14) + 'px';
+            tooltip.style.display = 'block';
+        }, 800);
+    });
+
+    document.addEventListener('mousemove', function(e) {
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+        if (tooltip.style.display === 'none') return;
+        tooltip.style.left = (mouseX + 14) + 'px';
+        tooltip.style.top  = (mouseY + 14) + 'px';
+    });
+
+    document.addEventListener('mouseout', function(e) {
+        if (e.target.closest('td.days_open')) {
+            clearTimeout(showTimer);
+            tooltip.style.display = 'none';
+        }
+    });
+})();
+
+</script>
+
+<script>
+// ── Server detail modal (row right-click) ──
+(function() {
+    let ctxRow = null;
+    const rowMenu = document.getElementById('rowContextMenu');
+
+    // Right-click on a tbody row
+    const tbody = document.querySelector('#serversTable tbody');
+    if (tbody) {
+        tbody.addEventListener('contextmenu', function(e) {
+            const row = e.target.closest('tr.server-row');
+            if (!row) return;
+            e.preventDefault();
+            // Close sort context menu if open
+            const sortMenu = document.getElementById('sortContextMenu');
+            if (sortMenu) sortMenu.style.display = 'none';
+            ctxRow = row;
+            rowMenu.style.left = e.clientX + 'px';
+            rowMenu.style.top  = e.clientY + 'px';
+            rowMenu.style.display = 'block';
+        });
+    }
+
+    // Close row menu on any click (stop propagation inside menu to avoid instant close)
+    rowMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+    document.addEventListener('click', function() { rowMenu.style.display = 'none'; });
+
+    window.openServerDetailFromCtx = function() {
+        rowMenu.style.display = 'none';
+        if (ctxRow) openServerDetail(ctxRow);
+    };
+
+    window.openServerDetail = function(row) {
+        const hostname = row.dataset.hostname || '?';
+        document.getElementById('serverDetailTitle').textContent = 'Server Details: ' + hostname;
+
+        const grid = document.getElementById('serverDetailGrid');
+        grid.innerHTML = '';
+
+        const fieldDefs = (typeof jsonData !== 'undefined' && jsonData.fields) ? jsonData.fields : {};
+
+        // Group fields by category
+        const catDefs = (typeof jsonData !== 'undefined' && jsonData.categories) ? jsonData.categories : {};
+        const categories = {}; // catId → { name, fields[] }
+        for (const [fieldName, fieldInfo] of Object.entries(fieldDefs)) {
+            if (fieldInfo.selectionsection === 'cat0') continue;
+            const catId      = fieldInfo.selectionsection || 'other';
+            const catName    = catDefs[catId] || catId;
+            const displayName = fieldInfo.displayname || fieldName;
+
+            // Read value from cell (clone to remove inner buttons/icons)
+            let value = '';
+            try {
+                const cell = row.querySelector('td.' + CSS.escape(fieldName));
+                if (cell) {
+                    const clone = cell.cloneNode(true);
+                    clone.querySelectorAll('button, .copy-icon').forEach(el => el.remove());
+                    value = clone.textContent.trim().replace(/\s+/g, ' ');
+                }
+            } catch (_) {}
+
+            if (!categories[catId]) categories[catId] = { name: catName, fields: [] };
+            categories[catId].fields.push({ displayName, value });
+        }
+
+        // Render sections sorted by catId (cat1, cat2, ...)
+        for (const catId of Object.keys(categories).sort()) {
+            const { name: catName, fields } = categories[catId];
+            const section = document.createElement('div');
+            section.className = 'disc-detail-section';
+
+            const h3 = document.createElement('h3');
+            h3.textContent = catName;
+            section.appendChild(h3);
+
+            fields.forEach(({ displayName, value }) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'disc-detail-row';
+
+                const label = document.createElement('div');
+                label.className = 'disc-detail-label';
+                label.textContent = displayName;
+
+                const val = document.createElement('div');
+                const isEmpty = !value || value === '-' || value === '—';
+                val.className = 'disc-detail-value' + (isEmpty ? ' empty' : '');
+                val.textContent = isEmpty ? '—' : value;
+
+                rowDiv.appendChild(label);
+                rowDiv.appendChild(val);
+                section.appendChild(rowDiv);
+            });
+
+            grid.appendChild(section);
+        }
+
+        document.getElementById('serverDetailModal').style.display = 'flex';
+    };
+
+    window.closeServerDetail = function() {
+        document.getElementById('serverDetailModal').style.display = 'none';
+    };
+
+    // Move modal to <body> to escape any ancestor stacking context
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('serverDetailModal');
+        if (modal && modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    });
+
+    // Close on overlay click or Escape
+    document.getElementById('serverDetailModal').addEventListener('click', function(e) {
+        if (e.target === this) closeServerDetail();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeServerDetail();
+    });
+})();
+</script>
+
