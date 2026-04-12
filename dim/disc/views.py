@@ -563,7 +563,7 @@ def dashboard_view(request):
         }
         if widget['type'] == 'gauge':
             widget_data['value'] = 0
-            widget_data['display_value'] = '—'
+            widget_data['display_value'] = '⏳'
             widget_data['servers_with_issues'] = '—'
             widget_data['servers_clean'] = '—'
             widget_data['total_servers'] = '—'
