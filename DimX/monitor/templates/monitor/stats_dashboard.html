@@ -1,0 +1,586 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stats Dashboard</title>
+    <script src="{% static 'common/js/chart.umd.js' %}"></script>
+    <style>
+        :root {
+            --bg: #f4f6f9;
+            --surface: #ffffff;
+            --surface2: #f8f9fa;
+            --border: #e2e8f0;
+            --text: #1a202c;
+            --text-muted: #718096;
+            --accent: #4f46e5;
+            --accent2: #7c3aed;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+            --radius: 10px;
+        }
+        [data-theme="dark-mode"] {
+            --bg: #0f1117;
+            --surface: #1e2130;
+            --surface2: #252836;
+            --border: #2d3248;
+            --text: #e2e8f0;
+            --text-muted: #a0aec0;
+            --accent: #818cf8;
+            --accent2: #a78bfa;
+            --shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+        .header h1 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header h1::before { content: ''; display: inline-block; width: 4px; height: 20px; background: var(--accent); border-radius: 2px; }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .theme-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+        .theme-btn:hover { background: var(--border); }
+
+        .filters {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 28px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group { display: flex; align-items: center; gap: 6px; }
+        .filter-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        select, input[type="number"] {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 13px;
+            color: var(--text);
+            cursor: pointer;
+            outline: none;
+        }
+        select:focus, input:focus { border-color: var(--accent); }
+        .btn {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 6px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn:hover { opacity: 0.88; }
+        .btn-ghost {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .main { padding: 24px 28px; display: grid; gap: 20px; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        @media (max-width: 1100px) { .grid-2 { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .grid-3 { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 14px 18px 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .card-subtitle { font-size: 11px; color: var(--text-muted); }
+        .card-body { padding: 16px 18px; }
+        .chart-wrap { position: relative; height: 260px; }
+        .chart-wrap-tall { position: relative; height: 320px; }
+
+        .table-wrap { overflow-x: auto; max-height: 320px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        th {
+            position: sticky; top: 0;
+            background: var(--surface2);
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 7px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text);
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: var(--surface2); }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-login { background: #d1fae5; color: #065f46; }
+        .badge-logout { background: #e0e7ff; color: #3730a3; }
+        .badge-failed { background: #fee2e2; color: #991b1b; }
+        [data-theme="dark-mode"] .badge-login { background: #064e3b; color: #6ee7b7; }
+        [data-theme="dark-mode"] .badge-logout { background: #1e1b4b; color: #a5b4fc; }
+        [data-theme="dark-mode"] .badge-failed { background: #450a0a; color: #fca5a5; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading { color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center; }
+    </style>
+</head>
+<body>
+
+<script>
+    if (localStorage.getItem('darkMode') === 'true') {
+        document.documentElement.setAttribute('data-theme', 'dark-mode');
+    }
+</script>
+
+<div class="header">
+    <h1>Stats Dashboard</h1>
+    <div class="header-actions">
+        <button class="btn" id="btn-export" onclick="exportXlsx()">Export XLSX</button>
+        <button class="theme-btn" onclick="toggleTheme()">Toggle dark mode</button>
+    </div>
+</div>
+
+<div class="filters">
+    <div class="filter-group">
+        <label>Period</label>
+        <select id="f-days">
+            <option value="1">Today</option>
+            <option value="7" selected>7 days</option>
+            <option value="30">30 days</option>
+            <option value="90">90 days</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>App</label>
+        <select id="f-app">
+            <option value="">All apps</option>
+            {% for app in apps %}
+            <option value="{{ app }}">{{ app }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>User</label>
+        <select id="f-user">
+            <option value="">All users</option>
+            {% for u in users %}
+            <option value="{{ u.id }}">{{ u.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Top N</label>
+        <input type="number" id="f-limit" value="15" min="5" max="50" style="width:60px">
+    </div>
+    <button class="btn" onclick="refreshAll()">Apply</button>
+    <button class="btn btn-ghost" onclick="resetFilters()">Reset</button>
+</div>
+
+<div class="main">
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Hits per day</span>
+                <span class="card-subtitle" id="sub-day"></span>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrap"><canvas id="chart-day"></canvas></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Concurrent sessions</span>
+                <span class="card-subtitle">snapshots every 15 min</span>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrap"><canvas id="chart-concurrent"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Top views</span>
+                <span class="card-subtitle" id="sub-top"></span>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrap-tall"><canvas id="chart-top"></canvas></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <span class="card-title">Hits by app</span>
+                <span class="card-subtitle" id="sub-app"></span>
+            </div>
+            <div class="card-body" style="display:flex;justify-content:center;">
+                <div style="position:relative;width:280px;height:280px;">
+                    <canvas id="chart-app"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Auth events</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <select id="f-action" style="font-size:12px;padding:3px 8px;">
+                    <option value="">All actions</option>
+                    <option value="login">login</option>
+                    <option value="logout">logout</option>
+                    <option value="login_failed">login_failed</option>
+                </select>
+                <select id="f-conn-days" style="font-size:12px;padding:3px 8px;">
+                    <option value="1" selected>Last 24h</option>
+                    <option value="3">Last 3 days</option>
+                    <option value="7">Last 7 days</option>
+                </select>
+                <button class="btn" style="padding:3px 10px;font-size:12px;" onclick="loadConnections()">Go</button>
+            </div>
+        </div>
+        <div class="card-body" style="padding:0;">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="conn-table-body">
+                        <tr><td colspan="4" class="loading"><span class="spinner"></span>Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const PALETTE = [
+        '#4f46e5','#7c3aed','#0ea5e9','#10b981','#f59e0b',
+        '#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316',
+        '#ec4899','#14b8a6','#6366f1','#a3e635','#fb923c',
+    ];
+
+    function isDark() {
+        return document.documentElement.getAttribute('data-theme') === 'dark-mode';
+    }
+    function toggleTheme() {
+        const dark = !isDark();
+        document.documentElement.setAttribute('data-theme', dark ? 'dark-mode' : '');
+        localStorage.setItem('darkMode', dark);
+        refreshAll();
+    }
+
+    function chartDefaults() {
+        const dark = isDark();
+        return {
+            gridColor: dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)',
+            tickColor: dark ? '#a0aec0' : '#718096',
+            legendColor: dark ? '#e2e8f0' : '#1a202c',
+        };
+    }
+
+    let charts = {};
+
+    function destroyChart(id) {
+        if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+    }
+
+    function getFilters() {
+        return {
+            days: document.getElementById('f-days').value,
+            app: document.getElementById('f-app').value,
+            user_id: document.getElementById('f-user').value,
+            limit: document.getElementById('f-limit').value,
+        };
+    }
+
+    function buildQS(extra = {}) {
+        const f = { ...getFilters(), ...extra };
+        return Object.entries(f).filter(([, v]) => v !== '').map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+    }
+
+    async function fetchJSON(url) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(r.statusText);
+        return r.json();
+    }
+
+    async function loadHitsByDay() {
+        const d = chartDefaults();
+        const data = await fetchJSON(`{% url 'monitor:stats_hits_by_day' %}?${buildQS()}`);
+        document.getElementById('sub-day').textContent = `${getFilters().days} days`;
+        destroyChart('day');
+        const ctx = document.getElementById('chart-day').getContext('2d');
+        charts['day'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Hits',
+                    data: data.values,
+                    borderColor: PALETTE[0],
+                    backgroundColor: PALETTE[0] + '22',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: data.labels.length > 30 ? 2 : 4,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: d.tickColor, maxRotation: 45 }, grid: { color: d.gridColor } },
+                    y: { beginAtZero: true, ticks: { color: d.tickColor }, grid: { color: d.gridColor } },
+                }
+            }
+        });
+    }
+
+    async function loadConcurrent() {
+        const d = chartDefaults();
+        const days = document.getElementById('f-days').value;
+        const concDays = Math.min(parseInt(days), 7);
+        const data = await fetchJSON(`{% url 'monitor:stats_concurrent' %}?days=${concDays}`);
+        destroyChart('concurrent');
+        const ctx = document.getElementById('chart-concurrent').getContext('2d');
+
+        if (!data.labels.length) {
+            ctx.canvas.parentElement.innerHTML = '<div class="empty-state">No snapshot data yet.<br>Run: <code>python manage.py snapshot_concurrent_users</code></div>';
+            return;
+        }
+
+        charts['concurrent'] = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels.map(ts => {
+                    const dt = new Date(ts);
+                    return dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                }),
+                datasets: [{
+                    label: 'Active sessions',
+                    data: data.values,
+                    borderColor: PALETTE[2],
+                    backgroundColor: PALETTE[2] + '22',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: d.tickColor, maxTicksLimit: 12 }, grid: { color: d.gridColor } },
+                    y: { beginAtZero: true, ticks: { color: d.tickColor, stepSize: 1 }, grid: { color: d.gridColor } },
+                }
+            }
+        });
+    }
+
+    async function loadTopViews() {
+        const d = chartDefaults();
+        const data = await fetchJSON(`{% url 'monitor:stats_top_views' %}?${buildQS()}`);
+        document.getElementById('sub-top').textContent = `top ${getFilters().limit}, ${getFilters().days} days`;
+        destroyChart('top');
+        const ctx = document.getElementById('chart-top').getContext('2d');
+
+        if (!data.labels.length) {
+            ctx.canvas.parentElement.innerHTML = '<div class="empty-state">No data yet.</div>';
+            return;
+        }
+
+        charts['top'] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels.map((l, i) => `${data.apps[i] ? data.apps[i]+':' : ''}${l}`),
+                datasets: [{
+                    label: 'Hits',
+                    data: data.values,
+                    backgroundColor: data.labels.map((_, i) => PALETTE[i % PALETTE.length] + 'cc'),
+                    borderRadius: 5,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { color: d.tickColor }, grid: { color: d.gridColor } },
+                    y: { ticks: { color: d.tickColor, font: { size: 11 } }, grid: { display: false } },
+                }
+            }
+        });
+    }
+
+    async function loadHitsByApp() {
+        const data = await fetchJSON(`{% url 'monitor:stats_hits_by_app' %}?${buildQS()}`);
+        document.getElementById('sub-app').textContent = `${getFilters().days} days`;
+        destroyChart('app');
+        const ctx = document.getElementById('chart-app').getContext('2d');
+
+        if (!data.labels.length) {
+            ctx.canvas.parentElement.innerHTML = '<div class="empty-state">No data yet.</div>';
+            return;
+        }
+
+        charts['app'] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.values,
+                    backgroundColor: PALETTE.slice(0, data.labels.length).map(c => c + 'dd'),
+                    borderWidth: 0,
+                    hoverOffset: 6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: isDark() ? '#e2e8f0' : '#1a202c', padding: 12, font: { size: 12 } }
+                    }
+                }
+            }
+        });
+    }
+
+    async function loadConnections() {
+        const tbody = document.getElementById('conn-table-body');
+        const days = document.getElementById('f-conn-days').value;
+        const action = document.getElementById('f-action').value;
+        const userId = document.getElementById('f-user').value;
+
+        tbody.innerHTML = '<tr><td colspan="4" class="loading"><span class="spinner"></span>Loading…</td></tr>';
+
+        let qs = `days=${days}`;
+        if (action) qs += `&action=${action}`;
+        if (userId) qs += `&user_id=${userId}`;
+
+        const data = await fetchJSON(`{% url 'monitor:stats_connections' %}?${qs}`);
+
+        if (!data.rows.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No events found.</td></tr>';
+            return;
+        }
+
+        const badgeClass = { login: 'badge-login', logout: 'badge-logout', login_failed: 'badge-failed' };
+        tbody.innerHTML = data.rows.map(r => {
+            const dt = new Date(r.timestamp);
+            const ts = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            const badge = `<span class="badge ${badgeClass[r.action] || ''}">${r.action}</span>`;
+            return `<tr><td>${ts}</td><td>${r.username}</td><td>${badge}</td><td>${r.ip || '—'}</td></tr>`;
+        }).join('');
+    }
+
+    function refreshAll() {
+        Promise.allSettled([loadHitsByDay(), loadTopViews(), loadHitsByApp(), loadConcurrent()]);
+    }
+
+    function resetFilters() {
+        document.getElementById('f-days').value = '7';
+        document.getElementById('f-app').value = '';
+        document.getElementById('f-user').value = '';
+        document.getElementById('f-limit').value = '15';
+        refreshAll();
+    }
+
+    function exportXlsx() {
+        const f = getFilters();
+        let qs = `days=${f.days}`;
+        if (f.app) qs += `&app=${encodeURIComponent(f.app)}`;
+        if (f.user_id) qs += `&user_id=${encodeURIComponent(f.user_id)}`;
+        window.location.href = `{% url 'monitor:stats_export_xlsx' %}?${qs}`;
+    }
+
+    // Initial load
+    refreshAll();
+    loadConnections();
+</script>
+</body>
+</html>

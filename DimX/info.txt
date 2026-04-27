@@ -1,0 +1,55 @@
+● Récap complet
+
+  Fichiers modifiés (backups dans _backups/)
+
+  ┌─────────────────────┬──────────────────────────────────────────────────────────────────────────┐
+  │       Fichier       │                                Changement                                │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ chimera/settings.py │ StatsMiddleware dans MIDDLEWARE + dict LOGGING                           │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ chimera/urls.py     │ path('monitor/', include('monitor.urls', namespace='monitor'))           │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ api/urls.py         │ app_name = 'api'                                                         │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ monitor/models.py   │ 3 nouveaux modèles : AuditConnection, StatsRequest, StatsConcurrentUsers │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ monitor/signals.py  │ Signaux user_logged_out + user_login_failed                              │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ monitor/urls.py     │ 6 nouveaux endpoints stats + export                                      │
+  ├─────────────────────┼──────────────────────────────────────────────────────────────────────────┤
+  │ monitor/views.py    │ Vues JSON stats + dashboard + export XLSX                                │
+  └─────────────────────┴──────────────────────────────────────────────────────────────────────────┘
+
+  Nouveaux fichiers
+
+  ┌──────────────────────────────────────────────────────────┬─────────────────────────────────────┐
+  │                         Fichier                          │                Rôle                 │
+  ├──────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+  │ monitor/middleware.py                                    │ StatsMiddleware — tracking des hits │
+  ├──────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+  │ monitor/management/commands/snapshot_concurrent_users.py │ Snapshot sessions actives           │
+  ├──────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+  │ monitor/management/commands/purge_old_stats.py           │ Purge des données anciennes         │
+  ├──────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+  │ monitor/templates/monitor/stats_dashboard.html           │ Dashboard Chart.js                  │
+  ├──────────────────────────────────────────────────────────┼─────────────────────────────────────┤
+  │ monitor/migrations/0004_add_stats_models.py              │ Migration des 3 nouveaux modèles    │
+  └──────────────────────────────────────────────────────────┴─────────────────────────────────────┘
+
+  ---
+  Actions à effectuer en production
+
+  1. Migration (déjà appliquée en dev) :
+  python manage.py migrate monitor
+
+  2. Répertoire logs (créé automatiquement au démarrage via os.makedirs dans settings.py)
+
+  3. Cron — sur un seul serveur uniquement :
+  # crontab -e
+  */15 * * * * /path/venv/bin/python /path/chimera/manage.py snapshot_concurrent_users
+
+  4. Dashboard accessible sur :
+  /monitor/stats/
+
+  5. Purge ponctuelle (quand nécessaire) :
+  python manage.py purge_old_stats --days=90
