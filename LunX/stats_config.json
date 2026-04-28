@@ -1,0 +1,38 @@
+{
+  "_comment": "Stats tracking config. Reload: automatic (60s TTL).",
+
+  "include_apps": [
+    "inventory",
+    "businesscontinuity",
+    "discrepancies",
+    "common",
+    "accessrights"
+  ],
+
+  "exclude_apps": [
+    "monitor",
+    "admin",
+    "staticfiles",
+    "userapp"
+  ],
+
+  "include_paths": [
+	"/discrepancies/exclusions/export/"
+  ],
+
+  "exclude_paths": [
+    "/static/",
+    "/favicon",
+    "/admin/",
+    "/discrepancies/api/",
+    "/discrepancies/update_permanentfilter_field/",
+    "/discrepancies/logs_imports/",
+    "/inventory/export/status/",
+    "/inventory/export/download/",
+    "/businesscontinuity/export/status/",
+    "/businesscontinuity/export/download/",
+    "/discrepancies/export/status/",
+    "/discrepancies/export/download/",
+	"/discrepancies/exclusions/"
+  ]
+}
