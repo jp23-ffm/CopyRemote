@@ -1,0 +1,36 @@
+
+{
+  "apps": [
+    {
+      "key": "accessrights",
+      "label": "Access Rights",
+      "color": { "dark": "#e05c5c", "light": "#b83232" },
+      "permissions": ["admin"]
+    },
+    {
+      "key": "inventory",
+      "label": "Inventory",
+      "color": { "dark": "#5b8df9", "light": "#3a6ae0" },
+      "permissions": ["annotations","continuity"]
+    },
+    {
+      "key": "businesscontinuity",
+      "label": "Business Continuity",
+      "color": { "dark": "#3dd9a0", "light": "#1a9e6f" },
+      "permissions": ["edit"]
+    },
+    {
+      "key": "hardware",
+      "label": "Hardware",
+      "color": { "dark": "#f5a623", "light": "#c4850a" },
+      "permissions": ["annotations"]
+    },
+    {
+      "key": "discrepancies",
+      "label": "Discrepancies",
+      "color": { "dark": "#f5a623", "light": "#c4850a" },
+      "permissions": ["access"]
+    }
+  ]
+}
+

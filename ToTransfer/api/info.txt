@@ -1,0 +1,2 @@
+        #queryset = queryset.distinct(*ctx.distinct_fields).order_by(*ctx.distinct_fields)   # Postgresql
+        queryset = queryset.order_by(*ctx.distinct_fields)
