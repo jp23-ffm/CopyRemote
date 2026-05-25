@@ -1,7 +1,0 @@
-Le point important pour toi — le buffering SSE
-Ton problème de buffering nginx/gunicorn qu’on a contourné avec le polling JSON — avec Apache c’est pire par défaut. mod_proxy bufferise aussi. Mais comme on a déjà switché sur le polling JSON, tu n’as rien à faire de spécial.
-Si un jour tu voulais quand même du streaming, il faudrait ajouter dans la conf Apache :
-
-
-SetEnv proxy-sendchnks 1
-SetEnv proxy-sendchunked 1
