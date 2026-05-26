@@ -1,0 +1,72 @@
+ La vue logout_view est une vue custom qui accepte GET — la 405 ne vient pas de là. Je cherche où le logout est
+  déclenché dans les templates.
+
+● Searching for 1 pattern… (ctrl+o to expand)
+  ⎿  "logout"
+● Cause probable : sur la machine avec settings_dev.py, le ROOT_URLCONF est chimeraunix.urls (pas chimera.urls). Ce
+  urls.py inclut probablement djangosaml2.urls, et dans les versions récentes de djangosaml2, la vue logout est passée
+  en POST uniquement (alignement avec le changement Django 5.0 sur LogoutView). Les templates utilisent <a href="{% url
+  'logout' %}"> → GET → 405.
+
+  Vérifie d'abord lequel des deux logout est résolu sur ce serveur :
+
+  # Dans un shell Django sur la machine concernée
+  python manage.py shell -c "from django.urls import reverse; print(reverse('logout'))"
+
+  Si ça retourne /saml2/logout/ → c'est le logout djangosaml2 qui est pris, et il refuse le GET.
+
+  Fix : remplacer les <a href> par des formulaires POST dans les templates. Les fichiers à modifier :
+
+  - inventory/templates/inventory/servers.html:57
+  - businesscontinuity/templates/businesscontinuity/servers.html:43
+  - hardware/templates/hardware/servers.html:42
+  - discrepancies/templates/discrepancies/servers.html:54
+  - reportapp/templates/reportapp/servers.html:56
+
+  Remplacement dans chaque template :
+
+  <!-- Avant -->
+  <a href="{% url 'logout' %}">Logout</a>
+
+  <!-- Après -->
+  <form method="post" action="{% url 'logout' %}" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="btn-logout">Logout</button>
+  </form>
+
+  Ou si tu veux garder l'aspect lien, avec un peu de JS :
+
+  <a href="#" onclick="document.getElementById('logout-form').submit(); return false;">Logout</a>
+  <form id="logout-form" method="post" action="{% url 'logout' %}" style="display:none">
+      {% csrf_token %}
+  </form>
+
+  En parallèle, la logout_view dans userapp/views.py est fine telle quelle (elle accepte GET/POST), mais si le nom
+  logout est pris par djangosaml2 au lieu de userapp, il faudrait soit nommer l'include userapp avec un namespace soit
+  utiliser directement /user/logout/.
+
+  Tu veux qu'on modifie les templates maintenant ?
+
+✻ Crunched for 3m 12s
+
+  /btw voici le vrai code de ma machine où ca plante: C:\Temp\Django\updates\RH
+
+    …le nom logout pointe vers LogoutView qui rejette GET.
+
+    2. djangosaml2.urls est inclus et écrase le nom logout
+    Le fichier settings_dev.py active djangosaml2.middleware.SamlSessionMiddleware. Si le urls.py du serveur inclut
+    djangosaml2.urls, son endpoint de logout peut ne pas accepter GET.
+
+    ---
+    Fix rapide dans tes templates — remplacer le lien par un formulaire POST :
+
+    <form method="post" action="{% url 'logout' %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit" style="background:none;border:none;cursor:pointer;color:inherit;">Logout</button>
+    </form>
+
+    Ou, si tu veux garder un lien visuel, un petit formulaire invisible déclenché par JS.
+
+    Ou bien : si tu veux que GET fonctionne, vérifie lequel des deux cas s'applique et soit retire l'include de
+    django.contrib.auth.urls/djangosaml2.urls, soit assure-toi que le nom logout pointe bien vers ta logout_view custom
+    (qui accepte GET) et non vers une vue Django/SAML.
