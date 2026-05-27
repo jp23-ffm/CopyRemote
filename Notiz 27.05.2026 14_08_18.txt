@@ -1,0 +1,13 @@
+CACHES = {
+    'default': {
+        # In-memory cache — fast, per-process, used by the rest of the application
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
+    'db_cache': {
+        # Database cache — shared across all workers and servers
+        # Used exclusively by polling_job.py for background job state
+        # Run once: python manage.py createcachetable
+        'BACKEND':  'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'chimera_cache_table',
+    },
+}
