@@ -1,0 +1,33 @@
+[
+  {
+    "field": "OSSHORTNAME",
+    "label": "Operating System",
+    "distinct_by": "SERVER_ID",
+    "exclude_values": ["UNKNOWN", "MISSING", "N/A", "NULL", "-", ""],
+    "filters": [
+      {"field": "REGION", "label": "Region"},
+      {"field": "ENVIRONMENT", "label": "Environment"}
+    ]
+  },
+  {
+    "field": "SNOW_DATACENTER",
+    "label": "Datacenter",
+    "distinct_by": "SERVER_ID",
+    "exclude_values": ["UNKNOWN", "MISSING", "N/A", "NULL", "-", ""]
+  },
+  {
+    "field": "ENVIRONMENT",
+    "label": "Environment",
+    "distinct_by": "SERVER_ID",
+    "exclude_values": ["UNKNOWN", "MISSING", "N/A", "NULL", "-", ""],
+    "filters": [
+      {"field": "REGION", "label": "Region"}
+    ]
+  },
+  {
+    "field": "REGION",
+    "label": "Region",
+    "distinct_by": "SERVER_ID",
+    "exclude_values": ["UNKNOWN", "MISSING", "N/A", "NULL", "-", ""]
+  }
+]
