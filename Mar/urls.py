@@ -1,0 +1,38 @@
+from django.urls import path
+from . import views
+
+app_name = 'inventory'
+
+urlpatterns = [
+    path('', views.server_view, name='server_view'),
+    path('servers/', views.server_view, name='server_view'),
+    path('api/columns/', views.api_column_data, name='api_column_data'),
+    path('api/column-data/', views.api_column_data, name='api_column_data_alt'),
+    path('annotation/<str:hostname>/', views.edit_annotation, name='edit_annotation'),
+    path('relations/property/', views.property_relations, name='property_relations'),
+    path('relations/<str:hostname>/', views.server_relations, name='server_relations'),
+    path('load_search/<int:search_id>/', views.load_search, name='load_search'),
+    path('save_search/', views.save_search, name='save_search'),
+    path('delete_search/<int:search_id>/', views.delete_search, name='delete_search'),
+    path('export/<str:filetype>/', views.export_to_file, name='export_to_file'),
+    path('export/grouped/<str:filetype>/', views.export_to_file_grouped, name='export_grouped'),    
+    path('export/status/<uuid:job_id>/<str:filetype>/', views.export_status, name='export_status'),
+    path('export/download/<uuid:job_id>/<str:filetype>/', views.download_export, name='download_export'),
+    path('update_permanentfilter_field/', views.update_permanentfilter_field, name='update_permanentfilter_field'),
+    path('bulk_update/', views.servers_bulk_update, name='servers_bulk_update'),
+    path('import_csv/', views.bulk_import_csv, name='bulk_import_csv'),
+    path('logs_imports/', views.log_imports, name='logs_imports'),
+    path('logs_snapshot/', views.log_snapshot_status, name='logs_snapshot'),
+    path('charts/', views.chart_view, name='chart_view'),
+    path('api/annotations/', views.api_bulk_annotation, name='api_bulk_annotation'),
+    path('trends/', views.field_snapshots_dashboard, name='field_snapshots'),
+    path('trends/data/', views.field_snapshots_data, name='field_snapshots_data'),
+    path('trends/export/', views.field_snapshots_export, name='field_snapshots_export'),
+    path('history/', views.history_query, name='history_query'),
+    path('history/data/', views.history_data, name='history_data'),
+    path('history/drilldown/', views.history_drilldown, name='history_drilldown'),
+    path('history/diff/', views.history_diff, name='history_diff'),
+    path('history/export/', views.history_export, name='history_export'),
+    path('history/queries/save/', views.save_history_query, name='save_history_query'),
+    path('history/queries/delete/<int:query_id>/', views.delete_history_query, name='delete_history_query'),
+]
