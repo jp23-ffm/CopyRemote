@@ -1,0 +1,44 @@
+  Sur l'env DEV (SQLite) :
+  # --output évite de charger tout en mémoire (streaming vers fichier)
+  python manage.py dumpdata inventory.ServerHistory --indent 0 --output server_history.json
+  python manage.py dumpdata inventory.FieldSnapshotFiltered --indent 0 --output field_snapshots.json
+
+  Sur l'env cible (Postgres) :
+  # S'assurer que les tables sont vides (sinon conflits de PK)
+  python manage.py shell -c "from inventory.models import ServerHistory, FieldSnapshotFiltered;
+  ServerHistory.objects.all().delete(); FieldSnapshotFiltered.objects.all().delete()"
+
+  python manage.py loaddata server_history.json
+  python manage.py loaddata field_snapshots.json
+
+  loaddata gère tout seul la conversion SQLite → Postgres (types, NULL, etc.).
+  
+-----
+
+
+  DEV (Windows, SQLite) :
+  python manage.py dumpdata inventory.ServerHistory --indent 0 --output server_history.json
+  python manage.py dumpdata inventory.FieldSnapshotFiltered --indent 0 --output field_snapshots.json
+
+  Cible (Linux, Postgres) — dans l'ordre :
+  # 1. Vider les tables si besoin
+  python manage.py shell -c "
+  from inventory.models import ServerHistory, FieldSnapshotFiltered
+  print('Deleting ServerHistory:', ServerHistory.objects.all().delete())
+  print('Deleting FieldSnapshotFiltered:', FieldSnapshotFiltered.objects.all().delete())
+  "
+
+  # 2. Charger
+  python manage.py loaddata server_history.json
+  python manage.py loaddata field_snapshots.json
+
+  Point d'attention : si FieldSnapshotFiltered a une FK vers ServerHistory, charger ServerHistory en premier (comme
+  ci-dessus) est important. Si les tables cibles sont déjà vides et que les migrations ont été appliquées, ça devrait
+  passer sans accroc.
+
+  Après le loaddata, vérifie rapidement :
+  python manage.py shell -c "
+  from inventory.models import ServerHistory, FieldSnapshotFiltered
+  print('ServerHistory:', ServerHistory.objects.count())
+  print('FieldSnapshotFiltered:', FieldSnapshotFiltered.objects.count())
+  "
