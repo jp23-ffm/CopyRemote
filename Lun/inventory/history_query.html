@@ -1,0 +1,1612 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History Query</title>
+    <script src="{% static 'common/js/chart.umd.js' %}"></script>
+    <script src="{% static 'common/js/settings-modal.js' %}"></script>
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg: #f0f2f7; --surface: #ffffff; --surface2: #f8f9fa;
+            --border: #e2e8f0; --text: #1a202c; --muted: #718096;
+            --accent: #4f6ef7; --success: #10b981; --danger: #ef4444;
+            --shadow: 0 1px 3px rgba(0,0,0,0.08); --radius: 8px;
+        }
+        [data-theme="dark-mode"] {
+            --bg: #0b0f1a; --surface: #111827; --surface2: #1a2035;
+            --border: #1e2d40; --text: #e2e8f0; --muted: #64748b;
+            --accent: #6b8afb; --shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* TOPBAR */
+        #topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #A8D5BA; border-bottom: 1px solid #ddd; }
+        [data-theme="dark-mode"] #topbar { background-color: #2d5a2d; border-bottom-color: #3a3a3a; }
+        #app-info { display: flex; align-items: center; margin-left: 20px; }
+        #app-info span { font-size: 16px; color: #222; }
+        [data-theme="dark-mode"] #app-info span { color: #e0e0e0; }
+        #user-info { display: flex; align-items: center; gap: 4px; }
+        #user-info span { margin-right: 20px; font-size: 14px; color: #333; }
+        #user-info a { font-size: 14px; color: #333; text-decoration: none; margin-right: 10px; }
+        #user-info a:hover { text-decoration: underline; }
+        [data-theme="dark-mode"] #user-info span, [data-theme="dark-mode"] #user-info a { color: #7090c0; }
+        .help-icon { background: none; border: none; cursor: pointer; font-size: 18px; padding: 2px 6px; margin-right: 4px; }
+
+        /* HEADER */
+        header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow); }
+        .logo { font-weight: 800; font-size: 18px; letter-spacing: -0.3px; color: var(--accent); }
+        .logo span { color: var(--muted); font-weight: 400; }
+        .header-nav { display: flex; gap: 6px; }
+        .header-nav a { font-size: 12px; color: var(--muted); text-decoration: none; padding: 4px 10px; border: 1px solid var(--border); border-radius: 5px; }
+        .header-nav a:hover { color: var(--accent); border-color: var(--accent); }
+
+        /* LAYOUT */
+        .layout { display: flex; min-height: calc(100vh - 101px); }
+
+        /* SIDEBAR */
+        nav { width: 210px; flex-shrink: 0; border-right: 1px solid var(--border); padding: 16px 0; background: var(--surface); display: flex; flex-direction: column; overflow-y: auto; }
+        .nav-label { font-size: 10px; text-transform: uppercase; letter-spacing: 3px; color: var(--muted); padding: 0 18px 10px; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 18px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.12s; font-size: 12px; color: var(--muted); user-select: none; }
+        .nav-item:hover { color: var(--text); background: rgba(127,127,127,0.06); }
+        .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(79,70,229,0.06); }
+        [data-theme="dark-mode"] .nav-item.active { background: rgba(129,140,248,0.08); }
+        .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.6; flex-shrink: 0; }
+        .nav-divider { border: none; border-top: 1px solid var(--border); margin: 8px 18px; }
+        .nav-saved-item { display: flex; align-items: center; gap: 6px; padding: 8px 18px; cursor: pointer; border-left: 2px solid transparent; transition: all 0.12s; font-size: 12px; color: var(--muted); }
+        .nav-saved-item:hover { color: var(--text); background: rgba(127,127,127,0.06); }
+        .nav-saved-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .nav-saved-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+        .nav-saved-del:hover { color: var(--danger); }
+
+        /* MAIN */
+        main { flex: 1; padding: 24px 28px; overflow-y: auto; }
+
+        /* QUERY CARD */
+        .qp-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 8px; box-shadow: var(--shadow); }
+        .qp-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .qp-row:last-child { margin-bottom: 0; }
+        .qp-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.1px; color: var(--muted); font-weight: 600; min-width: 72px; flex-shrink: 0; }
+        .qp-filter-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        select, input[type="date"], input[type="text"] {
+            background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+            padding: 5px 8px; font-size: 13px; color: var(--text); outline: none;
+        }
+        select:focus, input:focus { border-color: var(--accent); }
+        .qp-val-inp { width: 180px; }
+        .btn-run { background: var(--accent); color: #fff; border: none; border-radius: 6px; padding: 7px 20px; font-size: 13px; font-weight: 500; cursor: pointer; margin-left: 10px; }
+        .btn-run:hover { opacity: 0.88; }
+        .btn-add { background: none; border: 1px dashed var(--border); border-radius: 6px; color: var(--muted); font-size: 12px; padding: 4px 10px; cursor: pointer; }
+        .btn-add:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-rm { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; padding: 0 2px; }
+        .btn-rm:hover { color: var(--danger); }
+        /* More-menu dropdown */
+        .more-wrap { position: relative; display: inline-block; }
+        .btn-more { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-size: 16px; line-height: 1; color: var(--muted); cursor: pointer; letter-spacing: 2px; }
+        .btn-more:hover { border-color: var(--accent); color: var(--accent); }
+        .more-menu { display: none; position: absolute; top: calc(100% + 4px); right: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.18); min-width: 170px; z-index: 200; overflow: hidden; }
+        .more-menu.open { display: block; }
+        .more-item { display: block; width: 100%; text-align: left; padding: 9px 16px; font-size: 12px; font-weight: normal; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: none; border-bottom: 1px solid var(--border); }
+        .more-item:last-child { border-bottom: none; }
+        .more-item:hover { background: var(--surface2); color: var(--fg); }
+        /* Keep old classes for any other usages */
+        .btn-export, .btn-save-q, .btn-share { display: none; }
+        /* Progress bar */
+        .query-progress { height: 3px; background: transparent; margin-bottom: 8px; overflow: hidden; border-radius: 2px; }
+        .query-progress.running { background: var(--surface2); }
+        .query-progress.running::after { content: ''; display: block; height: 100%; width: 45%; background: var(--accent); border-radius: 2px; animation: qbar 1.4s ease-in-out infinite; }
+        @keyframes qbar { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+        /* Results fade while loading */
+        .results-fading { opacity: 0.35; transition: opacity 0.2s; pointer-events: none; }
+        .panel-dl-btn { background: none; border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+        .panel-dl-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .agg-badge { display: inline-block; background: rgba(79,70,229,0.1); border: 1px solid rgba(79,70,229,0.2); border-radius: 4px; padding: 3px 7px; font-size: 11px; color: var(--accent); font-weight: 600; }
+        [data-theme="dark-mode"] .agg-badge { background: rgba(129,140,248,0.1); border-color: rgba(129,140,248,0.25); }
+        .step-grp { display: flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .step-btn { background: var(--surface2); border: none; padding: 5px 12px; font-size: 12px; color: var(--muted); cursor: pointer; }
+        .step-btn:not(:last-child) { border-right: 1px solid var(--border); }
+        .step-btn.active { background: var(--accent); color: #fff; font-weight: 500; }
+        .step-btn:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
+        .step-warn { font-size: 11px; color: #b45309; margin-left: 6px; display: none; }
+        .range-sep { color: var(--muted); font-size: 12px; }
+
+        /* STATS ROW */
+        .stats-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-bottom: 20px; }
+        @media (max-width: 900px) { .stats-row { grid-template-columns: repeat(2, 1fr); } }
+        .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; position: relative; overflow: hidden; }
+        .stat-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform 0.3s; }
+        .stat-card:hover::after { transform: scaleX(1); }
+        .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; test-wrap-mode: nowrap;}
+        .stat-value { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1; }
+        .stat-sub { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+        /* CHART */
+        .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; position: relative; box-shadow: var(--shadow); }
+        .chart-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .chart-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px; }
+        .chart-note { font-size: 11px; color: var(--muted); }
+        .btn-export-inline { background: none; border: 1px solid var(--border); border-radius: 5px; padding: 3px 9px; font-size: 11px; color: var(--muted); cursor: pointer; }
+        .btn-export-inline:hover { border-color: var(--accent); color: var(--accent); }
+        .chart-wrap { height: clamp(280px, 38vh, 520px); position: relative; }
+        #chart-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+        .filter-chip { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+        .legend-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 16px; }
+        .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); transition: opacity 0.15s; cursor: pointer; user-select: none; }
+        .legend-item--dim { opacity: 0.25; }
+        .legend-item--pinned { font-weight: 600; color: var(--fg); text-decoration: underline dotted; }
+        .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .panel-series--highlight { background: var(--surface2) !important; }
+        .panel-series--highlight .panel-lbl { color: var(--accent) !important; font-weight: 600; }
+
+        /* TABLE */
+        .table-card { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+        .card-header { padding: 12px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+        .tbl-wrap { overflow: auto; max-height: 380px; }
+        .snap-table { border-collapse: collapse; font-size: 13px; width: auto; }
+        .snap-table th { position: sticky; top: 0; background: var(--surface2); padding: 7px 24px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; text-align: center; }
+        .snap-table th:first-child { position: sticky; left: 0; z-index: 2; text-align: left; border-right: 2px solid var(--border); }
+        .snap-table td { padding: 6px 24px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); text-align: center; white-space: nowrap; }
+        .snap-table td:first-child { position: sticky; left: 0; text-align: left; color: var(--muted); font-size: 12px; border-right: 2px solid var(--border); }
+        .snap-table tbody tr:nth-child(odd) td { background: var(--surface); }
+        .snap-table tbody tr:nth-child(even) td { background: var(--surface2); }
+        .snap-table tbody tr:hover td { background: rgba(79,70,229,0.06); }
+        [data-theme="dark-mode"] .snap-table tbody tr:hover td { background: rgba(129,140,248,0.08); }
+        .tbl-hint { font-size: 11px; color: var(--muted); cursor: help; opacity: 0.7; }
+        .tbl-hint:hover { opacity: 1; }
+
+        /* DETAIL PANEL */
+        .chart-and-panel { display: flex; gap: 16px; align-items: flex-start; }
+        .chart-and-panel .chart-card { flex: 1; min-width: 0; }
+        .detail-panel { width: 290px; flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); display: none; flex-direction: column; overflow: hidden; max-height: 420px; }
+        .panel-head { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface2); flex-shrink: 0; }
+        .panel-head-title { flex: 1; font-size: 11px; font-weight: 700; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .panel-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0; line-height: 1; flex-shrink: 0; }
+        .panel-close:hover { color: var(--danger); }
+        .panel-back { background: none; border: none; color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 600; padding: 0; flex-shrink: 0; white-space: nowrap; }
+        .panel-total-row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); flex-shrink: 0; }
+        .panel-total-row strong { color: var(--accent); font-size: 20px; font-weight: 800; }
+        .panel-scroll { flex: 1; overflow-y: auto; }
+        .panel-pagination { display: flex; align-items: center; justify-content: space-between; padding: 6px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--muted); gap: 6px; }
+        .panel-pagination button { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 8px; cursor: pointer; color: var(--fg); font-size: 13px; }
+        .panel-pagination button:disabled { opacity: 0.3; cursor: default; }
+        .panel-pagination button:not(:disabled):hover { border-color: var(--accent); color: var(--accent); }
+        /* Diff modal */
+        .diff-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:1000; align-items:center; justify-content:center; }
+        .diff-overlay.open { display:flex; }
+        .diff-modal { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); width:min(920px,96vw); max-height:88vh; display:flex; flex-direction:column; box-shadow:0 8px 40px rgba(0,0,0,0.35); }
+        .diff-modal-head { display:flex; align-items:center; justify-content:space-between; padding:13px 18px; border-bottom:1px solid var(--border); flex-shrink:0; }
+        .diff-modal-head h3 { margin:0; font-size:14px; font-weight:700; }
+        .diff-controls { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--border); flex-shrink:0; flex-wrap:wrap; }
+        .diff-controls label { font-size:12px; color:var(--muted); font-weight:600; }
+        .diff-summary { display:flex; gap:10px; padding:10px 18px; border-bottom:1px solid var(--border); flex-shrink:0; align-items:center; }
+        .diff-badge { padding:3px 12px; border-radius:20px; font-size:12px; font-weight:700; white-space:nowrap; }
+        .diff-badge.added   { background:rgba(34,197,94,0.12);  color:var(--success); border:1px solid rgba(34,197,94,0.3); }
+        .diff-badge.removed { background:rgba(239,68,68,0.12);  color:var(--danger);  border:1px solid rgba(239,68,68,0.3); }
+        .diff-badge.changed { background:rgba(234,179,8,0.12);  color:#b45309;        border:1px solid rgba(234,179,8,0.35); }
+        .diff-tabs { display:flex; padding:0 18px; border-bottom:1px solid var(--border); flex-shrink:0; }
+        .diff-tab { padding:8px 16px; font-size:12px; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; color:var(--muted); }
+        .diff-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+        .diff-body { flex:1; overflow:auto; }
+        .diff-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .diff-table th { position:sticky; top:0; background:var(--surface2); padding:6px 12px; text-align:left; font-weight:600; color:var(--muted); border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }
+        .diff-table td { padding:5px 12px; border-bottom:1px solid var(--border); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .diff-table tr.row-added   td { background:rgba(34,197,94,0.06); }
+        .diff-table tr.row-removed td { background:rgba(239,68,68,0.06); }
+        .diff-table tr.row-server  td { background:var(--surface2); font-weight:700; font-size:12px; }
+        .diff-from { color:var(--danger); text-decoration:line-through; opacity:0.75; margin-right:4px; }
+        .diff-to   { color:var(--success); font-weight:600; }
+        .diff-footer { display:flex; justify-content:space-between; align-items:center; padding:7px 18px; border-top:1px solid var(--border); flex-shrink:0; font-size:11px; color:var(--muted); }
+        .panel-series-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+        .panel-series-row:last-child { border-bottom: none; }
+        .panel-series-clickable { cursor: pointer; }
+        .panel-series-clickable:hover { background: var(--surface2); }
+        .panel-series-clickable:hover .panel-lbl { color: var(--accent); }
+        .panel-lbl { color: var(--muted); max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .panel-val { font-weight: 600; color: var(--fg); }
+        .panel-hint { padding: 8px 12px; font-size: 10px; color: var(--muted); text-align: center; flex-shrink: 0; border-top: 1px solid var(--border); font-style: italic; }
+        .panel-loading { padding: 24px 12px; text-align: center; color: var(--muted); font-size: 12px; }
+        .panel-server-row { padding: 5px 12px; border-bottom: 1px solid var(--border); }
+        .panel-server-row:last-child { border-bottom: none; }
+        .panel-server-row:hover { background: var(--surface2); }
+        .panel-sid { font-size: 12px; font-weight: 600; color: var(--fg); font-family: monospace; }
+        .panel-smeta { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+        /* MISC */
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 14px; }
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #run-status { font-size: 12px; color: var(--muted); }
+        .error-msg { color: var(--danger); font-size: 13px; padding: 12px 0; }
+        .save-feedback { font-size: 12px; color: var(--success); }
+    </style>
+</head>
+<body>
+
+{% include 'common/settings_modal.html' with appname='inventory' %}
+
+<script>
+    if (localStorage.getItem('darkMode') === 'true')
+        document.documentElement.setAttribute('data-theme', 'dark-mode');
+</script>
+
+<div id="topbar">
+    <div id="app-info"><span>Inventory — History Query</span></div>
+    <div id="user-info">
+        <button class="help-icon" onclick="openSettingsModal()">⚙️</button>
+        <span>Welcome, {{ user.username }}</span>
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
+</div>
+
+<header>
+    <div class="logo">SERVER<span> / </span>HISTORY</div>
+    <div class="header-nav">
+        <a href="{% url 'inventory:field_snapshots' %}">← Field Trends</a>
+        <a href="{% url 'inventory:server_view' %}">Servers</a>
+    </div>
+</header>
+
+<div class="layout">
+
+    <!-- SIDEBAR -->
+    <nav>
+        <div class="nav-label">Presets</div>
+        <div class="nav-item active" id="nav-custom" onclick="loadPreset(null)">
+            <div class="nav-dot"></div> Custom query
+        </div>
+        <hr class="nav-divider">
+        {% for preset in presets %}
+        <div class="nav-item" id="nav-{{ preset.id }}" onclick="loadPreset('{{ preset.id }}')">
+            <div class="nav-dot"></div>
+            <span>{{ preset.label }}</span>
+        </div>
+        {% endfor %}
+
+        <hr class="nav-divider" style="margin-top:12px;">
+        <div class="nav-label" style="padding-top:10px;">Saved queries</div>
+        <div id="nav-saved-list">
+            <div style="padding: 4px 18px; font-size:11px; color:var(--muted); font-style:italic;" id="nav-saved-empty">No saved queries yet.</div>
+        </div>
+
+    </nav>
+
+    <!-- MAIN -->
+    <main>
+
+        <!-- QUERY PANEL -->
+        <div class="qp-card" id="query-panel" style="position:relative;">
+            <div class="more-wrap" style="position:absolute; top:12px; right:14px;">
+                <button class="btn-more" onclick="toggleMoreMenu(event)" title="More actions">···</button>
+                <div class="more-menu" id="more-menu">
+                    <button class="more-item" onclick="openDiffModal(); closeMoreMenu()">Compare dates</button>
+                    <button class="more-item" onclick="toggleSaveSection(); closeMoreMenu()">Save query</button>
+                    <button class="more-item" id="btn-share" onclick="copyQueryLink(); closeMoreMenu()">Share link</button>
+                </div>
+            </div>
+
+            <!-- Row 1 : Measure field + agg + Group by -->
+            <div class="qp-row">
+                <span class="qp-label">Measure</span>
+                <select id="qp-measure-field" onchange="onMeasureFieldChange()" title="Field to aggregate"></select>
+                <span id="qp-measure-agg-badge" class="agg-badge"></span>
+                <input type="hidden" id="qp-measure-agg">
+
+                <span class="qp-label" style="min-width:60px; margin-left:12px;">Group by</span>
+                <div id="qp-dims" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <select id="qp-dim1" onchange="onDim1Change()">
+                        <option value="">— none —</option>
+                    </select>
+                    <select id="qp-dim2" style="display:none;">
+                        <option value="">— remove 2nd —</option>
+                    </select>
+                    <button class="btn-add" id="btn-add-dim" onclick="addDim()">+ dim</button>
+                </div>
+            </div>
+
+            <!-- Row 2 : Filters -->
+            <div class="qp-row" id="row-filters">
+                <span class="qp-label">Filters</span>
+                <div id="qp-filters" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;"></div>
+                <button class="btn-add" onclick="addFilter()">+ filter</button>
+            </div>
+
+            <!-- Row 3 : Period + Step + Top N + Run -->
+            <div class="qp-row">
+                <span class="qp-label">Period</span>
+                <input type="date" id="qp-start" value="{{ first_date|date:'Y-m-d'|default:today }}" oninput="_validateSteps()" onchange="_validateSteps()">
+                <span class="range-sep">→</span>
+                <input type="date" id="qp-end" value="{{ today }}" oninput="_validateSteps()" onchange="_validateSteps()">
+
+                <div class="step-grp" style="margin-left:8px;" id="step-grp">
+                    <button class="step-btn" data-step="day"   onclick="setStep('day')">Day</button>
+                    <button class="step-btn" data-step="week"  onclick="setStep('week')">Week</button>
+                    <button class="step-btn active" data-step="month" onclick="setStep('month')">Month</button>
+                </div>
+                <span class="step-warn" id="step-warn"></span>
+
+                <select id="qp-topn" title="Chart series limit" style="margin-left:8px; min-width:100px;">
+                    <option value="5">Chart top 5</option>
+                    <option value="10" selected>Chart top 10</option>
+                    <option value="15">Chart top 15</option>
+                    <option value="25">Chart top 25</option>
+                </select>
+
+                <button class="btn-run" onclick="runQuery()">&#9654; Run</button>
+                <span id="run-status"></span>
+            </div>
+
+            <!-- Row 4 : Save query (hidden by default) -->
+            <div id="save-section" style="display:none; border-top: 1px dashed var(--border); padding-top:10px; margin-top:4px;" class="qp-row">
+                <span class="qp-label" style="color:var(--muted); font-size:10px;">Save as</span>
+                <input type="text" id="save-name" placeholder="Query name…" style="width:160px;" maxlength="100">
+                <button class="btn-save-q" onclick="saveQuery()">Save</button>
+                <button class="btn-add" onclick="toggleSaveSection()">Cancel</button>
+                <span id="save-feedback" class="save-feedback"></span>
+            </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="query-progress" id="query-progress"></div>
+
+        <!-- STATS -->
+        <div class="stats-row" id="stats-row">
+            <div class="stat-card empty-state" style="grid-column:1/-1; padding:20px; text-align:center; color:var(--muted); font-size:13px;">
+                Configure a query above and click <strong>Run</strong>.
+            </div>
+        </div>
+
+        <!-- CHART + DETAIL PANEL -->
+        <div class="chart-and-panel">
+            <div class="chart-card">
+                <div class="chart-meta">
+                    <div style="display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap;">
+                        <div class="chart-title" id="chart-title">Evolution</div>
+                        <div id="chart-filters"></div>
+                    </div>
+                    <div class="chart-note" id="chart-note"></div>
+                </div>
+                <div class="chart-wrap"><canvas id="main-chart"></canvas></div>
+                <div class="legend-row" id="legend-row"></div>
+            </div>
+            <div id="detail-panel" class="detail-panel"></div>
+        </div>
+
+        <!-- TABLE -->
+        <div class="table-card" style="margin-top:20px;">
+            <div class="card-header">
+                <span style="font-size:13px; font-weight:600;">Data</span>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span style="font-size:11px; color:var(--muted);" id="tbl-note"></span>
+                    <button class="btn-export-inline" onclick="triggerExport()" title="Export all data as CSV">&#8595; Export CSV</button>
+                </div>
+            </div>
+            <div class="tbl-wrap" id="tbl-wrap"></div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+const META          = {{ meta_json|safe }};
+const FIELD_VALUES  = {{ field_values_json|safe }};
+const SAVED_QUERIES = {{ saved_queries_json|safe }};
+const DATA_URL      = "{% url 'inventory:history_data' %}";
+const EXPORT_URL    = "{% url 'inventory:history_export' %}";
+const DRILLDOWN_URL = "{% url 'inventory:history_drilldown' %}";
+const DIFF_URL      = "{% url 'inventory:history_diff' %}";
+const SAVE_URL      = "{% url 'inventory:save_history_query' %}";
+const DELETE_URL    = "{% url 'inventory:delete_history_query' query_id=0 %}".replace('/0/', '/');
+const CSRF_TOKEN    = '{{ csrf_token }}';
+
+const PALETTE = [
+    '#4f46e5','#10b981','#f59e0b','#ef4444','#06b6d4',
+    '#f97316','#8b5cf6','#14b8a6','#84cc16','#ec4899',
+    '#0ea5e9','#a3e635','#f43f5e','#22d3ee','#fb923c',
+];
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+
+const PRESETS = [
+    { id: 'os-trends',   measure_field: 'SERVER_ID',      measure_agg: 'count_distinct', group_by: ['OSSHORTNAME'],           step: 'month' },
+    { id: 'cpu-region',  measure_field: 'CPU',            measure_agg: 'sum',            group_by: ['REGION'],                step: 'month' },
+    { id: 'srv-env',     measure_field: 'SERVER_ID',      measure_agg: 'count_distinct', group_by: ['ENVIRONMENT'],           step: 'month' },
+    { id: 'os-region',   measure_field: 'SERVER_ID',      measure_agg: 'count_distinct', group_by: ['OSSHORTNAME', 'REGION'], step: 'month' },
+    { id: 'ram-dc',      measure_field: 'RAM',            measure_agg: 'sum',            group_by: ['SNOW_DATACENTER'],       step: 'month' },
+    { id: 'srv-type',    measure_field: 'SERVER_ID',      measure_agg: 'count_distinct', group_by: ['MACHINE_TYPE'],          step: 'month' },
+    { id: 'srv-maker',   measure_field: 'SERVER_ID',      measure_agg: 'count_distinct', group_by: ['MANUFACTURER'],          step: 'month' },
+    { id: 'apps-region', measure_field: 'APP_NAME_VALUE', measure_agg: 'count_distinct', group_by: ['REGION'],                step: 'month' },
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let currentChart = null;
+let currentStep  = 'month';
+const _STEP_MAX_DAYS = { day: 20, week: 140 };
+const _STEP_LABELS   = { day: '20 days', week: '20 weeks' };
+let filterIdCnt  = 0;
+let filterRows   = [];
+let savedQueries = [...SAVED_QUERIES];
+
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark-mode'; }
+
+function toggleThemeFromSettings() {
+    const dark = document.getElementById('themeToggle').checked;
+    dark ? document.documentElement.setAttribute('data-theme','dark-mode') : document.documentElement.removeAttribute('data-theme');
+    localStorage.setItem('darkMode', String(dark));
+    if (currentChart && currentChart.__data) renderChart(currentChart.__data);
+}
+
+function chartDefs() {
+    const dark = isDark();
+    return { grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', tick: dark ? '#64748b' : '#94a3b8', tooltipBg: dark ? '#111827' : '#1e293b' };
+}
+
+// ── Measure selectors ─────────────────────────────────────────────────────────
+
+function _measureFieldOptions() {
+    return Object.entries(META.fields)
+        .filter(([, f]) => f.aggregations && f.aggregations.length > 0)
+        .map(([k, f]) => `<option value="${k}">${f.label}</option>`)
+        .join('');
+}
+
+function onMeasureFieldChange() {
+    const field = document.getElementById('qp-measure-field').value;
+    const agg   = META.fields[field]?.aggregations?.[0] || 'count_distinct';
+    document.getElementById('qp-measure-agg').value       = agg;
+    document.getElementById('qp-measure-agg-badge').textContent = META.agg_labels?.[agg] || agg;
+}
+
+// ── Dim options ───────────────────────────────────────────────────────────────
+
+function _dimOptions(exclude) {
+    return '<option value="">— none —</option>' +
+        Object.entries(META.fields)
+            .filter(([k, f]) => f.groupable && k !== exclude)
+            .map(([k, f]) => `<option value="${k}">${f.label}</option>`)
+            .join('');
+}
+
+// ── Filter options ────────────────────────────────────────────────────────────
+
+function _filterFieldOptions() {
+    return '<option value="">Field…</option>' +
+        Object.entries(META.fields)
+            .filter(([, f]) => f.filterable)
+            .map(([k, f]) => `<option value="${k}">${f.label}</option>`)
+            .join('');
+}
+
+function _valueOptions(field, current) {
+    const vals = FIELD_VALUES[field] || [];
+    if (!vals.length) return '';
+    return vals.map(v => `<option value="${v}"${v === current ? ' selected' : ''}>${v}</option>`).join('');
+}
+
+// ── Init form ─────────────────────────────────────────────────────────────────
+
+document.getElementById('qp-measure-field').innerHTML = _measureFieldOptions();
+onMeasureFieldChange();
+document.getElementById('qp-dim1').innerHTML = _dimOptions('');
+document.getElementById('qp-end').value = new Date().toISOString().split('T')[0];
+renderSavedList();
+_validateSteps();
+
+// ── Dimensions ────────────────────────────────────────────────────────────────
+
+function onDim1Change() {
+    const d1val = document.getElementById('qp-dim1').value;
+    const d2sel = document.getElementById('qp-dim2');
+    const prevD2 = d2sel.value;
+
+    if (d1val) {
+        d2sel.innerHTML = _dimOptions(d1val);
+        if (prevD2 && prevD2 !== d1val) d2sel.value = prevD2;
+        d2sel.style.display = '';
+        document.getElementById('btn-add-dim').style.display = 'none';
+    } else {
+        d2sel.style.display = 'none';
+        d2sel.value = '';
+        document.getElementById('btn-add-dim').style.display = '';
+    }
+}
+
+function addDim() {
+    const d1 = document.getElementById('qp-dim1');
+    if (!d1.value) { d1.focus(); return; }
+    const d2 = document.getElementById('qp-dim2');
+    d2.innerHTML = _dimOptions(d1.value);
+    d2.style.display = '';
+    document.getElementById('btn-add-dim').style.display = 'none';
+    d2.focus();
+}
+
+function getGroupBy() {
+    return [
+        document.getElementById('qp-dim1').value,
+        document.getElementById('qp-dim2').value,
+    ].filter(Boolean);
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+
+function addFilter() {
+    const id = filterIdCnt++;
+    filterRows.push({ id, field: '', op: 'eq', value: '' });
+    renderFilterRows();
+}
+
+function removeFilter(id) {
+    filterRows = filterRows.filter(f => f.id !== id);
+    renderFilterRows();
+}
+
+function updateFilter(id, key, val) {
+    const row = filterRows.find(f => f.id === id);
+    if (!row) return;
+    row[key] = val;
+    if (key === 'op') {
+        renderFilterRows();
+        return;
+    }
+    if (key === 'field') {
+        const firstVal = (FIELD_VALUES[val] || [])[0] || '';
+        row.value = firstVal;
+        const valEl = document.getElementById(`fv-${id}`);
+        if (valEl) {
+            const opts = _valueOptions(val);
+            if (opts) {
+                valEl.outerHTML = `<select id="fv-${id}" class="qp-val-inp" style="width:140px"
+                    onchange="updateFilter(${id},'value',this.value)">${opts}</select>`;
+            } else {
+                valEl.value = '';
+            }
+        }
+    }
+}
+
+function renderFilterRows() {
+    const el = document.getElementById('qp-filters');
+    el.innerHTML = filterRows.map(f => {
+        const valOpts = _valueOptions(f.field, f.value);
+        const valInput = valOpts
+            ? `<select id="fv-${f.id}" class="qp-val-inp" style="width:180px" onchange="updateFilter(${f.id},'value',this.value)">${valOpts}</select>`
+            : `<input id="fv-${f.id}" type="text" class="qp-val-inp" value="${f.value.replace(/"/g,'&quot;')}" placeholder="value…" onchange="updateFilter(${f.id},'value',this.value)">`;
+        return `<div class="qp-filter-row" id="fr-${f.id}">
+            <select onchange="updateFilter(${f.id},'field',this.value)">
+                ${_filterFieldOptions().replace(`value="${f.field}"`, `value="${f.field}" selected`)}
+            </select>
+            <select onchange="updateFilter(${f.id},'op',this.value)" style="width:100px">
+                <option value="eq" ${f.op==='eq'?'selected':''}>= equals</option>
+                <option value="neq" ${f.op==='neq'?'selected':''}>≠ not</option>
+                <option value="is_null" ${f.op==='is_null'?'selected':''}>∅ is empty</option>
+                <option value="is_not_null" ${f.op==='is_not_null'?'selected':''}>≠∅ not empty</option>
+            </select>
+            ${!['is_null','is_not_null'].includes(f.op) ? valInput : ''}
+            <button class="btn-rm" onclick="removeFilter(${f.id})">×</button>
+        </div>`;
+    }).join('');
+}
+
+// ── Step toggle & validation ──────────────────────────────────────────────────
+
+function _rangedays() {
+    const s = document.getElementById('qp-start').value;
+    const e = document.getElementById('qp-end').value;
+    if (!s || !e) return 0;
+    return Math.round((new Date(e) - new Date(s)) / 86400000);
+}
+
+function _validateSteps() {
+    const days = _rangedays();
+    let autoSwitched = false;
+
+    ['day', 'week'].forEach(step => {
+        const btn   = document.querySelector(`.step-btn[data-step="${step}"]`);
+        const valid = days <= _STEP_MAX_DAYS[step];
+        btn.disabled = !valid;
+        btn.title    = valid ? '' : `Disabled: range exceeds ${_STEP_LABELS[step]}`;
+        if (!valid && currentStep === step) {
+            currentStep  = 'month';
+            autoSwitched = true;
+        }
+    });
+
+    document.querySelectorAll('.step-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.step === currentStep)
+    );
+
+    const warn = document.getElementById('step-warn');
+    if (autoSwitched) {
+        warn.textContent = 'Switched to Month (range too large)';
+        warn.style.display = '';
+    } else if (days > _STEP_MAX_DAYS.week) {
+        warn.textContent = 'Day and Week disabled for this range';
+        warn.style.display = '';
+    } else if (days > _STEP_MAX_DAYS.day) {
+        warn.textContent = 'Day disabled for this range';
+        warn.style.display = '';
+    } else {
+        warn.style.display = 'none';
+    }
+}
+
+function setStep(step) {
+    const btn = document.querySelector(`.step-btn[data-step="${step}"]`);
+    if (btn?.disabled) return;
+    currentStep = step;
+    document.querySelectorAll('.step-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.step === step)
+    );
+}
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+
+function _applySpec(spec) {
+    document.getElementById('qp-measure-field').value = spec.measure_field || 'SERVER_ID';
+    onMeasureFieldChange();  // sets hidden input + badge from meta
+
+    const gb = spec.group_by || [];
+    const d1 = document.getElementById('qp-dim1');
+    const d2 = document.getElementById('qp-dim2');
+    d1.innerHTML = _dimOptions('');
+    d1.value = gb[0] || '';
+    if (d1.value) {
+        d2.innerHTML = _dimOptions(d1.value);   // always rebuild so first opt is "— none —"
+        d2.style.display = '';
+        d2.value = gb[1] || '';
+        document.getElementById('btn-add-dim').style.display = 'none';
+    } else {
+        d2.style.display = 'none';
+        d2.value = '';
+        document.getElementById('btn-add-dim').style.display = 'none';
+    }
+
+    filterRows = [];
+    if (spec.filters) {
+        spec.filters.forEach(f => { const id = filterIdCnt++; filterRows.push({...f, id}); });
+    }
+    renderFilterRows();
+    setStep(spec.step || 'month');
+
+    if (spec.start) document.getElementById('qp-start').value = spec.start;
+    if (spec.end)   document.getElementById('qp-end').value   = spec.end;
+    if (spec.top_n) document.getElementById('qp-topn').value  = String(spec.top_n);
+    if (spec.step)  setStep(spec.step);
+    _validateSteps();
+}
+
+function loadPreset(id) {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById(id ? `nav-${id}` : 'nav-custom').classList.add('active');
+    document.querySelectorAll('.nav-saved-item').forEach(el => el.classList.remove('active'));
+    if (!id) return;
+    const p = PRESETS.find(x => x.id === id);
+    if (!p) return;
+    _applySpec(p);
+    runQuery();
+}
+
+function loadSavedQuery(queryId) {
+    const q = savedQueries.find(x => x.id === queryId);
+    if (!q) return;
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-saved-item').forEach(el => el.classList.remove('active'));
+    const navEl = document.getElementById(`nav-sq-${queryId}`);
+    if (navEl) navEl.classList.add('active');
+    document.getElementById('save-name').value = q.name;
+    _applySpec(q.spec);
+    runQuery();
+}
+
+// ── Build query params ────────────────────────────────────────────────────────
+
+function buildParams() {
+    const params = new URLSearchParams();
+    params.set('measure_field', document.getElementById('qp-measure-field').value);
+    params.set('measure_agg',   document.getElementById('qp-measure-agg').value);
+    getGroupBy().forEach(g => params.append('group_by', g));
+    filterRows.forEach(f => {
+        if (f.field) {
+            params.append('filter_field', f.field);
+            params.append('filter_op',    f.op);
+            params.append('filter_value', f.value);
+        }
+    });
+    params.set('start', document.getElementById('qp-start').value);
+    params.set('end',   document.getElementById('qp-end').value);
+    params.set('step',  currentStep);
+    params.set('top_n', document.getElementById('qp-topn').value);
+    return params;
+}
+
+function buildSpec() {
+    return {
+        measure_field: document.getElementById('qp-measure-field').value,
+        measure_agg:   document.getElementById('qp-measure-agg').value,
+        group_by: getGroupBy(),
+        filters: filterRows.filter(f => f.field).map(({ field, op, value }) => ({ field, op, value })),
+        start: document.getElementById('qp-start').value,
+        end:   document.getElementById('qp-end').value,
+        step:  currentStep,
+        top_n: parseInt(document.getElementById('qp-topn').value, 10),
+    };
+}
+
+// ── Shareable URL ─────────────────────────────────────────────────────────────
+
+function _specToUrl(spec) {
+    try {
+        const encoded = btoa(encodeURIComponent(JSON.stringify(spec)));
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', encoded);
+        window.history.replaceState({}, '', url.toString());
+    } catch(e) {}
+}
+
+function _specFromUrl() {
+    try {
+        const q = new URLSearchParams(window.location.search).get('q');
+        return q ? JSON.parse(decodeURIComponent(atob(q))) : null;
+    } catch(e) { return null; }
+}
+
+function toggleMoreMenu(e) {
+    e.stopPropagation();
+    document.getElementById('more-menu').classList.toggle('open');
+}
+function closeMoreMenu() {
+    document.getElementById('more-menu').classList.remove('open');
+}
+document.addEventListener('click', closeMoreMenu);
+
+async function copyQueryLink() {
+    _specToUrl(buildSpec());
+    try {
+        await navigator.clipboard.writeText(window.location.href);
+        const btn = document.getElementById('btn-share');
+        const orig = btn.textContent;
+        btn.textContent = 'Link copied!';
+        setTimeout(() => { btn.textContent = orig; }, 2000);
+    } catch(e) {}
+}
+
+// ── Run query ─────────────────────────────────────────────────────────────────
+
+async function runQuery() {
+    _validateSteps();
+    const days = _rangedays();
+    if (_STEP_MAX_DAYS[currentStep] && days > _STEP_MAX_DAYS[currentStep]) {
+        document.getElementById('run-status').textContent =
+            `Step "${currentStep}" not allowed for a ${days}-day range.`;
+        return;
+    }
+
+    const status   = document.getElementById('run-status');
+    const progress = document.getElementById('query-progress');
+    const statsEl  = document.getElementById('stats-row');
+    const chartEl  = document.querySelector('.chart-and-panel');
+
+    status.textContent = '';
+    progress.classList.add('running');
+    if (!statsEl.querySelector('.empty-state')) {
+        statsEl.classList.add('results-fading');
+        chartEl?.classList.add('results-fading');
+    }
+
+    let data;
+    try {
+        const resp = await fetch(`${DATA_URL}?${buildParams()}`);
+        if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
+        data = await resp.json();
+    } catch(e) {
+        status.textContent = `Error: ${e.message}`;
+        progress.classList.remove('running');
+        statsEl.classList.remove('results-fading');
+        chartEl?.classList.remove('results-fading');
+        return;
+    }
+
+    progress.classList.remove('running');
+    statsEl.classList.remove('results-fading');
+    chartEl?.classList.remove('results-fading');
+
+    const total = data.datasets.length;
+    const shown = Math.min(total, data.chart_limit);
+    if (data.truncated) {
+        status.textContent = 'Date axis capped at 120 points — reduce range or use week/month step.';
+    } else {
+        status.textContent = '';
+    }
+    buildStats(data);
+    renderChart(data, shown);
+    buildTable(data);
+    updateChartTitle(total, shown);
+    _specToUrl(buildSpec());
+    // Show panel immediately on the most recent point (rightmost)
+    _panelDrillMode = false;
+    _panelIdx = null;
+    _drillServers = [];
+    showPanelSummary(data, data.labels.length - 1);
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+
+function lastVal(arr) { for (let i = arr.length-1; i>=0; i--) if (arr[i]!=null) return arr[i]; return 0; }
+function firstVal(arr){ for (let i = 0; i < arr.length;  i++) if (arr[i]!=null) return arr[i]; return 0; }
+
+function buildStats(data) {
+    const el = document.getElementById('stats-row');
+    if (!data.datasets.length) {
+        el.innerHTML = '<div class="stat-card empty-state" style="grid-column:1/-1;padding:20px;font-size:13px;color:var(--muted)">No data for this query.</div>';
+        return;
+    }
+    const groupedLatest = data.datasets.reduce((s, ds) => s + lastVal(ds.data), 0);
+    const trueLatest    = data.true_totals ? data.true_totals.at(-1) : groupedLatest;
+    const lastDate      = data.labels.at(-1) || '—';
+    const hintHtml      = data.true_totals
+        ? ` <span class="tbl-hint" title="Sum across groups: ${groupedLatest.toLocaleString()}">ⓘ</span>`
+        : '';
+    let html = `<div class="stat-card">
+        <div class="stat-label">Total (latest)</div>
+        <div class="stat-value">${trueLatest.toLocaleString()}${hintHtml}</div>
+        <div class="stat-sub">as of ${lastDate}</div>
+    </div>`;
+    data.datasets.slice(0, 5).forEach(ds => {
+        const last = lastVal(ds.data);
+        const diff = last - firstVal(ds.data);
+        const pct  = trueLatest > 0 ? Math.round(last/trueLatest*100) : 0;
+        const sign = diff >= 0 ? '+' : '';
+        const col  = diff > 0 ? 'var(--success)' : diff < 0 ? 'var(--danger)' : 'var(--muted)';
+        //const lbl  = ds.label.length > 14 ? ds.label.slice(0,12)+'…' : ds.label;
+		const lbl  = ds.label;
+        html += `<div class="stat-card">
+            <div class="stat-label" title="${ds.label}">${lbl}</div>
+            <div class="stat-value">${last.toLocaleString()}</div>
+            <div class="stat-sub">${pct}% · <span style="color:${col}">${sign}${diff}</span> over period</div>
+        </div>`;
+    });
+    el.innerHTML = html;
+}
+
+// ── Chart ─────────────────────────────────────────────────────────────────────
+
+function renderChart(data, shownCount) {
+    const d = chartDefs();
+    if (currentChart) { currentChart.destroy(); currentChart = null; }
+    _pinnedSeries = -1;
+
+    const chartDs = data.datasets.slice(0, shownCount);
+    if (!chartDs.length) return;
+
+    const pointRadius = data.labels.length > 60 ? 0 : 3;
+    const ctx = document.getElementById('main-chart').getContext('2d');
+    currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: chartDs.map((ds, i) => ({
+                label: ds.label, data: ds.data,
+                borderColor: PALETTE[i % PALETTE.length],
+                backgroundColor: PALETTE[i % PALETTE.length] + '15',
+                borderWidth: 2, pointRadius, pointHoverRadius: 5,
+                tension: 0.4, fill: false, spanGaps: true,
+            })),
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            onHover: (event, elements, chart) => {
+                if (!elements.length) {
+                    if (_pinnedSeries < 0) _highlightSeries(-1);
+                    return;
+                }
+                showPanelSummary(data, elements[0].index);
+                if (_pinnedSeries >= 0) return;
+                const nearest = chart.getElementsAtEventForMode(event.native, 'nearest', { intersect: false }, false);
+                _highlightSeries(nearest.length ? nearest[0].datasetIndex : -1);
+            },
+            onClick: (event, elements) => {
+                if (!elements.length) return;
+                const el  = elements[0];
+                const lbl = currentChart.data.datasets[el.datasetIndex]?.label || 'Total';
+                loadDrilldown(data, el.index, lbl);
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false },
+            },
+            scales: {
+                x: { grid: { color: d.grid }, ticks: { color: d.tick, maxTicksLimit: 12, maxRotation: 0 }, border: { display: false } },
+                y: { grid: { color: d.grid }, ticks: { color: d.tick }, border: { display: false } },
+            },
+        },
+    });
+    currentChart.__data = data;
+
+    const legendEl = document.getElementById('legend-row');
+    legendEl.innerHTML = chartDs.map((ds, i) =>
+        `<div class="legend-item" onclick="toggleLegendFocus(${i})"><div class="legend-dot" style="background:${PALETTE[i%PALETTE.length]}"></div>${ds.label}</div>`
+    ).join('');
+}
+
+let _pinnedSeries = -1;
+
+function toggleLegendFocus(i) {
+    _pinnedSeries = (_pinnedSeries === i) ? -1 : i;
+    document.querySelectorAll('.legend-item').forEach((el, idx) =>
+        el.classList.toggle('legend-item--pinned', idx === _pinnedSeries)
+    );
+    _highlightSeries(_pinnedSeries);
+}
+
+function _highlightSeries(dsIdx) {
+    document.querySelectorAll('.legend-item').forEach((el, i) => {
+        el.classList.toggle('legend-item--dim', dsIdx >= 0 && i !== dsIdx);
+    });
+    document.querySelectorAll('.panel-series-row').forEach(el => {
+        const i = parseInt(el.dataset.ds ?? '-1');
+        el.classList.toggle('panel-series--highlight', dsIdx >= 0 && i === dsIdx);
+    });
+    if (currentChart) {
+        currentChart.data.datasets.forEach((ds, i) => {
+            ds.borderWidth = dsIdx < 0 ? 2 : (i === dsIdx ? 3.5 : 1);
+        });
+        currentChart.update('none');
+    }
+}
+
+// ── Detail panel (right) ─────────────────────────────────────────────────────
+
+let _panelIdx       = null;
+let _panelDrillMode = false;
+let _drillServers   = [];
+let _drillLabel     = '';
+let _drillDate      = '';
+let _drillPage      = 0;
+const _DRILL_PAGE_SIZE = 50;
+let _drillFields    = [];   // field names returned by backend for this drilldown
+
+function downloadDrillCSV() {
+    // Export from already-loaded data — no extra fetch needed
+    if (!_drillServers.length) return;
+    const fields = _drillFields.length ? _drillFields : ['SERVER_ID'];
+    const rows   = [fields.join(';'),
+        ..._drillServers.map(s => fields.map(f => (s[f] ?? '').toString().replace(/;/g, ',')).join(';'))
+    ];
+    const blob = new Blob([rows.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `drilldown_${_drillDate}_${_drillLabel.replace(/[^a-z0-9]/gi, '_').slice(0, 40)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+function closePanel() {
+    document.getElementById('detail-panel').style.display = 'none';
+    _panelIdx = null;
+    _panelDrillMode = false;
+    _drillServers   = [];
+    _drillPage      = 0;
+}
+
+function _backToSummary(data, idx) {
+    _panelDrillMode = false;
+    _panelIdx       = null;
+    _drillServers   = [];
+    _drillPage      = 0;
+    showPanelSummary(data, idx);
+}
+
+function showPanelSummary(data, idx) {
+    if (_panelDrillMode) return;          // drilldown locked — hover does nothing
+    if (_panelIdx === idx) return;        // same point, no change needed
+    _panelIdx = idx;
+    const date  = data.labels[idx];
+    const total = data.true_totals ? data.true_totals[idx]
+        : data.datasets.reduce((s, ds) => s + (ds.data[idx] ?? 0), 0);
+
+    let html = `<div class="panel-head">
+        <span class="panel-head-title">${date}</span>
+        <button class="panel-close" onclick="closePanel()">×</button>
+    </div>
+    <div class="panel-total-row"><span>Total</span><strong>${total.toLocaleString()}</strong></div>
+    <div class="panel-scroll">`;
+
+    // Sort by value at this date point so the panel always shows descending order
+    const sortedDs = data.datasets
+        .map((ds, dsIdx) => ({ ds, dsIdx, val: ds.data[idx] ?? 0 }))
+        .sort((a, b) => b.val - a.val);
+    sortedDs.forEach(({ ds, dsIdx, val }) => {
+        html += `<div class="panel-series-row panel-series-clickable" data-ds="${dsIdx}"
+            title="Drill down into ${ds.label}"
+            onclick="loadDrilldown(currentChart.__data,${idx},currentChart.__data.datasets[${dsIdx}].label)">
+            <span class="panel-lbl">${ds.label}</span>
+            <span class="panel-val">${val.toLocaleString()}</span>
+        </div>`;
+    });
+    html += `</div><div class="panel-hint">Click a row or a chart point to drill down</div>`;
+
+    const panel = document.getElementById('detail-panel');
+    panel.innerHTML = html;
+    panel.style.display = 'flex';
+}
+
+function _renderServerList(servers, query) {
+    const q = query.toLowerCase();
+    const searchFields = _drillFields.length ? _drillFields : ['SERVER_ID'];
+    const filtered = q ? servers.filter(s =>
+        searchFields.some(f => (s[f] ?? '').toString().toLowerCase().includes(q))
+    ) : servers;
+
+    if (!filtered.length) return '<div class="panel-loading">No match.</div>';
+
+    const total  = filtered.length;
+    const pages  = Math.ceil(total / _DRILL_PAGE_SIZE);
+    const page   = Math.max(0, Math.min(_drillPage, pages - 1));
+    const start  = page * _DRILL_PAGE_SIZE;
+    const slice  = filtered.slice(start, start + _DRILL_PAGE_SIZE);
+
+    let html = slice.map(s => {
+        const metaParts = _drillFields.slice(1).map(f => {
+            const v = s[f];
+            if (v == null || v === '') return null;
+            const lbl = (typeof META !== 'undefined' && META.fields[f]?.label) || f;
+            return `${lbl}: ${v}`;
+        }).filter(Boolean);
+        const primaryField = _drillFields[0] || 'SERVER_ID';
+        return `<div class="panel-server-row">
+            <div class="panel-sid">${s[primaryField] ?? '—'}</div>
+            ${metaParts.length ? `<div class="panel-smeta">${metaParts.join(' · ')}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    if (pages > 1) {
+        html += `<div class="panel-pagination">
+            <button onclick="drillPage(${page-1})" ${page===0?'disabled':''}>‹</button>
+            <span>${start+1}–${Math.min(start+_DRILL_PAGE_SIZE,total)} / ${total.toLocaleString()}</span>
+            <button onclick="drillPage(${page+1})" ${page>=pages-1?'disabled':''}>›</button>
+        </div>`;
+    }
+    return html;
+}
+
+function drillPage(page) {
+    _drillPage = page;
+    const q  = document.getElementById('panel-search')?.value || '';
+    const el = document.getElementById('panel-drill-list');
+    if (el) el.innerHTML = _renderServerList(_drillServers, q);
+}
+
+function filterDrilldown() {
+    _drillPage = 0;   // reset to page 1 on new search
+    const q  = document.getElementById('panel-search')?.value || '';
+    const el = document.getElementById('panel-drill-list');
+    if (el) el.innerHTML = _renderServerList(_drillServers, q);
+}
+
+async function loadDrilldown(data, idx, seriesLabel) {
+    _panelDrillMode = true;
+    _panelIdx       = null;
+    _drillServers   = [];
+
+    const date      = data.labels[idx];
+    const gb        = getGroupBy();
+    const groupVals = (seriesLabel === 'Total' || !gb.length)
+        ? [] : seriesLabel.split(' / ');
+
+    const panel = document.getElementById('detail-panel');
+    panel.innerHTML = `<div class="panel-head">
+        <button class="panel-back" onclick="_backToSummary(currentChart.__data,${idx})">← Back</button>
+        <span class="panel-head-title">${seriesLabel} · ${date}</span>
+        <button class="panel-close" onclick="closePanel()">×</button>
+    </div><div class="panel-loading"><span class="spinner"></span> Loading…</div>`;
+    panel.style.display = 'flex';
+
+    const params = new URLSearchParams({ date });
+    gb.forEach(g => params.append('group_by', g));
+    groupVals.forEach(v => params.append('group_value', v));
+    params.set('measure_field', document.getElementById('qp-measure-field').value);
+    params.set('measure_agg',   document.getElementById('qp-measure-agg').value);
+    filterRows.forEach(f => {
+        if (f.field) {
+            params.append('filter_field', f.field);
+            params.append('filter_op',    f.op);
+            params.append('filter_value', f.value || '');
+        }
+    });
+
+    try {
+        const resp   = await fetch(`${DRILLDOWN_URL}?${params}`);
+        if (!resp.ok) throw new Error('Request failed');
+        const result = await resp.json();
+        _drillServers = result.servers;
+        _drillFields  = result.fields || ['SERVER_ID'];
+        _drillLabel   = seriesLabel;
+        _drillDate    = date;
+
+        const primaryField = (_drillFields[0] || 'SERVER_ID');
+        const primaryLabel = (META.fields[primaryField]?.label || primaryField).toLowerCase();
+        const countStr = result.shown < result.total
+            ? `${result.shown.toLocaleString()} / ${result.total.toLocaleString()} ${primaryLabel}`
+            : `${result.total.toLocaleString()} ${primaryLabel}`;
+
+        panel.innerHTML = `<div class="panel-head">
+            <button class="panel-back" onclick="_backToSummary(currentChart.__data,${idx})">← Back</button>
+            <span class="panel-head-title">${seriesLabel} · ${date}</span>
+            <button class="panel-close" onclick="closePanel()">×</button>
+        </div>
+        <div class="panel-total-row">
+            <span>${countStr}</span>
+            <button class="panel-dl-btn" onclick="downloadDrillCSV()" title="Export visible servers to CSV">↓ CSV</button>
+        </div>
+        <div style="padding:6px 12px; flex-shrink:0; border-bottom:1px solid var(--border);">
+            <input id="panel-search" type="text" placeholder="Search…" oninput="filterDrilldown()"
+                style="width:100%; box-sizing:border-box; padding:4px 8px; font-size:12px;
+                       border:1px solid var(--border); border-radius:4px;
+                       background:var(--surface2); color:var(--fg); outline:none;">
+        </div>
+        <div id="panel-drill-list" class="panel-scroll">${_renderServerList(_drillServers, '')}</div>`;
+
+        document.getElementById('panel-search')?.focus();
+    } catch(e) {
+        panel.querySelector('.panel-loading').textContent = `Error: ${e.message}`;
+    }
+}
+
+// ── Table (all series) ────────────────────────────────────────────────────────
+
+function buildTable(data) {
+    const el = document.getElementById('tbl-wrap');
+    const noteEl = document.getElementById('tbl-note');
+    if (!data.labels.length) { el.innerHTML = ''; noteEl.textContent = ''; return; }
+
+    // Table shows ALL series sorted alphabetically
+    const sorted = [...data.datasets].sort((a,b) => a.label.localeCompare(b.label));
+    const total = sorted.length;
+    noteEl.textContent = total > data.chart_limit
+        ? `${total} series (chart shows top ${data.chart_limit})`
+        : `${total} series`;
+
+    const thead = '<tr><th>Date</th><th>Total</th>' + sorted.map(ds => `<th>${ds.label}</th>`).join('') + '</tr>';
+    const rows = [...data.labels.keys()].reverse().map(i => {
+        const trueVal = data.true_totals ? data.true_totals[i]
+            : data.datasets.reduce((s, ds) => s + (ds.data[i] ?? 0), 0);
+        const totalCell = `<td><strong>${trueVal.toLocaleString()}</strong></td>`;
+        return '<tr><td>' + data.labels[i] + '</td>' + totalCell +
+            sorted.map(ds => `<td>${ds.data[i] != null ? ds.data[i].toLocaleString() : '—'}</td>`).join('') +
+            '</tr>';
+    }).join('');
+    el.innerHTML = `<table class="snap-table"><thead>${thead}</thead><tbody>${rows}</tbody></table>`;
+}
+
+// ── Chart title ───────────────────────────────────────────────────────────────
+
+function updateChartTitle(total, shown) {
+    const mfSel  = document.getElementById('qp-measure-field');
+    const agg    = document.getElementById('qp-measure-agg').value;
+    const gb     = getGroupBy().map(k => META.fields[k]?.label || k);
+    const mfLabel = mfSel.options[mfSel.selectedIndex]?.text || '';
+    const measureLabel = agg === 'sum' ? `Sum of ${mfLabel}` : mfLabel;
+    const titleEl = document.getElementById('chart-title');
+    const noteEl  = document.getElementById('chart-note');
+    titleEl.textContent = gb.length ? `${measureLabel} by ${gb.join(' × ')}` : measureLabel;
+    noteEl.textContent  = total > shown ? `top ${shown} of ${total} series` : '';
+
+    const opLabel = { eq: '=', neq: '≠', is_null: '∅', is_not_null: '≠∅' };
+    const filtersEl = document.getElementById('chart-filters');
+    filtersEl.innerHTML = filterRows
+        .filter(f => f.field)
+        .map(f => {
+            const fieldLbl = META.fields[f.field]?.label || f.field;
+            const op = opLabel[f.op] || f.op;
+            const val = (f.op === 'is_null' || f.op === 'is_not_null') ? '' : ` ${f.value}`;
+            return `<span class="filter-chip">${fieldLbl} ${op}${val}</span>`;
+        }).join('');
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+function triggerExport() {
+    window.location.href = `${EXPORT_URL}?${buildParams()}`;
+    return false;
+}
+
+// ── Save / delete queries ─────────────────────────────────────────────────────
+
+function toggleSaveSection() {
+    const section = document.getElementById('save-section');
+    const visible = section.style.display !== 'none';
+    section.style.display = visible ? 'none' : 'flex';
+    if (!visible) document.getElementById('save-name').focus();
+}
+
+async function saveQuery() {
+    const name = document.getElementById('save-name').value.trim();
+    const fb   = document.getElementById('save-feedback');
+    if (!name) { fb.style.color='var(--danger)'; fb.textContent='Enter a name first.'; return; }
+
+    const spec = buildSpec();
+    try {
+        const resp = await fetch(SAVE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ name, spec }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Save failed');
+
+        const existing = savedQueries.findIndex(q => q.id === data.id);
+        if (existing >= 0) savedQueries[existing] = { id: data.id, name, spec };
+        else savedQueries.unshift({ id: data.id, name, spec });
+        renderSavedList();
+
+        // Close section and reset
+        document.getElementById('save-name').value = '';
+        document.getElementById('save-feedback').textContent = '';
+        document.getElementById('save-section').style.display = 'none';
+    } catch(e) {
+        fb.style.color = 'var(--danger)';
+        fb.textContent = e.message;
+    }
+}
+
+async function deleteSavedQuery(queryId, event) {
+    event.stopPropagation();
+    if (!confirm('Delete this saved query?')) return;
+
+    try {
+        const resp = await fetch(`${DELETE_URL}${queryId}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': CSRF_TOKEN },
+        });
+        if (!resp.ok) throw new Error('Delete failed');
+        savedQueries = savedQueries.filter(q => q.id !== queryId);
+        renderSavedList();
+    } catch(e) {
+        alert(e.message);
+    }
+}
+
+function renderSavedList() {
+    const container = document.getElementById('nav-saved-list');
+    const emptyEl   = document.getElementById('nav-saved-empty');
+    if (!savedQueries.length) {
+        container.innerHTML = '<div style="padding: 4px 18px; font-size:11px; color:var(--muted); font-style:italic;" id="nav-saved-empty">No saved queries yet.</div>';
+        return;
+    }
+    container.innerHTML = savedQueries.map(q =>
+        `<div class="nav-saved-item" id="nav-sq-${q.id}" onclick="loadSavedQuery(${q.id})">
+            <span class="nav-saved-name" title="${q.name}">${q.name}</span>
+            <button class="nav-saved-del" title="Delete" onclick="deleteSavedQuery(${q.id}, event)">×</button>
+        </div>`
+    ).join('');
+}
+
+// ── Snapshot comparison modal ─────────────────────────────────────────────────
+
+let _diffResult    = null;
+let _diffActiveTab = 'added';
+
+const _DIFF_DISPLAY = ['OSSHORTNAME', 'ENVIRONMENT', 'REGION', 'SNOW_DATACENTER', 'SNOW_STATUS', 'CPU', 'RAM'];
+
+function openDiffModal() {
+    const today    = new Date().toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30*24*3600*1000).toISOString().split('T')[0];
+    document.getElementById('diff-date-a').value = monthAgo;
+    document.getElementById('diff-date-b').value = today;
+    document.getElementById('diff-summary').style.display = 'none';
+    document.getElementById('diff-tabs').style.display    = 'none';
+    document.getElementById('diff-body').innerHTML        = '';
+    document.getElementById('diff-status').textContent    = '';
+    document.getElementById('diff-footer-note').textContent = '';
+    document.getElementById('diff-overlay').classList.add('open');
+}
+
+function closeDiffModal() {
+    document.getElementById('diff-overlay').classList.remove('open');
+}
+
+async function runDiff() {
+    const date_a = document.getElementById('diff-date-a').value;
+    const date_b = document.getElementById('diff-date-b').value;
+    if (!date_a || !date_b) return;
+    if (date_a >= date_b) {
+        document.getElementById('diff-status').textContent = '"From" must be before "To".';
+        return;
+    }
+    const btn = document.getElementById('btn-run-diff');
+    btn.disabled = true;
+    document.getElementById('diff-status').innerHTML        = '<span class="spinner"></span> Comparing…';
+    document.getElementById('diff-summary').style.display  = 'none';
+    document.getElementById('diff-tabs').style.display     = 'none';
+    document.getElementById('diff-body').innerHTML         = '';
+    document.getElementById('btn-diff-xlsx').style.display = 'none';
+
+    try {
+        const resp = await fetch(`${DIFF_URL}?date_a=${date_a}&date_b=${date_b}`);
+        if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
+        _diffResult = await resp.json();
+        document.getElementById('diff-status').textContent     = '';
+        document.getElementById('btn-diff-xlsx').style.display = '';
+
+        const s = _diffResult.summary;
+        document.getElementById('diff-summary').style.display = 'flex';
+        document.getElementById('diff-summary').innerHTML = `
+            <span class="diff-badge added">+ ${s.added.toLocaleString()} added</span>
+            <span class="diff-badge removed">− ${s.removed.toLocaleString()} removed</span>
+            <span class="diff-badge changed">~ ${s.changed.toLocaleString()} changed</span>
+            <span style="font-size:11px;color:var(--muted);margin-left:4px">${date_a} → ${date_b}</span>`;
+
+        document.getElementById('diff-tabs').style.display = 'flex';
+        _diffActiveTab = s.added > 0 ? 'added' : s.removed > 0 ? 'removed' : 'changed';
+        switchDiffTab(_diffActiveTab);
+    } catch(e) {
+        document.getElementById('diff-status').textContent = `Error: ${e.message}`;
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function switchDiffTab(tab) {
+    _diffActiveTab = tab;
+    ['added','removed','changed','transitions'].forEach(t =>
+        document.getElementById(`dtab-${t}`).classList.toggle('active', t === tab)
+    );
+    if (!_diffResult) return;
+
+    if (tab === 'transitions') {
+        const n = _diffResult.transitions.length;
+        const m = _diffResult.summary.changed;
+        document.getElementById('diff-footer-note').textContent =
+            `${n.toLocaleString()} distinct transition${n !== 1 ? 's' : ''} across ${m.toLocaleString()} changed server${m !== 1 ? 's' : ''}`;
+        document.getElementById('diff-body').innerHTML = _renderDiffChangedGrouped(_diffResult.transitions);
+        return;
+    }
+
+    const total = _diffResult.summary[tab];
+    const cap   = _diffResult.capped;
+    document.getElementById('diff-footer-note').textContent = total > cap
+        ? `First ${cap.toLocaleString()} of ${total.toLocaleString()} shown — export for full list`
+        : `${total.toLocaleString()} server${total !== 1 ? 's' : ''}`;
+
+    document.getElementById('diff-body').innerHTML = tab === 'changed'
+        ? _renderDiffChanged(_diffResult.changed)
+        : _renderDiffRows(_diffResult[tab], tab);
+}
+
+function _renderDiffRows(items, type) {
+    if (!items.length) return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No servers.</div>';
+    const cls  = type === 'added' ? 'row-added' : 'row-removed';
+    const cols = _DIFF_DISPLAY.filter(f => items.some(r => r[f] != null));
+    const heads = ['SERVER_ID', ...cols].map(f =>
+        `<th>${META.fields[f]?.label || f}</th>`).join('');
+    const rows = items.map(r =>
+        `<tr class="${cls}"><td><strong>${r.SERVER_ID}</strong></td>${
+            cols.map(f => `<td>${r[f] ?? '—'}</td>`).join('')
+        }</tr>`).join('');
+    return `<table class="diff-table"><thead><tr>${heads}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function _renderDiffChangedGrouped(transitions) {
+    if (!transitions.length) return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No changes.</div>';
+    let html = `<table class="diff-table"><thead><tr>
+        <th>Field</th><th>Before</th><th>After</th><th style="text-align:right">Servers</th>
+    </tr></thead><tbody>`;
+    let lastField = null;
+    transitions.forEach(r => {
+        const lbl = META.fields[r.field]?.label || r.field;
+        if (r.field !== lastField) {
+            lastField = r.field;
+            html += `<tr class="row-server"><td colspan="4">${lbl}</td></tr>`;
+        }
+        html += `<tr class="row-changed">
+            <td></td>
+            <td><span class="diff-from">${r.from ?? '—'}</span></td>
+            <td><span class="diff-to">${r.to ?? '—'}</span></td>
+            <td style="text-align:right;font-weight:600;font-size:12px">${r.count.toLocaleString()}</td>
+        </tr>`;
+    });
+    return html + '</tbody></table>';
+}
+
+function _renderDiffChanged(items) {
+    if (!items.length) return '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">No changes.</div>';
+    let html = `<table class="diff-table"><thead><tr>
+        <th>Server</th><th>Field</th><th>Before</th><th>After</th>
+    </tr></thead><tbody>`;
+    items.forEach(item => {
+        html += `<tr class="row-server"><td colspan="4">${item.SERVER_ID}</td></tr>`;
+        item.diffs.forEach(d => {
+            const lbl = META.fields[d.field]?.label || d.field;
+            html += `<tr class="row-changed">
+                <td></td>
+                <td style="color:var(--muted);font-size:11px">${lbl}</td>
+                <td><span class="diff-from">${d.from ?? '—'}</span></td>
+                <td><span class="diff-to">${d.to ?? '—'}</span></td>
+            </tr>`;
+        });
+    });
+    return html + '</tbody></table>';
+}
+
+async function exportDiffXLSX() {
+    if (!_diffResult) return;
+    const date_a = document.getElementById('diff-date-a').value;
+    const date_b = document.getElementById('diff-date-b').value;
+    const btn = document.getElementById('btn-diff-xlsx');
+    btn.disabled = true;
+    btn.textContent = 'Building…';
+
+    try {
+        // Fetch full data if any tab is capped
+        const s = _diffResult.summary;
+        const cap = _diffResult.capped;
+        let full = _diffResult;
+        if (s.added > cap || s.removed > cap || s.changed > cap) {
+            const resp = await fetch(`${DIFF_URL}?date_a=${date_a}&date_b=${date_b}&export=1`);
+            if (!resp.ok) throw new Error(resp.statusText);
+            const fetched = await resp.json();
+            full = { ...fetched, transitions: _diffResult.transitions };
+        }
+
+        const wb = XLSX.utils.book_new();
+        const cols = ['SERVER_ID', ..._DIFF_DISPLAY];
+        const colHeaders = cols.map(f => META.fields[f]?.label || f);
+
+        // Added
+        XLSX.utils.book_append_sheet(wb,
+            XLSX.utils.aoa_to_sheet([colHeaders, ...full.added.map(r => cols.map(f => r[f] ?? ''))]),
+            'Added');
+
+        // Removed
+        XLSX.utils.book_append_sheet(wb,
+            XLSX.utils.aoa_to_sheet([colHeaders, ...full.removed.map(r => cols.map(f => r[f] ?? ''))]),
+            'Removed');
+
+        // Changed (flat: one row per field diff)
+        const changedRows = [['Server', 'Field', 'Before', 'After']];
+        full.changed.forEach(item =>
+            item.diffs.forEach(d =>
+                changedRows.push([item.SERVER_ID, META.fields[d.field]?.label || d.field, d.from ?? '', d.to ?? ''])
+            )
+        );
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(changedRows), 'Changed');
+
+        // By Change (transitions pivot)
+        const transRows = [['Field', 'Before', 'After', 'Servers']];
+        full.transitions.forEach(r =>
+            transRows.push([META.fields[r.field]?.label || r.field, r.from ?? '', r.to ?? '', r.count])
+        );
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(transRows), 'By Change');
+
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `diff_${date_a}_${date_b}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    } catch(e) {
+        document.getElementById('diff-status').textContent = `Export error: ${e.message}`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '↓ Export XLSX';
+    }
+}
+
+async function exportDiffCSV() {
+    if (!_diffResult) return;
+    const tab    = _diffActiveTab;
+    const date_a = document.getElementById('diff-date-a').value;
+    const date_b = document.getElementById('diff-date-b').value;
+    const note   = document.getElementById('diff-footer-note');
+    const origNote = note.textContent;
+
+    if (tab === 'transitions') {
+        const rows = [['Field', 'Before', 'After', 'Servers']];
+        _diffResult.transitions.forEach(r =>
+            rows.push([META.fields[r.field]?.label || r.field, r.from ?? '', r.to ?? '', r.count])
+        );
+        const csv = rows.map(r => r.map(v => String(v).replace(/;/g, ',')).join(';')).join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `diff_transitions_${date_a}_${date_b}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        return;
+    }
+
+    // If display was capped, fetch the full dataset for export
+    const s = _diffResult.summary;
+    let items = _diffResult[tab];
+    if (s[tab] > _diffResult.capped) {
+        note.textContent = 'Fetching full data…';
+        try {
+            const resp = await fetch(`${DIFF_URL}?date_a=${date_a}&date_b=${date_b}&export=1`);
+            const full = await resp.json();
+            items = full[tab];
+        } catch(e) {
+            note.textContent = `Export error: ${e.message}`;
+            return;
+        } finally {
+            note.textContent = origNote;
+        }
+    }
+
+    let rows = [];
+    if (tab === 'changed') {
+        rows = [['SERVER_ID', 'Field', 'Before', 'After']];
+        items.forEach(item =>
+            item.diffs.forEach(d =>
+                rows.push([item.SERVER_ID, META.fields[d.field]?.label || d.field,
+                           d.from ?? '', d.to ?? ''])
+            )
+        );
+    } else {
+        const cols = ['SERVER_ID', ..._DIFF_DISPLAY];
+        rows = [cols.map(f => META.fields[f]?.label || f)];
+        items.forEach(r => rows.push(cols.map(f => r[f] ?? '')));
+    }
+
+    const csv  = rows.map(r => r.map(v => String(v).replace(/;/g, ',')).join(';')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a    = document.createElement('a');
+    a.href     = URL.createObjectURL(blob);
+    a.download = `diff_${tab}_${date_a}_${date_b}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    initSettingsModal('inventory');
+    const urlSpec = _specFromUrl();
+    if (urlSpec) {
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById('nav-custom').classList.add('active');
+        _applySpec(urlSpec);
+        runQuery();
+    } else {
+        loadPreset('os-trends');
+    }
+});
+</script>
+
+<!-- Diff modal -->
+<div class="diff-overlay" id="diff-overlay" onclick="if(event.target===this)closeDiffModal()">
+  <div class="diff-modal">
+    <div class="diff-modal-head">
+      <h3>Snapshot Comparison</h3>
+      <button class="panel-close" onclick="closeDiffModal()" style="font-size:20px">×</button>
+    </div>
+    <div class="diff-controls">
+      <label>From</label>
+      <input type="date" id="diff-date-a">
+      <label>To</label>
+      <input type="date" id="diff-date-b">
+      <button class="btn-run" id="btn-run-diff" onclick="runDiff()">&#9654; Compare</button>
+      <span id="diff-status" style="font-size:12px;color:var(--muted)"></span>
+      <button id="btn-diff-xlsx" class="btn-export-inline" onclick="exportDiffXLSX()" style="display:none;margin-left:auto">↓ Export XLSX</button>
+    </div>
+    <div id="diff-summary" style="display:none" class="diff-summary"></div>
+    <div id="diff-tabs"    style="display:none" class="diff-tabs">
+      <div class="diff-tab active" id="dtab-added"       onclick="switchDiffTab('added')">Added</div>
+      <div class="diff-tab"        id="dtab-removed"     onclick="switchDiffTab('removed')">Removed</div>
+      <div class="diff-tab"        id="dtab-changed"     onclick="switchDiffTab('changed')">Changed</div>
+      <div class="diff-tab"        id="dtab-transitions" onclick="switchDiffTab('transitions')">By change</div>
+    </div>
+    <div class="diff-body" id="diff-body"></div>
+    <div class="diff-footer">
+      <span id="diff-footer-note"></span>
+      <button class="btn-export-inline" onclick="exportDiffCSV()" style="font-size:11px;padding:3px 10px">↓ Export tab CSV</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>
