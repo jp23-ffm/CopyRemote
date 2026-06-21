@@ -1,0 +1,281 @@
+{
+    "categories": {
+        "cat1": "Filer",
+        "cat2": "Share",
+        "cat3": "Network",
+        "cat4": "Usage",
+        "cat5": "Application",
+        "cat6": "Open",
+        "cat7": "Perimeter/Scope",
+        "cat8": "Cluster",
+        "cat9": "References",
+        "cat10": "Status"
+    },
+
+    "fields": {
+
+        "SHARE_NAME": {
+            "displayname": "Share Name",
+            "selectionsection": "cat2",
+            "ischecked": "True",
+            "ischeckeddisabled": "True",
+            "inputname": "sharename"
+        },
+
+        "ID": {
+            "displayname": "Id",
+            "selectionsection": "cat1",
+            "ischecked": "True",
+            "inputname": "id"
+        },
+
+        "PROVIDER": {
+            "displayname": "Provider",
+            "selectionsection": "cat1",
+            "ischecked": "True",
+            "inputname": "provider",
+            "listbox": "providers",
+            "listboxmsg": "Provider",
+            "listid": "provider"
+        },
+
+        "CLUSTER": {
+            "displayname": "Cluster",
+            "selectionsection": "cat1",
+            "ischecked": "True",
+            "inputname": "cluster"
+        },
+
+        "FILER": {
+            "displayname": "Filer",
+            "selectionsection": "cat1",
+            "ischecked": "True",
+            "inputname": "filer"
+        },
+
+        "SHARE_REAL_NAME": {
+            "displayname": "Share Real Name",
+            "selectionsection": "cat2",
+            "ischecked": "True",
+            "inputname": "sharerealname"
+        },
+
+        "SHARE_PATH": {
+            "displayname": "Share Path",
+            "selectionsection": "cat2",
+            "ischecked": "True",
+            "inputname": "sharepath"
+        },
+
+        "VOLUME": {
+            "displayname": "Volume",
+            "selectionsection": "cat2",
+            "ischecked": "True",
+            "inputname": "volume"
+        },
+
+        "PROTOCOL": {
+            "displayname": "Protocol",
+            "selectionsection": "cat3",
+            "ischecked": "True",
+            "inputname": "protocol"
+        },
+
+        "IP_ADDRESS": {
+            "displayname": "IP Address",
+            "selectionsection": "cat3",
+            "ischecked": "True",
+            "inputname": "ipaddress"
+        },
+
+        "UUID": {
+            "displayname": "UUID",
+            "selectionsection": "cat3",
+            "ischecked": "True",
+            "inputname": "uuid"
+        },
+
+        "CONSUMER_TYPE": {
+            "displayname": "Consumer",
+            "selectionsection": "cat4",
+            "ischecked": "True",
+            "inputname": "consumertype",
+            "listbox": "consumertypes",
+            "listboxmsg": "Consumer Type",
+            "listid": "consumertype"
+        },
+
+        "ALLOCATION": {
+            "displayname": "Allocation",
+            "selectionsection": "cat4",
+            "ischecked": "True",
+            "inputname": "allocation"
+        },
+
+        "USAGE": {
+            "displayname": "Usage",
+            "selectionsection": "cat4",
+            "ischecked": "True",
+            "inputname": "usage"
+        },
+
+        "APPLICATION_NAME": {
+            "displayname": "Application Name",
+            "selectionsection": "cat5",
+            "ischecked": "True",
+            "inputname": "applicationname"
+        },
+
+        "BAM_VALUE": {
+            "displayname": "BAM Application",
+            "selectionsection": "cat5",
+            "ischecked": "True",
+            "inputname": "bamvalue"
+        },
+
+        "APPLICATION_AUID_VALUE": {
+            "displayname": "Application AUID Value",
+            "selectionsection": "cat5",
+            "ischecked": "True",
+            "inputname": "applicationauidvalue"
+        },
+
+        "VITAL_APPLICATION": {
+            "displayname": "Vital Application",
+            "selectionsection": "cat5",
+            "ischecked": "True",
+            "inputname": "vitalapplication",
+            "listbox": "vitalapplications",
+            "listboxmsg": "Vital Application",
+            "listid": "vitalapplication"
+        },
+
+        "IS_OPEN": {
+            "displayname": "Is Open",
+            "selectionsection": "cat6",
+            "ischecked": "True",
+            "inputname": "isopen",
+            "listbox": "isopens",
+            "listboxmsg": "Is Open",
+            "listid": "isopen"
+        },
+
+        "OPEN_SHARE_EXCEPTION": {
+            "displayname": "Open Share Exception",
+            "selectionsection": "cat6",
+            "ischecked": "True",
+            "inputname": "openshareexception",
+            "listbox": "openshareexceptions",
+            "listboxmsg": "Open Share Exception",
+            "listid": "openshareexception"
+        },
+
+        "ENVIRONMENT": {
+            "displayname": "Environment",
+            "selectionsection": "cat7",
+            "ischecked": "True",
+            "inputname": "environment",
+            "listbox": "environments",
+            "listboxmsg": "Environment",
+            "listid": "environment"
+        },
+
+        "REGION": {
+            "displayname": "Region",
+            "selectionsection": "cat7",
+            "ischecked": "True",
+            "inputname": "region",
+            "listbox": "regions",
+            "listboxmsg": "Region",
+            "listid": "region"
+        },
+
+        "COUNTRY": {
+            "displayname": "Country",
+            "selectionsection": "cat7",
+            "ischecked": "True",
+            "inputname": "country",
+            "listbox": "countrys",
+            "listboxmsg": "Country",
+            "listid": "country"
+        },
+
+        "SCOPE": {
+            "displayname": "Scope",
+            "selectionsection": "cat7",
+            "ischecked": "True",
+            "inputname": "scope",
+            "listbox": "scopes",
+            "listboxmsg": "Scope",
+            "listid": "scope"
+        },
+
+        "ECOSYSTEM": {
+            "displayname": "Ecosystem",
+            "selectionsection": "cat8",
+            "ischecked": "True",
+            "inputname": "ecosystem",
+            "listbox": "ecosystems",
+            "listboxmsg": "Ecosystem",
+            "listid": "ecosystem"
+        },
+
+        "IT_CLUSTER": {
+            "displayname": "IT Cluster",
+            "selectionsection": "cat8",
+            "ischecked": "True",
+            "inputname": "itcluster",
+            "listbox": "itclusters",
+            "listboxmsg": "IT Cluster",
+            "listid": "itcluster"
+        },
+
+        "IT_SUBCLUSTER": {
+            "displayname": "IT Subcluster",
+            "selectionsection": "cat8",
+            "ischecked": "True",
+            "inputname": "itsubcluster",
+            "listbox": "itsubclusters",
+            "listboxmsg": "IT Subcluster",
+            "listid": "itsubcluster"
+        },
+
+        "IN_NAS_REF": {
+            "displayname": "In NAS Ref",
+            "selectionsection": "cat9",
+            "ischecked": "True",
+            "inputname": "innasref",
+            "listbox": "innasrefs",
+            "listboxmsg": "In NAS Ref",
+            "listid": "innasref"
+        },
+
+        "IN_NETAPP_SCANNER": {
+            "displayname": "In NETAPP Scanner",
+            "selectionsection": "cat9",
+            "ischecked": "True",
+            "inputname": "innetappscanner",
+            "listbox": "innetappscanners",
+            "listboxmsg": "In NETAPP Scanner",
+            "listid": "innetappscanner"
+        },
+
+        "IN_NAS_CAPSULE": {
+            "displayname": "In NAS Capsule",
+            "selectionsection": "cat9",
+            "ischecked": "True",
+            "inputname": "innascapsule",
+            "listbox": "innascapsules",
+            "listboxmsg": "In NAS Capsule",
+            "listid": "innascapsule"
+        },
+
+        "ANNOTATION": {
+            "displayname": "Annotation",
+            "selectionsection": "cat10",
+            "ischecked": "True",
+            "inputname": "annotation"
+        }
+
+    }
+}
