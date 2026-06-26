@@ -1,0 +1,18 @@
+ Via python manage.py dbshell, colle ce SQL en une fois :
+
+  DROP TABLE IF EXISTS
+      storage_shareannotation,
+      storage_objectannotation,
+      storage_storageshare,
+      storage_storageobject,
+      storage_storageimportstatus
+  CASCADE;
+
+  DELETE FROM django_migrations WHERE app = 'storage';
+
+  Le CASCADE supprime les éventuelles clés étrangères qui pointent dessus. Le DELETE FROM django_migrations efface
+  l'historique Django pour que migrate reparte de zéro.
+
+  Ensuite :
+  python manage.py makemigrations storage
+  python manage.py migrate storage
