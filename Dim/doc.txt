@@ -1,7 +1,0 @@
-  python manage.py compact_server_history --dry-run         # toujours commencer par là
-  python manage.py compact_server_history --zone weekly
-  python manage.py compact_server_history --zone monthly
-  python manage.py compact_server_history                   # les deux
-  
-  Pour l'instant tu peux lancer sans crainte. Je suggèrerais de tester d'abord --dry-run --zone weekly pour valider la
-  logique, puis --zone weekly sans dry-run, et enfin monthly.
