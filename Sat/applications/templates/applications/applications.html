@@ -1,0 +1,711 @@
+{% load static %}
+{% load applications_filters %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimera - Applications</title>
+
+    <link rel="stylesheet" type="text/css" href="{% static appname|add:'/css/applications.css' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static appname|add:'/img/favicon.svg' %}">
+
+    <script id="json-data" type="application/json">{{ json_data|safe }}</script>
+    <meta name="csrf-token" content="{{ csrf_token }}">
+
+</head>
+
+<body>
+
+{{ localhostname|json_script:"localhostname-data" }}
+
+<script>
+
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
+    if (isDarkMode) {
+        document.documentElement.setAttribute('data-theme', 'dark-mode');
+    }
+
+</script>
+
+    <div id="topbar">
+
+        <div id="app-info">
+            <span>Applications</span>
+        </div>
+
+        <div id="user-info">
+            <button class="help-icon" onclick="openSettingsModal()">⚙️</button>
+            <span>    </span>
+            <span>Welcome, {{ user.username }}</span>
+            <a href="{% url 'logout' %}">Logout</a>
+        </div>
+
+    </div>  <!-- topbar -->
+
+    <div class="container">
+
+        <div class="content">
+
+            <div class="sidebar-container">
+
+                <div class="sidebar">
+
+                    <h2>Show/Hide Columns</h2>
+
+                    <form id="columnSelector">
+
+                        <label>
+                            <input type="checkbox" id="selectAllColumns"> Select All / Default selection
+                        </label>
+                        <br><br>
+
+                        <div class="sidebar-search-wrap">
+                            <input type="text" id="sidebarSearch" placeholder="Search fields..." autocomplete="off">
+                            <button type="button" id="sidebarSearchClear" title="Clear search" aria-label="Clear search">&times;</button>
+                        </div>
+                        <br>
+
+                        <div id="categories-wrapper">
+
+                            <div id="sidebar-no-results" style="display:none; font-size:11px; color: var(--text-3); font-style: italic; padding: 4px 0;">Nothing found</div>
+
+                            {% for section in category_fields %}
+
+                                <div class="category">
+
+                                    <div class="category-header">
+                                        <input type="checkbox" class="category-checkbox" data-category="{{ section.category }}">
+                                        <span class="category-title" data-target="{{ section.category }}">{{ section.title }}</span>
+                                    </div>
+
+                                    <div class="category-content" id="{{ section.category }}">
+                                        {%for field in section.fields %}
+                                            <label>
+                                                <input type="checkbox" class="column-checkbox" data-column="{{ field.key }}"
+                                                    {% if field.ischecked %}checked{% endif %} {% if field.ischeckeddisabled %}disabled{% endif %}>
+                                                    {{ field.displayname }}
+                                            </label>
+                                            <br>
+                                        {% endfor %}
+                                    </div>  <!-- category-content -->
+
+                                </div>  <!-- category -->
+
+                            {% endfor %}
+
+                        </div>  <!-- categories-wrapper -->
+
+                    </form>  <!-- columnSelector -->
+
+                </div>  <!-- sidebar -->
+
+                <div class="log-date-container">
+                    <p>You are seeing DPR Data</p>
+
+                    {% if last_status %}
+                        {% if last_status.success %}
+                            <p style="color: green;">
+                                <a href="{% url appname|add:':logs_imports' %}" style="color: inherit;">Last import: {{ last_status.date_import }}</a>
+                            </p>
+                        {% else %}
+                            <p style="color: red;">
+                                <a href="{% url appname|add:':logs_imports' %}" style="color: inherit;">Last import: {{ last_status.date_import }}</a>
+                            </p>
+                        {% endif %}
+                    {% else %}
+                        <p style="color: gray;">Last import: No import performed yet</p>
+                    {% endif %}
+
+                </div>  <!-- log-date-container -->
+
+                <div class="toggle-button" id="toggleSidebar">
+                    <i class="chevron-toggle">&lt;</i>
+                </div>  <!-- toggle-button  -->
+
+            </div>  <!-- sidebar-container -->
+
+            <div class="tabs">
+
+                <div id="menu">
+
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <button class="menu-button" id="saveSearchOpenBtn" onclick="validateAndShowSaveSearchModal()">Save Search</button>
+
+                        {% if saved_searches %}
+                            <div class="search-dropdown-container">
+                                <button class="search-btn" onclick="toggleDropdown()" id="selectedSearch">Saved Searches &nbsp;▼</button>
+                                <div class="search-dropdown-content" id="dropdownContent">
+                                    {% for search in saved_searches %}
+                                    <div class="search-item" data-id="{{ search.id }}" data-name="{{ search.name }}">
+                                        <span class="search-name">{{ search.name }}</span>
+                                        <span class="delete-button">X</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <div class="export-dropdown-container">
+                            <button class="export-btn" onclick="toggleExportDropdown()">Export &nbsp;&nbsp;▼</button>
+                            <div class="export-dropdown-content" id="exportDropdownContent">
+                                <div class="export-option" data-value="excel">Export To Excel</div>
+                                <div class="export-option" data-value="csv">Export To CSV</div>
+                                <hr class="export-separator">
+                                <div class="export-option" data-value="chart">Charts Generation</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="totalRecords">
+                        Applications: <span>{{ page_obj.paginator.count }}</span>
+                    </div>
+
+                </div>  <!-- menu -->
+
+                <div class="tab-content">
+
+                    <div id="tab1" class="tab active">
+
+                        <div class="main-content">
+
+                            <div id="filters-wrapper">
+                                  <div id="filters-container" class="collapsed" data-clickable="true">
+                                       <span id="chevron" class="chevron">... ▼</span>
+                                    <div class="filter-tags" id="filterTags">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-container">
+
+                                    {% include 'applications/table-flat.html' %}
+
+                            </div> <!-- table-container -->
+
+                            <div class="buttons-container">
+
+                                <button type="button" id="clearFiltersButton">Clear Filters</button>
+
+                                <div class="pagination">
+
+                                    <label for="page_size">Records per page:</label>
+
+                                    <select id="page_size" name="page_size" onchange="applyPageSize()">
+                                        <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                                        <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                                        <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+                                    </select>
+
+                                    <span class="step-links">
+
+                                    {% if page_obj.has_previous %}
+                                        <a href="?page=1{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">&laquo; First</a>
+                                        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Previous</a>
+
+                                    {% endif %}
+
+                                    <span class="current">
+                                        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                                    </span>
+
+                                    {% if page_obj.has_next %}
+                                        <a href="?page={{ page_obj.next_page_number }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Next</a>
+                                        <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET %}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}{% endif %}" onclick="updateURL(this.href); return false;">Last &raquo;</a>
+                                    {% endif %}
+
+                                    </span>  <!-- step-links -->
+
+                                </div>  <!-- pagination -->
+
+                            </div>  <!-- buttons-container -->
+
+                        </div> <!-- main-content -->
+
+                    </div>  <!-- tab active -->
+
+                </div>  <!-- tab-content -->
+
+            </div>  <!-- tabs -->
+
+        </div> <!-- content -->
+
+    </div> <!-- container -->
+
+
+    {% include 'common/settings_modal.html' %}
+    {% include 'common/charts_modal.html' %}
+
+    <div id="saveSearchModal">
+        <h3>Save Search</h3>
+        <form method="post" action="{% url 'applications:save_search' %}" id="saveSearchForm">
+            {% csrf_token %}
+            <input type="hidden" name="filters" id="filtersInput">
+            <input type="hidden" name="tags" id="tagsInput">
+            <input type="hidden" name="referrer" value="{{ request.path }}">
+            <input type="hidden" name="query" value="{{ request.GET.urlencode }}">
+            <input type="text" name="search_name" id="search_name" placeholder="Search Name" required>
+            <div class="button-group">
+                <button type="button" onclick="closeSaveSearchModal()">Cancel</button>
+                <button type="submit">Save</button>
+            </div>
+        </form>
+    </div>  <!-- saveSearchModal -->
+
+    <script src="{% static appname|add:'/js/filter.js' %}"></script>
+    <script src="{% static 'common/js/chart-modal.js' %}"></script>
+    <script src="{% static 'common/js/settings-modal.js' %}"></script>
+
+    <script>
+
+        const filterTagsDiv = document.getElementById('filterTags');
+        const json_data = JSON.parse('{{ json_data|escapejs }}');
+        const filtersContainer = document.getElementById('filters-container');
+        const chevron = document.getElementById('chevron');
+        const noFiltersMessage = document.createElement('div');
+        const dropdownContent = document.getElementById('exportDropdownContent');
+        const sidebarContainer = document.querySelector('.sidebar-container');
+        const toggleButton = document.getElementById('toggleSidebar');
+        const appname = '{{ appname }}';
+        const searchForm = document.getElementById('saveSearchForm');
+        const savedSearchNames = [
+            {% for search in saved_searches %}
+              "{{ search.name|escapejs }}"{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ];
+        noFiltersMessage.id = 'no-filters-message';
+        noFiltersMessage.textContent = 'No filters';
+        noFiltersMessage.style.textAlign = 'left';
+        noFiltersMessage.style.color = '#777';
+
+        let isExpandable = false;
+
+        const jsonData = {{ json_data|safe }};
+        initChartModal(jsonData, 'applications');
+        initSettingsModal('applications');
+
+        function updateURL(href) {
+            const url = new URL(href, window.location.origin);
+            const searchParams = new URLSearchParams(url.search);
+
+            const visibleColumns = Array.from(document.querySelectorAll('.column-checkbox'))
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => checkbox.getAttribute('data-column'))
+                .join(',');
+
+            searchParams.set('visible_columns', visibleColumns);
+
+            const currentParams = new URLSearchParams(window.location.search);
+            for (const [key, value] of currentParams.entries()) {
+                if (key.startsWith('cat_')) {
+                    searchParams.set(key, value);
+                }
+            }
+
+            window.location.href = `${url.pathname}?${searchParams.toString()}`;
+        }
+
+
+        /* -- Categories Sidebar -- */
+
+        function updateSidebarState() {
+            const isCollapsed = sidebarContainer.classList.contains('collapsed');
+            toggleButton.querySelector('i').innerHTML = isCollapsed ? '&gt;' : '&lt;';
+            localStorage.setItem(`${appname}sidebarCollapsed`, isCollapsed);
+            loadExpandedState();
+            checkIfMultipleLines();
+        }
+
+
+        toggleButton.addEventListener('click', () => {
+            sidebarContainer.classList.toggle('collapsed');
+            updateSidebarState();
+        });
+
+        function loadSidebarState() {
+            const isCollapsed = localStorage.getItem(`${appname}sidebarCollapsed`) === 'true';
+            if (isCollapsed) {
+                sidebarContainer.classList.add('collapsed');
+            } else {
+                sidebarContainer.classList.remove('collapsed');
+            }
+            updateSidebarState();
+        }
+
+        window.addEventListener('load', loadSidebarState);
+
+
+        /* -- Sidebar field search -- */
+
+        const sidebarSearchInput = document.getElementById('sidebarSearch');
+        const sidebarSearchClear = document.getElementById('sidebarSearchClear');
+
+        sidebarSearchClear.addEventListener('click', function () {
+            sidebarSearchInput.value = '';
+            sidebarSearchInput.dispatchEvent(new Event('input'));
+            sidebarSearchInput.focus();
+        });
+
+        sidebarSearchInput.addEventListener('input', function () {
+            sidebarSearchClear.style.display = this.value ? 'block' : 'none';
+            const term = this.value.toLowerCase().trim();
+            const form = document.getElementById('columnSelector');
+            const categories = document.querySelectorAll('#columnSelector .category');
+            form.classList.toggle('is-searching', term.length > 0);
+
+            const noResults = document.getElementById('sidebar-no-results');
+
+            if (!term) {
+                noResults.style.display = 'none';
+                const urlParams = new URLSearchParams(window.location.search);
+                categories.forEach(cat => {
+                    cat.style.display = '';
+                    cat.querySelector('.category-header').style.display = '';
+                    cat.querySelectorAll('.category-content label').forEach(lbl => {
+                        lbl.style.display = '';
+                        const br = lbl.nextElementSibling;
+                        if (br && br.tagName === 'BR') br.style.display = '';
+                    });
+                    const content = cat.querySelector('.category-content');
+                    if (content) {
+                        const state = urlParams.get('cat_' + content.id);
+                        if (state === null || state === 'false') {
+                            content.classList.add('hidden');
+                        } else {
+                            content.classList.remove('hidden');
+                        }
+                    }
+                });
+                return;
+            }
+
+            categories.forEach(cat => {
+                const fieldLabels = cat.querySelectorAll('.category-content label');
+                let hasMatch = false;
+
+                fieldLabels.forEach(lbl => {
+                    const text = lbl.textContent.toLowerCase();
+                    const matches = text.includes(term);
+                    lbl.style.display = matches ? '' : 'none';
+                    const br = lbl.nextElementSibling;
+                    if (br && br.tagName === 'BR') br.style.display = matches ? '' : 'none';
+                    if (matches) hasMatch = true;
+                });
+
+                cat.style.display = hasMatch ? '' : 'none';
+                if (hasMatch) {
+                    cat.querySelector('.category-header').style.display = 'none';
+                    cat.querySelector('.category-content').classList.remove('hidden');
+                }
+            });
+
+            const anyMatch = [...categories].some(cat => cat.style.display !== 'none');
+            noResults.style.display = anyMatch ? 'none' : '';
+        });
+
+
+        /* -- Filter Bar -- */
+
+        function loadExpandedState() {
+            const isExpanded = localStorage.getItem(`${appname}filtersContainerExpanded`) === 'true';
+            filtersContainer.classList.toggle('expanded', isExpanded);
+            updateChevron();
+            if (isExpanded) {
+                filtersContainer.style.width = localStorage.getItem(`${appname}filtersContainerWidth`);
+            }
+        }
+
+
+        function saveExpandedState(isExpanded) {
+            localStorage.setItem(`${appname}filtersContainerExpanded`, isExpanded);
+            if (isExpanded) {
+                localStorage.setItem(`${appname}filtersContainerExpanded`, filtersContainer.offsetWidth + 'px');
+            }
+        }
+
+
+        chevron.addEventListener('click', (event) => {
+            const isExpanded = !filtersContainer.classList.contains('expanded');
+
+            filtersContainer.classList.toggle('expanded', isExpanded);
+            if (isExpanded) {
+                   filtersContainer.style.width = (filtersContainer.offsetWidth -27) + 'px';
+               } else {
+                   filtersContainer.style.width = '';
+               }
+            saveExpandedState(isExpanded);
+            updateChevron();
+            event.stopPropagation();
+            checkIfMultipleLines();
+        });
+
+
+        function updateChevron() {
+            const isExpanded = filtersContainer.classList.contains('expanded');
+            chevron.textContent = isExpanded ? '... ▲' : '... ▼';
+        }
+
+
+        function checkIfMultipleLines() {
+
+            const filterTagsDiv = document.getElementById('filterTags');
+            const clone = filterTagsDiv.cloneNode(true);
+            clone.style.visibility = 'hidden';
+            clone.style.position = 'absolute';
+            clone.style.width = filterTagsDiv.offsetWidth + 'px';
+            clone.style.flexWrap = 'nowrap';
+            document.body.appendChild(clone);
+
+            clone.style.flexWrap = 'wrap';
+            const fullHeight = clone.offsetHeight;
+            document.body.removeChild(clone);
+            const isExpandable = fullHeight > 50;
+            const isExpanded = localStorage.getItem(`${appname}filtersContainerExpanded`) === 'true';
+
+            if (isExpandable) {
+                filtersContainer.setAttribute('data-clickable', 'true');
+                chevron.style.display = 'block';
+                if (!isExpanded) {
+                    localStorage.removeItem(`${appname}filtersContainerExpanded`);
+                    localStorage.removeItem(`${appname}filtersContainerWidth`);
+                }
+            } else {
+                filtersContainer.removeAttribute('data-clickable');
+                filtersContainer.classList.toggle('expanded', false);
+                filtersContainer.classList.remove('expanded');
+                chevron.style.display = 'none';
+                filtersContainer.style.width = '';
+            }
+
+            updateChevron();
+            updateFiltersDisplay();
+
+        }
+
+
+        function updateFiltersDisplay() {
+            if (filterTagsDiv.children.length === 0) {
+                if (!filtersContainer.contains(noFiltersMessage)) {
+                    filtersContainer.insertBefore(noFiltersMessage, filterTagsDiv);
+                }
+                if (!sessionStorage.getItem('selectedSearchName_' + appname)) {
+                    clearSelectedSearch();
+                }
+            } else {
+                if (filtersContainer.contains(noFiltersMessage)) {
+                    filtersContainer.removeChild(noFiltersMessage);
+                }
+            }
+        }
+
+
+        window.addEventListener('load', () => {
+            loadSidebarState();
+            loadExpandedState();
+            checkIfMultipleLines();
+        });
+
+
+        window.addEventListener('resize', () => {
+            const wasExpanded = filtersContainer.classList.contains('expanded');
+            checkIfMultipleLines();
+            if (isExpandable && wasExpanded) {
+                filtersContainer.classList.add('expanded');
+            } else {
+                filtersContainer.classList.remove('expanded');
+                updateChevron();
+                updateFiltersDisplay();
+            }
+        });
+
+        window.addEventListener('scroll', () => {
+            checkIfMultipleLines();
+        });
+
+
+        checkIfMultipleLines();
+        updateChevron();
+
+
+        function ActiveFiltersDetected() {
+            const filterTags = document.querySelectorAll('.filter-tag');
+            return filterTags.length > 0;
+        }
+
+
+        /* -- Export Operations -- */
+
+        function toggleExportDropdown() {
+            const dropdownContent = document.getElementById('exportDropdownContent');
+            dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+        }
+
+        document.querySelectorAll('.export-option').forEach(item => {
+            item.addEventListener('click', function () {
+                const selectedValue = this.getAttribute('data-value');
+                if (selectedValue === 'chart') {
+                    openChartModal();
+                } else if (selectedValue === 'excel') {
+                    if (ActiveFiltersDetected()) {
+                        startExport('xlsx');
+                    } else {
+                        const userConfirmation = confirm("No filters are applied. Do you really want to export all data?");
+                        if (userConfirmation) {
+                            startExport('xlsx');
+                        }
+                    }
+                } else if (selectedValue === 'csv') {
+                    if (ActiveFiltersDetected()) {
+                        startExport('csv');
+                    } else {
+                        const userConfirmation = confirm("No filters are applied. Do you really want to export all data?");
+                        if (userConfirmation) {
+                            startExport('csv');
+                        }
+                    }
+                }
+                toggleExportDropdown();
+            });
+        });
+
+
+        function startExport(filetype) {
+            const visibleColumns = Array.from(document.querySelectorAll('#serversTable thead th[data-field]'))
+                                        .filter(th => getComputedStyle(th).display !== 'none')
+                                        .map(th => th.getAttribute('data-field'));
+
+
+            const searchParams = new URLSearchParams(window.location.search);
+            const filters = Object.fromEntries(searchParams);
+            const exportBtn = document.querySelector('.export-btn');
+            const originalText = exportBtn.textContent;
+
+            exportBtn.textContent = '⏳ Exporting...';
+            exportBtn.disabled = true;
+            document.body.classList.add('waiting-cursor');
+
+            fetch(`/${appname}/export/${filetype}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                },
+                body: JSON.stringify({
+                    filters: filters,
+                    columns: visibleColumns
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const jobId = data.job_id;
+
+                const interval = setInterval(() => {
+                    fetch(`/${appname}/export/status/${jobId}/${filetype}/`)
+
+                        .then(resp => resp.json())
+                        .then(statusData => {
+                            if (statusData.status === 'ready') {
+                                clearInterval(interval);
+
+                                const a = document.createElement('a');
+                                a.href = `/${appname}/export/download/${jobId}/${filetype}/`;
+                                a.download = 'export.${filetype}';
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+
+                                exportBtn.textContent = originalText;
+                                exportBtn.disabled = false;
+                                document.body.classList.remove('waiting-cursor');
+                            }
+                        });
+                }, 2000);
+            })
+            .catch(error => {
+
+                console.error('Error during export :', error);
+                exportBtn.textContent = originalText;
+                exportBtn.disabled = false;
+                document.body.classList.remove('waiting-cursor');
+            });
+        }
+
+
+        /* -- Save Search modal -- */
+
+        function showSaveSearchModal() {
+            document.getElementById('saveSearchModal').style.display = 'block';
+        }
+
+        function closeSaveSearchModal() {
+            document.getElementById('saveSearchModal').style.display = 'none';
+        }
+
+        /* -- Saved Searches dropdown -- */
+
+        const _lsKey = 'selectedSearchName_' + appname;
+
+        function updateSelectedSearch(searchName) {
+            document.getElementById('selectedSearch').textContent = searchName + ' ▼';
+            sessionStorage.setItem(_lsKey, searchName);
+        }
+
+        function clearSelectedSearch() {
+            sessionStorage.removeItem('selectedSearchName_' + appname);
+        }
+
+        function toggleDropdown() {
+            const dropdownContent = document.getElementById('dropdownContent');
+            dropdownContent.style.display = dropdownContent.style.display === 'block' ? 'none' : 'block';
+        }
+
+        const _savedName = sessionStorage.getItem(_lsKey);
+        if (_savedName) updateSelectedSearch(_savedName);
+
+        document.querySelectorAll('.search-item').forEach(item => {
+            item.querySelector('.search-name').addEventListener('click', function () {
+                const id = item.getAttribute('data-id');
+                const name = item.getAttribute('data-name');
+                updateSelectedSearch(name);
+                window.location.href = `{% url appname|add:':load_search' 0 %}`.replace('/0/', `/${id}/`);
+            });
+            item.querySelector('.delete-button').addEventListener('click', function (e) {
+                e.stopPropagation();
+                const id = item.getAttribute('data-id');
+                const name = item.getAttribute('data-name');
+                if (confirm(`Delete saved search "${name}"?`)) {
+                    window.location.href = `{% url appname|add:':delete_search' 0 %}`.replace('/0/', `/${id}/`);
+                }
+            });
+        });
+
+        /* -- Export and Search buttons click events -- */
+
+        window.onclick = function (event) {
+
+            if (!event.target.matches('.export-btn') && !event.target.closest('.export-dropdown-content')) {
+                const exportDropdownContent = document.getElementById("exportDropdownContent");
+                if (exportDropdownContent && exportDropdownContent.style.display === 'block') {
+                    exportDropdownContent.style.display = 'none';
+                }
+            }
+
+            if (!event.target.matches('.search-btn') && !event.target.closest('.search-dropdown-content')) {
+                const dd = document.getElementById('dropdownContent');
+                if (dd && dd.style.display === 'block') dd.style.display = 'none';
+            }
+
+            if (!event.target.closest('#saveSearchModal') && !event.target.closest('#saveSearchOpenBtn')) {
+                const modal = document.getElementById('saveSearchModal');
+                if (modal && modal.style.display === 'block') {
+                    closeSaveSearchModal();
+                }
+            }
+
+        };
+
+    </script>
+
+</body>
+</html>
