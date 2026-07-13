@@ -1,0 +1,21 @@
+{
+  "dimensions": [
+    {"field": "REGION", "label": "By region"},
+    {"field": "OSSHORTNAME", "label": "By OS"},
+    {"field": "LIVE_STATUS", "label": "By live status"},
+    {"field": "SNOW_STATUS", "label": "By SNOW status"},
+    {"field": "MACHINE_TYPE", "label": "By machine type"},
+    {"field": "SNOW_SUPPORTGROUP", "label": "By support group"},
+    {"field": "MANUFACTURER", "label": "By manufacturer"},
+    {"field": "COUNTRY", "label": "By country"}
+  ],
+  "groups": {
+    "OSFAMILY": {
+      "buckets": {
+        "Windows": ["Windows"],
+        "Linux": ["Linux"]
+      },
+      "other_label": "Other"
+    }
+  }
+}
