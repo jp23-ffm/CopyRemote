@@ -1,0 +1,6 @@
+from discrepancies.models import AnalysisSnapshot
+  AnalysisSnapshot.objects.filter(pk=<id>).delete()
+  
+  AnalysisSnapshot.objects.order_by('-analysis_date').values('id', 'analysis_date',
+  'servers_with_issues')[:10], ou directement dans l'URL de la page History une fois un run précis sélectionné dans le
+  menu déroulant (?date=...&snapshot=<id>).
