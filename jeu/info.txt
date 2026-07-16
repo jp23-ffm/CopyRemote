@@ -1,0 +1,3 @@
+ Fichier touché : discrepancies/views.py, fonction _breakdown_groups_bucket_order() (ligne 800) — ajout de 'MISSING' en
+  fin de liste des colonnes. Une seule fonction, réutilisée par les 2 cross-matrices (Missing/Alive/Dead) et le recap,
+  donc un seul endroit à corriger.
