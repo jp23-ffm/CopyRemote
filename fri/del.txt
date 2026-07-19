@@ -1,9 +1,0 @@
-# manage.py shell
-  from datetime import date
-  from discrepancies.models import AnalysisSnapshot
-
-  # preview d'abord
-  bad = AnalysisSnapshot.objects.filter(analysis_date__date=date(2026, 7, 9))
-  list(bad.values('id', 'analysis_date', 'servers_with_issues', 'missing_osshortname_count'))
-
-  bad.delete()
