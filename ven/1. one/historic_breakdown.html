@@ -1,0 +1,668 @@
+{% load static %}
+{% load discrepancy_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimera - Discrepancies - History</title>
+    <link rel="icon" type="image/svg+xml" href="{% static appname|add:'/img/favicon.svg' %}">
+    <link rel="stylesheet" type="text/css" href="{% static appname|add:'/css/flatpickr.min.css' %}">
+    <script src="{% static appname|add:'/js/flatpickr.min.js' %}"></script>
+
+    <style>
+        :root {
+            --hb-bg: #f7f9fc;
+            --hb-panel: #ffffff;
+            --hb-border: #e0e4ea;
+            --hb-text: #222222;
+            --hb-text-muted: #666666;
+            --hb-header-bg: #f1f4f9;
+            --hb-row-hover: #f5f8ff;
+            --hb-accent: #0d6efd;
+            --hb-clean: #1b8a4a;
+            --hb-issue: #c0392b;
+            --hb-sev-good: {{ severity_colors.good.light }};
+            --hb-sev-warning: {{ severity_colors.warning.light }};
+            --hb-sev-critical: {{ severity_colors.critical.light }};
+            --hb-topbar-bg: #A0826D;
+            --hb-topbar-text: #000000;
+            --hb-topbar-border: rgba(0, 0, 0, 0.12);
+        }
+        [data-theme="dark-mode"] {
+            --hb-bg: #1a1a1e;
+            --hb-panel: #232327;
+            --hb-border: #38383f;
+            --hb-text: #e6e6e6;
+            --hb-text-muted: #a0a0a8;
+            --hb-header-bg: #2b2b31;
+            --hb-row-hover: #2a2f3d;
+            --hb-accent: #6ea8fe;
+            --hb-clean: #4caf7d;
+            --hb-issue: #e07a6b;
+            --hb-sev-good: {{ severity_colors.good.dark }};
+            --hb-sev-warning: {{ severity_colors.warning.dark }};
+            --hb-sev-critical: {{ severity_colors.critical.dark }};
+            --hb-topbar-bg: #B8956A;
+            --hb-topbar-text: #222222;
+            --hb-topbar-border: rgba(0, 0, 0, 0.2);
+        }
+        body {
+            margin: 0;
+            font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            background: var(--hb-bg);
+            color: var(--hb-text);
+        }
+        #topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: var(--hb-topbar-bg);
+            border-bottom: 1px solid var(--hb-topbar-border);
+            transition: background-color 0.3s ease;
+        }
+        #topbar span {
+            font-size: 16px;
+            color: var(--hb-topbar-text);
+        }
+        #topbar #user-info {
+            display: flex;
+            align-items: center;
+        }
+        #topbar #user-info span {
+            font-size: 14px;
+            margin-right: 6px;
+        }
+        #topbar a {
+            font-size: 14px;
+            color: var(--hb-topbar-text);
+            text-decoration: none;
+        }
+        #topbar a:hover {
+            text-decoration: underline;
+        }
+        #app-select {
+            font-size: 16px;
+            width: 220px;
+            border: none;
+            border-radius: 5px;
+            color: var(--hb-topbar-text);
+            background-color: transparent;
+            cursor: pointer;
+        }
+        #app-select option {
+            font-size: 16px;
+        }
+        #app-select:focus {
+            outline: none;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 20px 40px;
+        }
+        h1 {
+            font-size: 1.4rem;
+            margin: 0 0 4px;
+        }
+        .subtitle {
+            color: var(--hb-text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+        }
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            background: var(--hb-panel);
+            border: 1px solid var(--hb-border);
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 20px;
+        }
+        .toolbar label {
+            font-size: 0.85rem;
+            color: var(--hb-text-muted);
+            margin-right: 6px;
+        }
+        .toolbar-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .toolbar input[type="date"], .toolbar input[type="text"], .toolbar select {
+            padding: 6px 8px;
+            border: 1px solid var(--hb-border);
+            border-radius: 6px;
+            background: var(--hb-panel);
+            color: var(--hb-text);
+        }
+        .btn {
+            padding: 7px 14px;
+            border-radius: 6px;
+            border: 1px solid var(--hb-accent);
+            background: var(--hb-accent);
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            text-decoration: none;
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--hb-accent);
+        }
+        .mismatch-note {
+            font-size: 0.8rem;
+            color: var(--hb-text-muted);
+        }
+        .summary-strip {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .summary-tile {
+            background: var(--hb-panel);
+            border: 1px solid var(--hb-border);
+            border-radius: 8px;
+            padding: 12px 18px;
+            min-width: 140px;
+        }
+        .summary-tile .value {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .summary-tile .label {
+            font-size: 0.78rem;
+            color: var(--hb-text-muted);
+        }
+        .summary-tile-region {
+            margin-left: auto;
+            background: var(--hb-panel);
+            background: color-mix(in srgb, var(--hb-accent) 12%, var(--hb-panel));
+            border-color: var(--hb-accent);
+            border-width: 2px;
+        }
+        .summary-tile-region select {
+            font-size: 1.3rem;
+            font-weight: 600;
+            font-family: inherit;
+            color: var(--hb-accent);
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            appearance: none;
+            cursor: pointer;
+        }
+        .summary-tile-region select:focus {
+            outline: none;
+        }
+        .panel {
+            background: var(--hb-panel);
+            border: 1px solid var(--hb-border);
+            border-radius: 8px;
+            padding: 16px 18px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+        }
+        .panel h2 {
+            font-size: 1rem;
+            margin: 0 0 12px;
+        }
+        .metric-card-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        @media (max-width: 720px) {
+            .metric-card-row { grid-template-columns: 1fr; }
+        }
+        .metric-card {
+            margin-bottom: 0;
+            overflow: visible;
+        }
+        .metric-card .metric-pop {
+            font-size: 0.72rem;
+            color: var(--hb-text-muted);
+            margin: -8px 0 14px;
+        }
+        .metric-card .metric-value {
+            font-size: 2.1rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .metric-card .metric-value .metric-population {
+            font-size: 1.1rem;
+            font-weight: 400;
+            color: var(--hb-text-muted);
+            margin-left: 6px;
+        }
+        .metric-card .metric-caption {
+            font-size: 0.78rem;
+            color: var(--hb-text-muted);
+            margin-top: 6px;
+        }
+        table.breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+        table.breakdown-table th, table.breakdown-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid var(--hb-border);
+            text-align: left;
+        }
+        table.breakdown-table th {
+            background: var(--hb-header-bg);
+            color: var(--hb-text-muted);
+            font-weight: 600;
+        }
+        table.breakdown-table td.num, table.breakdown-table th.num {
+            text-align: right;
+        }
+        table.breakdown-table tbody tr:hover {
+            background: var(--hb-row-hover);
+        }
+        table.breakdown-table tr.total-row {
+            font-weight: 600;
+            border-top: 2px solid var(--hb-border);
+        }
+        table.breakdown-table .total-col {
+            font-weight: 600;
+            border-left: 2px solid var(--hb-border);
+        }
+        .pct-sub {
+            color: var(--hb-text-muted);
+            font-weight: 400;
+        }
+        .pct-clean { color: var(--hb-clean); font-weight: 600; }
+        .pct-issue { color: var(--hb-issue); font-weight: 600; }
+        .sev-good { color: var(--hb-sev-good); font-weight: 600; }
+        .sev-warning { color: var(--hb-sev-warning); font-weight: 600; }
+        .sev-critical { color: var(--hb-sev-critical); font-weight: 600; }
+        .no-data-message {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--hb-text-muted);
+        }
+        .metric-section {
+            margin: 34px 0 0;
+            padding-top: 18px;
+            border-top: 1px solid var(--hb-border);
+        }
+        .metric-section:first-of-type { border-top: none; padding-top: 0; }
+        .metric-section summary {
+            font-size: 1.15rem;
+            font-weight: 600;
+            cursor: pointer;
+            list-style: none;
+        }
+        .metric-section summary::-webkit-details-marker { display: none; }
+        .metric-section summary::before {
+            content: "▸";
+            display: inline-block;
+            width: 1em;
+            color: var(--hb-text-muted);
+            transition: transform 0.15s ease;
+        }
+        .metric-section[open] summary::before {
+            transform: rotate(90deg);
+        }
+        .metric-subtitle {
+            font-size: 0.82rem;
+            color: var(--hb-text-muted);
+            margin: 4px 0 14px 1em;
+        }
+        .pct-mode-toggle {
+            display: inline-flex;
+            border: 1px solid var(--hb-border);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .pct-mode-btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            border: none;
+            background: var(--hb-panel);
+            color: var(--hb-text-muted);
+            cursor: pointer;
+        }
+        .pct-mode-btn + .pct-mode-btn {
+            border-left: 1px solid var(--hb-border);
+        }
+        .pct-mode-btn.active {
+            background: var(--hb-accent);
+            color: #fff;
+        }
+        body[data-pct-mode="clean"] .pct-mode-issues { display: none; }
+        body[data-pct-mode="issues"] .pct-mode-clean { display: none; }
+    </style>
+</head>
+<body>
+
+    <script>
+        const isDarkMode = localStorage.getItem('darkMode') === 'true';
+        if (isDarkMode) {
+            document.documentElement.setAttribute('data-theme', 'dark-mode');
+        }
+        const pctMode = localStorage.getItem('historyPctMode') || '{{ default_percentage_mode }}';
+        document.body.setAttribute('data-pct-mode', pctMode);
+    </script>
+
+    {% if not no_data %}
+    <script>
+        // Sticky region filter: if the URL doesn't already say which region to show, apply
+        // the last one picked (localStorage) via a redirect — the region filter is server-side
+        // data (unlike dark mode / % mode), so "remembering" it means re-navigating with it set.
+        (function () {
+            const params = new URLSearchParams(window.location.search);
+            if (!params.has('region')) {
+                const savedRegion = localStorage.getItem('historyRegion');
+                if (savedRegion) {
+                    params.set('region', savedRegion);
+                    window.location.search = params.toString();
+                }
+            }
+        })();
+    </script>
+    {% endif %}
+
+    <div id="topbar">
+        <div id="app-info">
+            <select id="app-select">
+                <option value="{% url 'discrepancies:historic_breakdown_view' %}" selected>Discrepancies — History</option>
+                <option value="{% url 'discrepancies:dashboard_view' %}">Discrepancies Dashboard</option>
+                <option value="{% url 'discrepancies:servers' %}">Discrepancies Servers</option>
+            </select>
+        </div>
+        <div id="user-info"></div>
+    </div>
+
+    <script>
+        document.getElementById('app-select').addEventListener('change', function () {
+            const url = this.value;
+            if (this.options[this.selectedIndex].dataset.newTab) {
+                window.open(url, '_blank');
+                this.selectedIndex = 0;
+            } else {
+                window.location.href = url;
+            }
+        });
+    </script>
+
+    <div class="container">
+
+        {% if no_data %}
+            <div class="no-data-message">
+                <h2>No data available</h2>
+                <p>No analysis has been run yet. Run <code>analyze_discrepancies</code> to generate the first snapshot.</p>
+            </div>
+        {% else %}
+
+            <h1>Discrepancy history</h1>
+            <p class="subtitle">Daily snapshot — servers with data quality issues, broken down by region and OS.</p>
+
+            <form class="toolbar" method="get" id="history-toolbar">
+                <div>
+                    <label for="date-input">Date</label>
+                    <input type="text" id="date-input" name="date" value="{{ date_input_value }}" autocomplete="off">
+                </div>
+                {% if date_mismatch %}
+                    <span class="mismatch-note">No snapshot for that exact date — showing the closest one on or before it ({{ snapshot.analysis_date|date:"Y-m-d" }}).</span>
+                {% endif %}
+                {% if same_day_snapshots|length > 1 %}
+                <div>
+                    <label for="snapshot-input">Run</label>
+                    <select id="snapshot-input" name="snapshot" onchange="this.form.submit()">
+                        {% for s in same_day_snapshots %}
+                        <option value="{{ s.id }}" {% if s.id == snapshot.id %}selected{% endif %}>
+                            {{ s.analysis_date|date:"H:i:s" }} &middot; {{ s.servers_with_issues }} issues
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <span class="mismatch-note">{{ same_day_snapshots|length }} runs found for this day.</span>
+                {% endif %}
+                <button type="submit" class="btn">View</button>
+                <div class="toolbar-right">
+                    <a class="btn btn-outline" href="{% url 'discrepancies:historic_breakdown_export_recap' %}?date={{ requested_date }}&snapshot={{ snapshot.id }}">Export Recap only</a>
+                    <a class="btn btn-outline" href="{% url 'discrepancies:historic_breakdown_export' %}?date={{ requested_date }}&snapshot={{ snapshot.id }}">Export Excel</a>
+                    <div class="pct-mode-toggle" id="pct-mode-toggle">
+                        <button type="button" class="pct-mode-btn" data-mode="clean">% clean</button>
+                        <button type="button" class="pct-mode-btn" data-mode="issues">% missing</button>
+                    </div>
+                </div>
+            </form>
+
+            <script>
+                if (typeof flatpickr !== 'undefined') {
+                    flatpickr('#date-input', {
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'd/m/Y',
+                        allowInput: true,
+                    });
+                }
+            </script>
+
+            <script>
+                (function () {
+                    const buttons = document.querySelectorAll('#pct-mode-toggle .pct-mode-btn');
+                    const mode = document.body.getAttribute('data-pct-mode') || 'clean';
+                    buttons.forEach(function (btn) {
+                        btn.classList.toggle('active', btn.dataset.mode === mode);
+                        btn.addEventListener('click', function () {
+                            localStorage.setItem('historyPctMode', btn.dataset.mode);
+                            document.body.setAttribute('data-pct-mode', btn.dataset.mode);
+                            buttons.forEach(function (b) { b.classList.toggle('active', b === btn); });
+                        });
+                    });
+                })();
+            </script>
+
+            <div class="summary-strip">
+                <div class="summary-tile">
+                    <div class="value">{{ snapshot.analysis_date|date:"Y-m-d H:i" }}</div>
+                    <div class="label">Snapshot date</div>
+                </div>
+                <div class="summary-tile">
+                    <div class="value">{{ snapshot.total_servers_analyzed }}</div>
+                    <div class="label">Servers analyzed</div>
+                </div>
+                {% if available_regions %}
+                <div class="summary-tile summary-tile-region">
+                    <div class="value">
+                        <select id="region-input" name="region" form="history-toolbar"
+                                onchange="localStorage.setItem('historyRegion', this.value); this.form.submit();">
+                            <option value="" {% if not selected_region %}selected{% endif %}>All regions</option>
+                            {% for r in available_regions %}
+                            <option value="{{ r }}" {% if r == selected_region %}selected{% endif %}>{{ r }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="label">Region</div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="metric-card-row">
+                <div class="panel metric-card">
+                    <h2>Missing data</h2>
+                    <div class="metric-pop">ALIVE + OPERATIONAL + IV1/IV2/IBM{% if selected_region %} &middot; {{ selected_region }}{% endif %}</div>
+                    <div class="metric-value">{{ missing_card.count }}{% if missing_card.population %}<span class="metric-population">/{{ missing_card.population }}</span>{% endif %}</div>
+                    <div class="metric-caption">servers &middot;
+                        {% if missing_card.pct_clean is not None %}
+                        <span class="pct-mode-clean">{{ missing_card.pct_clean }}% clean</span>
+                        <span class="pct-mode-issues">{{ missing_card.pct_issues }}% missing</span>
+                        {% else %}
+                        <span title="Population unknown for this selection">% unavailable</span>
+                        {% endif %}
+                        &middot; &ge;{{ snapshot.persistent_days_threshold }}d open</div>
+                </div>
+                <div class="panel metric-card">
+                    <h2>Alive inconsistencies</h2>
+                    <div class="metric-pop">ALIVE but RETIRED / NON-OPERATIONAL / N/A{% if selected_region %} &middot; {{ selected_region }}{% endif %}</div>
+                    <div class="metric-value">{{ alive_card.count }}{% if alive_card.population %}<span class="metric-population">/{{ alive_card.population }}</span>{% endif %}</div>
+                    <div class="metric-caption">servers &middot;
+                        {% if alive_card.pct_clean is not None %}
+                        <span class="pct-mode-clean">{{ alive_card.pct_clean }}% clean</span>
+                        <span class="pct-mode-issues">{{ alive_card.pct_issues }}% missing</span>
+                        {% else %}
+                        <span title="Fleet total not recorded for this run — re-run analyze_discrepancies">% unavailable</span>
+                        {% endif %}
+                        &middot; &ge;{{ snapshot.persistent_days_threshold }}d open</div>
+                </div>
+                <div class="panel metric-card">
+                    <h2>Dead inconsistencies</h2>
+                    <div class="metric-pop">OPERATIONAL but actually DEAD{% if selected_region %} &middot; {{ selected_region }}{% endif %}</div>
+                    <div class="metric-value">{{ dead_card.count }}{% if dead_card.population %}<span class="metric-population">/{{ dead_card.population }}</span>{% endif %}</div>
+                    <div class="metric-caption">servers &middot;
+                        {% if dead_card.pct_clean is not None %}
+                        <span class="pct-mode-clean">{{ dead_card.pct_clean }}% clean</span>
+                        <span class="pct-mode-issues">{{ dead_card.pct_issues }}% missing</span>
+                        {% else %}
+                        <span title="Fleet total not recorded for this run — re-run analyze_discrepancies">% unavailable</span>
+                        {% endif %}
+                        &middot; &ge;{{ snapshot.persistent_days_threshold }}d open</div>
+                </div>
+            </div>
+
+            {% if recap_table.rows %}
+            <details class="metric-section" open>
+                <summary>Missing data recap</summary>
+                <p class="metric-subtitle">By OS &middot; % of each row's own eligible population for that OS{% if selected_region %} in {{ selected_region }}{% endif %}</p>
+                <div class="panel">
+                    <table class="breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                {% for bucket in recap_table.buckets %}<th class="num">{{ bucket }}</th>{% endfor %}
+                                <th class="num total-col">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in recap_table.rows %}
+                            <tr>
+                                <td>{{ row.label }}</td>
+                                {% for bucket in recap_table.buckets %}
+                                    {% with cell=row.cells|lookup:bucket %}
+                                    <td class="num {% severity_class cell.percentage_with_issues severity_orange severity_red %}">{{ cell.servers_with_issues|default:0 }} <span class="pct-sub">({{ cell.percentage_with_issues|default:0 }}%)</span></td>
+                                    {% endwith %}
+                                {% endfor %}
+                                <td class="num total-col {% severity_class row.total.percentage_with_issues severity_orange severity_red %}">{{ row.total.servers_with_issues|default:0 }} <span class="pct-sub">({{ row.total.percentage_with_issues|default:0 }}%)</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+
+            <details class="metric-section" open>
+                <summary>Missing data recap &mdash; clean</summary>
+                <p class="metric-subtitle">Same rows, mirrored &middot; servers WITHOUT the issue, by OS{% if selected_region %} in {{ selected_region }}{% endif %}</p>
+                <div class="panel">
+                    <table class="breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Field</th>
+                                {% for bucket in recap_table.buckets %}<th class="num">{{ bucket }}</th>{% endfor %}
+                                <th class="num total-col">TOTAL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in recap_table.rows %}
+                            <tr>
+                                <td>{{ row.label }}</td>
+                                {% for bucket in recap_table.buckets %}
+                                    {% with cell=row.cells|lookup:bucket %}
+                                    <td class="num {% severity_class cell.percentage_with_issues severity_orange severity_red %}">{{ cell.servers_clean|default:0 }} <span class="pct-sub">({{ cell.percentage_clean|default:0 }}%)</span></td>
+                                    {% endwith %}
+                                {% endfor %}
+                                <td class="num total-col {% severity_class row.total.percentage_with_issues severity_orange severity_red %}">{{ row.total.servers_clean|default:0 }} <span class="pct-sub">({{ row.total.percentage_clean|default:0 }}%)</span></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+            {% endif %}
+
+            <details class="metric-section" open>
+                <summary>Alive inconsistencies</summary>
+                <p class="metric-subtitle">ALIVE servers with a contradicting SNOW status (RETIRED / NON-OPERATIONAL / N/A) &middot; population: ALIVE + IV1/IV2/IBM</p>
+
+                {% if alive_cross_matrix.regions and alive_cross_matrix.buckets %}
+                    {% include 'discrepancies/_cross_matrix_table.html' with matrix=alive_cross_matrix %}
+                {% else %}
+                <p class="mismatch-note">No persistent alive inconsistencies for this date.</p>
+                {% endif %}
+            </details>
+
+            <details class="metric-section" open>
+                <summary>Dead inconsistencies</summary>
+                <p class="metric-subtitle">OPERATIONAL servers that are actually DEAD &middot; population: OPERATIONAL + IV1/IV2/IBM</p>
+
+                {% if dead_cross_matrix.regions and dead_cross_matrix.buckets %}
+                    {% include 'discrepancies/_cross_matrix_table.html' with matrix=dead_cross_matrix %}
+                {% else %}
+                <p class="mismatch-note">No persistent dead inconsistencies for this date.</p>
+                {% endif %}
+            </details>
+
+            <details class="metric-section" open>
+                <summary>Missing data</summary>
+                <p class="metric-subtitle">Population: ALIVE + OPERATIONAL + IV1/IV2/IBM</p>
+
+                {% if cross_matrix.regions and cross_matrix.buckets %}
+                    {% include 'discrepancies/_cross_matrix_table.html' with matrix=cross_matrix %}
+                {% endif %}
+
+                {% for panel in breakdown_panels %}
+                <div class="panel">
+                    <h2>{{ panel.label }}</h2>
+                    <table class="breakdown-table">
+                        <thead>
+                            <tr>
+                                <th>Value</th>
+                                <th class="num">Total servers</th>
+                                <th class="num">With issues (&ge;{{ snapshot.persistent_days_threshold }}d)</th>
+                                <th class="num">Clean</th>
+                                <th class="num">% with issues</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in panel.rows %}
+                            <tr>
+                                <td>{{ row.dimension_value }}</td>
+                                <td class="num">{{ row.total_servers }}</td>
+                                <td class="num pct-issue">{{ row.servers_with_issues }}</td>
+                                <td class="num pct-clean">{{ row.servers_clean }}</td>
+                                <td class="num">{{ row.percentage_with_issues }}%</td>
+                            </tr>
+                            {% endfor %}
+                            <tr class="total-row">
+                                <td>TOTAL</td>
+                                <td class="num">{{ panel.total.total_servers }}</td>
+                                <td class="num pct-issue">{{ panel.total.servers_with_issues }}</td>
+                                <td class="num pct-clean">{{ panel.total.servers_clean }}</td>
+                                <td class="num">{{ panel.total.percentage_with_issues }}%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                {% empty %}
+                <p class="mismatch-note">No persistent missing-data issues for this date.</p>
+                {% endfor %}
+            </details>
+
+        {% endif %}
+
+    </div>
+
+</body>
+</html>

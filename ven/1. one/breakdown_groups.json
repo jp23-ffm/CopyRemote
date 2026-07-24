@@ -1,0 +1,50 @@
+{
+  "persistent_days_threshold": 7,
+  "dimensions": [
+    {"field": "REGION", "label": "By region"},
+    {"field": "OSSHORTNAME", "label": "By OS"},
+    {"field": "LIVE_STATUS", "label": "By live status"},
+    {"field": "SNOW_STATUS", "label": "By SNOW status"},
+    {"field": "MACHINE_TYPE", "label": "By machine type"},
+    {"field": "SNOW_SUPPORTGROUP", "label": "By support group"},
+    {"field": "MANUFACTURER", "label": "By manufacturer"},
+    {"field": "COUNTRY", "label": "By country"}
+  ],
+  "groups": {
+    "OSFAMILY": {
+      "buckets": {
+        "Windows": ["Windows"],
+        "Linux": ["Linux"]
+      },
+      "other_label": "Other"
+    }
+  },
+  "metrics": {
+    "missing_data": {"breakdown": "dimensions"},
+    "alive_inconsistent": {"breakdown": "cross"},
+    "dead_inconsistent": {"breakdown": "cross"}
+  },
+  "display": {
+    "default_percentage_mode": "clean",
+    "recap_severity_thresholds": {
+      "orange": 0,
+      "red": 2
+    },
+    "recap_severity_colors": {
+      "good": {"light": "#1b8a4a", "dark": "#4caf7d"},
+      "warning": {"light": "#d4b106", "dark": "#ffe066"},
+      "critical": {"light": "#c0392b", "dark": "#e07a6b"},
+      "excel_good": "D4EDDA",
+      "excel_warning": "FFEB3B",
+      "excel_critical": "F8D7DA"
+    }
+  },
+  "recap": {
+    "bucket_field": "OSFAMILY",
+    "row_fields": [
+      {"field": "OSFAMILY", "label": "OS family"},
+      {"field": "MANUFACTURER", "label": "Manufacturer"},
+      {"field": "SNOW_SUPPORTGROUP", "label": "Support group"}
+    ]
+  }
+}
