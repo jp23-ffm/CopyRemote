@@ -1,0 +1,85 @@
+pip install pyodbc
+pip install django-environ
+
+settings.pyodbc
+---------------
+import environ
+
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
+
+SECRET_KEY = env('SECRET_KEY')
+
+.env
+----
+
+SECRET_KEY=xxx
+MSSQL_HOST=serveur\instance
+MSSQL_DB=NomBase
+MSSQL_USER=user
+MSSQL_PASSWORD=xxx
+MSSQL_DRIVER=ODBC Driver 18 for SQL Server
+
+
+
+sudo curl https://packages.microsoft.com/config/rhel/9/prod.repo | sudo tee /etc/yum.repos.d/mssql-release.repo
+sudo dnf remove unixODBC-utf16 unixODBC-utf16-devel  # si présents, conflits connus
+sudo ACCEPT_EULA=Y dnf install -y msodbcsql18
+sudo dnf install -y unixODBC-devel  # nécessaire pour compiler pyodbc
+
+
+
+import environ
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / '.env')
+
+DEBUG = env.bool('DEBUG', default=False)          # → vrai booléen
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS')          # → liste depuis "a,b,c"
+DATABASES = {'default': env.db()}                  # → parse une DATABASE_URL complète en dict Django !
+
+
+------------------------------+
+
+discrepancies/db_utils.py
+
+import os
+import pyodbc
+
+def get_mssql_connection():
+    conn_str = (
+        f"DRIVER={{{os.environ['MSSQL_DRIVER']}}};"
+        f"SERVER={os.environ['MSSQL_HOST']};"
+        f"DATABASE={os.environ['MSSQL_DB']};"
+        f"UID={os.environ['MSSQL_USER']};"
+        f"PWD={os.environ['MSSQL_PASSWORD']};"
+        f"TrustServerCertificate=yes;"
+    )
+    return pyodbc.connect(conn_str)
+	
+	
+
+discrepancies/management/commands/sync_discrepancies.py
+
+from django.core.management.base import BaseCommand
+from discrepancies.db_utils import get_mssql_connection
+from discrepancies.models import Discrepancy
+
+class Command(BaseCommand):
+    help = "Sync discrepancies from MS SQL source"
+
+    def handle(self, *args, **options):
+        conn = get_mssql_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT col1, col2, col3 FROM ma_table WHERE ...")
+
+        rows = cursor.fetchall()
+        for row in rows:
+            Discrepancy.objects.update_or_create(
+                source_id=row.col1,
+                defaults={'field2': row.col2, 'field3': row.col3},
+            )
+
+        cursor.close()
+        conn.close()
+        self.stdout.write(self.style.SUCCESS(f"{len(rows)} lignes synchronisées"))
+		

@@ -1,0 +1,130 @@
+# detect_incoherences.py
+from collections import defaultdict
+from myapp.models import Server
+
+CLE_DOUBLON = 'hostname'
+CHAMPS_A_VERIFIER = ['status', 'os', 'region']
+
+# 1 SEULE requête SQL, seulement les colonnes nécessaires (pas les 70 champs)
+colonnes = [CLE_DOUBLON] + CHAMPS_A_VERIFIER + ['id']
+rows = Server.objects.values(*colonnes).iterator(chunk_size=5000)
+
+# Regroupement en mémoire (rapide : 400k lignes x 5 colonnes = négligeable)
+groupes = defaultdict(list)
+for row in rows:
+    groupes[row[CLE_DOUBLON]].append(row)
+
+print(f"{sum(1 for g in groupes.values() if len(g) > 1)} groupe(s) de doublons\n")
+
+for cle, lignes in groupes.items():
+    if len(lignes) < 2:
+        continue
+
+    anomalies = {}
+    for champ in CHAMPS_A_VERIFIER:
+        valeurs = set(l[champ] or '∅' for l in lignes)
+        if len(valeurs) > 1:
+            anomalies[champ] = valeurs
+
+    if anomalies:
+        print(f"⚠️  {cle}")
+        for champ, valeurs in anomalies.items():
+            print(f"   {champ}: {valeurs}")
+        for l in lignes:
+            print(f"   -> id={l['id']} | " + " | ".join(f"{c}={l[c]}" for c in CHAMPS_A_VERIFIER))
+        print()
+		
+		
+---------------------------------
+
+
+# audit_index.py
+# Usage : python manage.py shell < audit_index.py
+#
+# Audit d'indexation Postgres, limité aux tables des modèles Django de tes apps.
+# Sort 2 rapports : index inutilisés, tables sous-indexées (trop de seq scan).
+
+from django.apps import apps
+from django.db import connection
+
+# --- Config ---------------------------------------------------------
+# Mets ici les app_labels à auditer (celles de ton projet, pas celles de Django/tiers)
+APPS_A_AUDITER = ['inventory', 'pca', 'discrepancy', 'access_rights']  # <-- adapte
+
+SEUIL_LIGNES_MIN = 1000  # ignore les petites tables (peu d'intérêt à indexer)
+# ---------------------------------------------------------------------
+
+# 1. Récupérer les vraies tables SQL des modèles de ces apps
+tables = []
+for app_label in APPS_A_AUDITER:
+    try:
+        app_config = apps.get_app_config(app_label)
+    except LookupError:
+        print(f"⚠️  App inconnue : {app_label} (skip)")
+        continue
+    for model in app_config.get_models():
+        tables.append(model._meta.db_table)
+
+if not tables:
+    print("Aucune table trouvée, vérifie APPS_A_AUDITER.")
+else:
+    placeholders = ','.join(['%s'] * len(tables))
+
+    with connection.cursor() as cur:
+
+        # --- Rapport 1 : index inutilisés (jamais scannés) ---
+        print("=" * 70)
+        print("RAPPORT 1 — Index jamais utilisés (candidats à suppression)")
+        print("=" * 70)
+        cur.execute(f"""
+            SELECT relname AS table_name, indexrelname AS index_name,
+                   idx_scan,
+                   pg_size_pretty(pg_relation_size(indexrelid)) AS taille
+            FROM pg_stat_user_indexes
+            WHERE idx_scan = 0
+              AND relname IN ({placeholders})
+            ORDER BY pg_relation_size(indexrelid) DESC;
+        """, tables)
+        rows = cur.fetchall()
+        if not rows:
+            print("Aucun index inutilisé détecté. ✅\n")
+        else:
+            for table, index, scans, taille in rows:
+                print(f"  {table:30s} | {index:40s} | scans={scans} | {taille}")
+            print(f"\n  -> {len(rows)} index à examiner (vérifie l'ancienneté des stats avant de supprimer)\n")
+
+        # --- Rapport 2 : tables sous-indexées (trop de seq scan) ---
+        print("=" * 70)
+        print("RAPPORT 2 — Tables scannées en full-scan plus qu'en index")
+        print("=" * 70)
+        cur.execute(f"""
+            SELECT relname AS table_name,
+                   seq_scan, seq_tup_read,
+                   idx_scan, n_live_tup
+            FROM pg_stat_user_tables
+            WHERE relname IN ({placeholders})
+              AND n_live_tup > %s
+              AND seq_scan > COALESCE(idx_scan, 0)
+            ORDER BY seq_tup_read DESC;
+        """, tables + [SEUIL_LIGNES_MIN])
+        rows = cur.fetchall()
+        if not rows:
+            print("Aucune table suspecte détectée. ✅\n")
+        else:
+            for table, seq_scan, seq_tup_read, idx_scan, n_live in rows:
+                print(f"  {table:30s} | seq_scan={seq_scan:6d} | lignes_lues={seq_tup_read:10d} | "
+                      f"idx_scan={idx_scan or 0:6d} | total_lignes={n_live}")
+            print(f"\n  -> {len(rows)} table(s) à investiguer avec EXPLAIN ANALYZE sur les requêtes fréquentes\n")
+
+        # --- Bonus : taille totale des tables auditées ---
+        print("=" * 70)
+        print("Info — taille des tables auditées")
+        print("=" * 70)
+        cur.execute(f"""
+            SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
+            FROM pg_catalog.pg_statio_user_tables
+            WHERE relname IN ({placeholders})
+            ORDER BY pg_total_relation_size(relid) DESC;
+        """, tables)
+        for table, taille in cur.fetchall():
+            print(f"  {table:30s} | {taille}")
