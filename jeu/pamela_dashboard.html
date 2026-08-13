@@ -1,0 +1,585 @@
+{% extends 'discrepancies/discrepancies_dashboard_base.html' %}
+
+{% load static %}
+
+{% block title %}
+    {{ title }}
+{% endblock %}
+
+{% block dashboard_title %}
+    {{ title }}
+{% endblock %}
+
+{% block dashboard_meta %}
+    {% if not no_data %}
+        Latest PAMELA snapshot: {{ latest_date|date:"d M Y" }} &middot; population {{ population }}
+    {% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard,
+    .dashboard-header {
+        max-width: 100%;
+    }
+    body {
+        background-color: #f4f6f9;
+    }
+    [data-theme="dark-mode"] body {
+        background-color: #161b22;
+    }
+    .dashboard-header {
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px 28px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        border-left: 5px solid #A0826D;
+        margin-bottom: 28px;
+    }
+    [data-theme="dark-mode"] .dashboard-header {
+        background: #1e1e2e;
+        border-left-color: #B8956A;
+    }
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Permanent Filter bar — copied verbatim from discrepancies_dashboard.html's own inline
+       style (not in the shared discrepancies_dashboard.css), since this page reuses the same
+       pf-bar/pf-days-widget/pf-multi-dd markup+JS pattern. */
+    .pf-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 20px;
+        padding: 0 4px;
+        gap: 12px;
+    }
+    #pf-bar-left {
+        flex: 1;
+        font-size: 0.82rem;
+        color: var(--text-13, #999);
+        min-width: 0;
+    }
+    #pf-bar-right {
+        display: flex;
+        align-items: flex-end;
+        gap: 28px;
+        flex-shrink: 0;
+        padding-right: 20px;
+    }
+    #permanentfilter-container,
+    .permanentfilter-container {
+        position: relative;
+        display: inline-block;
+    }
+    .permanentfilter-btn {
+        background: #fff;
+        border: 1px solid #d0c4bc;
+        border-radius: 7px;
+        padding: 9px 18px;
+        font-size: 0.94rem;
+        color: #5a4a42;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        line-height: 1.4;
+        transition: border-color 0.15s;
+        font-weight: 500;
+    }
+    .permanentfilter-btn:hover { border-color: #A0826D; color: #A0826D; }
+    [data-theme="dark-mode"] .permanentfilter-btn {
+        background: #1e1e2e; border-color: #3d2b1f; color: #c9a07a;
+    }
+    .permanentfilter-dropdown-content {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        text-align: left;
+        background: #fff;
+        border: 1px solid #e0d5ce;
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        z-index: 200;
+        min-width: 170px;
+        overflow: hidden;
+    }
+    .permanentfilter-dropdown-content.pf-open { display: block; }
+    [data-theme="dark-mode"] .permanentfilter-dropdown-content {
+        background: #1e1e2e; border-color: #3d2b1f;
+    }
+    .permanentfilter-dropdown-item {
+        padding: 9px 18px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        color: #5a4a42;
+        transition: background 0.12s;
+    }
+    .permanentfilter-dropdown-item:hover { background: #f5ede8; color: #A0826D; }
+    .permanentfilter-dropdown-item.pf-active { font-weight: 700; color: #A0826D; }
+    [data-theme="dark-mode"] .permanentfilter-dropdown-item { color: #c9a07a; }
+    [data-theme="dark-mode"] .permanentfilter-dropdown-item:hover { background: #2d1f16; }
+
+    /* Days-open filter widget */
+    .pf-days-widget {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        flex-shrink: 0;
+    }
+    .pf-days-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid #d0c4bc;
+        border-radius: 7px;
+        padding: 9px 10px;
+        background: #fff;
+    }
+    [data-theme="dark-mode"] .pf-days-row {
+        background: #1e1e2e;
+        border-color: #3d2b1f;
+    }
+    .pf-days-widget.active .pf-days-row {
+        border-color: #A0826D;
+    }
+    [data-theme="dark-mode"] .pf-days-widget.active .pf-days-row {
+        border-color: #B8956A;
+    }
+    .pf-days-preset {
+        font-size: 0.78rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        cursor: pointer;
+        color: #aaa;
+        transition: background 0.12s, color 0.12s;
+        user-select: none;
+        line-height: 1.4;
+    }
+    .pf-days-preset:hover { background: #f5ede8; color: #A0826D; }
+    .pf-days-preset.active { background: #A0826D; color: #fff; font-weight: 600; }
+    [data-theme="dark-mode"] .pf-days-preset { color: #665544; }
+    [data-theme="dark-mode"] .pf-days-preset:hover { background: #2d1f16; color: #B8956A; }
+    [data-theme="dark-mode"] .pf-days-preset.active { background: #B8956A; color: #1e1e2e; }
+    .pf-days-sep {
+        color: #ddd;
+        font-size: 0.8rem;
+        margin: 0 2px;
+        user-select: none;
+    }
+    [data-theme="dark-mode"] .pf-days-sep { color: #3d2b1f; }
+    #pf-days-input {
+        width: 44px;
+        border: none;
+        background: transparent;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #5a4a42;
+        text-align: center;
+        outline: none;
+    }
+    #pf-days-input::placeholder { color: #ccc; font-weight: 400; }
+    [data-theme="dark-mode"] #pf-days-input { color: #c9a07a; }
+    [data-theme="dark-mode"] #pf-days-input::placeholder { color: #445; }
+    #pf-days-clear {
+        border: none;
+        background: transparent;
+        color: #ccc;
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0 1px;
+        transition: color 0.12s;
+    }
+    #pf-days-clear:hover { color: #A0826D; }
+    [data-theme="dark-mode"] #pf-days-clear { color: #444; }
+    [data-theme="dark-mode"] #pf-days-clear:hover { color: #B8956A; }
+
+    /* Multi-dropdown panel */
+    .pf-multi-dd {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    .pf-multi-dd-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #bbb;
+        padding-left: 2px;
+    }
+    [data-theme="dark-mode"] .pf-multi-dd-label { color: #555; }
+</style>
+{% endblock %}
+
+{% block no_data_message %}No PAMELA server data yet. Run <code>seed_pamela_server_discrepancies</code> (or the real import once available).{% endblock %}
+
+{% block hero_section %}
+    <div class="pf-bar">
+        <div id="pf-bar-left"></div>
+        <div id="pf-bar-right">
+            <!-- Days Open filter — same widget/CSS as the main dashboard's pf-bar -->
+            <div id="pf-days-widget" class="pf-days-widget">
+                <div class="pf-multi-dd-label">Days open ≥</div>
+                <div class="pf-days-row">
+                    <span class="pf-days-preset" data-days="7">7</span>
+                    <span class="pf-days-preset" data-days="15">15</span>
+                    <span class="pf-days-preset" data-days="30">30</span>
+                    <span class="pf-days-preset" data-days="90">90</span>
+                    <span class="pf-days-sep">|</span>
+                    <input type="number" id="pf-days-input" min="1" placeholder="—" autocomplete="off">
+                    <button id="pf-days-clear" title="Show all" style="display:none">×</button>
+                </div>
+            </div>
+            <div id="pf-multi-panel" style="display:flex; align-items:flex-end; gap:12px;">
+                <div class="pf-multi-dd">
+                    <div class="pf-multi-dd-label">Region</div>
+                    <div class="permanentfilter-container">
+                        <button class="permanentfilter-btn" data-dd-id="pf-dd-region">
+                            <span id="pf-dd-region-label">All Regions</span> ▾
+                        </button>
+                        <div class="permanentfilter-dropdown-content" id="pf-dd-region">
+                            <div class="permanentfilter-dropdown-item pf-active" data-value="" data-label="All Regions">All Regions</div>
+                            {% for r in all_regions %}
+                            <div class="permanentfilter-dropdown-item" data-value="{{ r }}" data-label="{{ r }}">{{ r }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="pf-multi-dd">
+                    <div class="pf-multi-dd-label">OS</div>
+                    <div class="permanentfilter-container">
+                        <button class="permanentfilter-btn" data-dd-id="pf-dd-os">
+                            <span id="pf-dd-os-label">All OS</span> ▾
+                        </button>
+                        <div class="permanentfilter-dropdown-content" id="pf-dd-os">
+                            <div class="permanentfilter-dropdown-item pf-active" data-value="" data-label="All OS">All OS</div>
+                            {% for b in all_os_buckets %}
+                            <div class="permanentfilter-dropdown-item" data-value="{{ b }}" data-label="{{ b }}">{{ b }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="hero-section">
+        {% for widget in widgets %}
+            {% if widget.size == 'large' %}
+            <div class="hero-gauge">
+                <a href="{{ widget.link }}" class="hero-gauge-card" data-hero-id="{{ widget.id }}"
+                   data-base-link="{{ widget.link }}" target="_blank" rel="noopener noreferrer"
+                   {% if widget.info %}data-info="{{ widget.info }}"{% endif %}>
+                    <h2>{{ widget.title|linebreaksbr }}</h2>
+                    <div class="hero-gauge-container">
+                        <canvas id="gauge-{{ widget.id }}" style="margin-top: -30px; display: inline"></canvas>
+                        <div class="hero-gauge-value" id="val-{{ widget.id }}">{{ widget.display_value }}</div>
+                    </div>
+                    <div class="hero-gauge-stats">
+                        <div class="stat-issues">Issues <span id="hero-issues-{{ widget.id }}">{{ widget.servers_with_issues }}</span></div>
+                        <div class="stat-clean">OK <span id="hero-clean-{{ widget.id }}">{{ widget.servers_clean }}</span></div>
+                        <div class="stat-total">Total <span id="hero-total-{{ widget.id }}">{{ widget.total_servers }}</span></div>
+                    </div>
+                    {% if widget.info %}<div class="gauge-tooltip">{{ widget.info }}</div>{% endif %}
+                </a>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block widgets_grid %}
+    <div class="gauges-grid">
+        {% for widget in widgets %}
+            {% if widget.size == 'small' %}
+            <a href="{{ widget.link }}" class="gauge-card" data-widget-id="{{ widget.id }}" data-tool="{{ widget.tool }}"
+               data-base-link="{{ widget.link }}" target="_blank" rel="noopener noreferrer"
+               {% if widget.info %}data-info="{{ widget.info }}"{% endif %}>
+                <div class="gauge-card-header">
+                    <span class="gauge-card-icon">{{ widget.icon }}</span>
+                    <h3 class="gauge-card-title">Missing {{ widget.title }}</h3>
+                </div>
+                <div class="gauge-card-canvas-container">
+                    <canvas id="gauge-{{ widget.id }}" style="margin-top: -30px; display: inline"></canvas>
+                    <div class="gauge-card-value" id="val-{{ widget.id }}">{{ widget.display_value }}</div>
+                </div>
+                <div class="hero-gauge-stats">
+                    <div class="stat-issues-small">Issues <span id="issues-{{ widget.id }}">{{ widget.servers_with_issues }}</span></div>
+                    <div class="stat-clean-small">OK <span id="clean-{{ widget.id }}">{{ widget.servers_clean }}</span></div>
+                    <div class="stat-total-small">Total <span id="total-{{ widget.id }}">{{ widget.total_servers }}</span></div>
+                </div>
+                {% if widget.info %}<div class="gauge-tooltip">{{ widget.info }}</div>{% endif %}
+            </a>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endblock %}
+
+{% block historic_section %}
+    {% if historic_config %}
+    <div class="historic-section">
+        <div class="historic-header">
+            <h2>📈 {{ historic_config.title }} <span id="trend-period-label">({{ historic_config.days }} days)</span></h2>
+            <div class="selector-group">
+                <select id="period-selector" class="metric-selector period-selector">
+                    <option value="7" {% if historic_config.days == 7 %}selected{% endif %}>7 days</option>
+                    <option value="30" {% if historic_config.days == 30 %}selected{% endif %}>30 days</option>
+                    <option value="90" {% if historic_config.days == 90 %}selected{% endif %}>90 days</option>
+                    <option value="all" {% if historic_config.days == 'all' %}selected{% endif %}>All time</option>
+                </select>
+                <select id="metric-selector" class="metric-selector">
+                    {% for metric in historic_config.metrics %}
+                    <option
+                        value="{{ metric.id }}"
+                        data-metric="{{ metric.metric }}"
+                        data-color="{{ metric.color }}"
+                        {% if metric.metric == historic_config.default_metric %}selected{% endif %}>
+                        {{ metric.label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="trend-chart-container">
+            <canvas id="trend-chart"></canvas>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+    <script src="{% static 'discrepancies/js/trend.js' %}"></script>
+    <script>
+        /* ---- Gauges ---- */
+        const gaugeInstances = {};
+        const WIDGET_CONFIGS = {
+            {% for widget in widgets %}
+            '{{ widget.id }}': {
+                thresholds: {{ widget.thresholds|safe }},
+                colors:     {{ widget.colors|safe }},
+                tool:       '{{ widget.tool|default:"" }}',
+                isLarge:    {% if widget.size == 'large' %}true{% else %}false{% endif %}
+            },
+            {% endfor %}
+        };
+        {% for widget in widgets %}
+        gaugeInstances['{{ widget.id }}'] = createGauge(
+            'gauge-{{ widget.id }}',
+            {{ widget.value }},
+            {{ widget.thresholds|safe }},
+            {{ widget.colors|safe }},
+            {% if widget.size == 'large' %}true{% else %}false{% endif %}
+        );
+        {% endfor %}
+
+        function _updateGaugeChart(chart, value, thresholds, colors) {
+            const color = getColorForValue(value, thresholds, colors);
+            chart.data.datasets[0].data = [value, 100 - value];
+            chart.data.datasets[0].backgroundColor[0] = color;
+            chart.update('none');
+        }
+
+        /* ---- pf-bar state (Region / OS / Days open) ---- */
+        let _region   = "{{ region|default:'' }}";
+        let _osBucket = "{{ os_bucket|default:'' }}";
+        let _daysOpen = {{ days_open|default:0 }};
+
+        // bucket name -> ['@techfamilyValue', ...] (or ['!value', ...] for Other) — same
+        // translation as _pamela_os_bucket_to_techfamily_terms, precomputed server-side.
+        const OS_BUCKET_TECHFAMILY_TERMS = {{ os_bucket_techfamily_terms_json|safe }};
+
+        // Params for the dashboard's own AJAX refresh — pamela_dashboard_filter_api
+        // understands os=/region=/days_open= natively.
+        function _buildApiScopeParams() {
+            const p = new URLSearchParams();
+            if (_region)   p.set('region', _region);
+            if (_osBucket) p.set('os', _osBucket);
+            if (_daysOpen) p.set('days_open', _daysOpen);
+            return p;
+        }
+
+        // Params for click-through links to the Servers page — that page has no "os" field
+        // (field_labels_pamela.json defines none), only the real "techfamily" one, so an OS
+        // bucket has to be translated into @/! techfamily terms it actually understands.
+        function _buildLinkScopeParams() {
+            const p = new URLSearchParams();
+            if (_region) p.set('region', _region);
+            if (_osBucket) {
+                const terms = OS_BUCKET_TECHFAMILY_TERMS[_osBucket] || [];
+                if (terms.length) p.set('techfamily', terms.join(','));
+            }
+            if (_daysOpen) p.set('days_open', _daysOpen);
+            return p;
+        }
+
+        function _buildGaugeHref(base) {
+            const scopeParams = _buildLinkScopeParams();
+            if (!scopeParams.toString()) return base;
+            // Merge onto the base link's own query (e.g. ?missing_tools=AD) rather than
+            // replacing it — a mini gauge's link is its whole reason to exist, losing it the
+            // moment a Region/OS/Days-open filter gets touched would defeat the click-through.
+            const sepIdx = base.indexOf('?');
+            const basePath  = sepIdx >= 0 ? base.slice(0, sepIdx) : base;
+            const baseQuery = sepIdx >= 0 ? base.slice(sepIdx + 1) : '';
+            const merged = new URLSearchParams(baseQuery);
+            for (const [k, v] of scopeParams) {
+                merged.set(k, v);
+            }
+            return basePath + '?' + merged.toString();
+        }
+
+        // Monotonic token guard: if several filter changes fire in quick succession, only the
+        // response to the LATEST request may update the UI — otherwise a slower, now-stale
+        // response (e.g. an intermediate Region+DaysOpen combination cleared right after) could
+        // land after the final one and leave the gauges showing outdated numbers.
+        let _refreshToken = 0;
+
+        async function _refreshPamelaDashboard() {
+            const myToken = ++_refreshToken;
+            const resp = await fetch("{% url 'discrepancies:pamela_dashboard_filter_api' %}?" + _buildApiScopeParams().toString());
+            const data = await resp.json();
+            if (myToken !== _refreshToken) return;
+            const total = data.population;
+
+            Object.entries(WIDGET_CONFIGS).forEach(function ([id, conf]) {
+                const count = (id === 'missing_any') ? data.servers_with_any_missing : (data.tool_counts[conf.tool] || 0);
+                const clean = Math.max(0, total - count);
+                const pct   = total > 0 ? Math.trunc(clean / total * 10000) / 100 : 100;
+
+                if (gaugeInstances[id]) _updateGaugeChart(gaugeInstances[id], pct, conf.thresholds, conf.colors);
+
+                const v = document.getElementById('val-' + id); if (v) v.textContent = pct + '%';
+
+                if (conf.isLarge) {
+                    const eI = document.getElementById('hero-issues-' + id); if (eI) eI.textContent = count.toLocaleString();
+                    const eC = document.getElementById('hero-clean-'  + id); if (eC) eC.textContent = clean.toLocaleString();
+                    const eT = document.getElementById('hero-total-'  + id); if (eT) eT.textContent = total.toLocaleString();
+                    const card = document.querySelector('[data-hero-id="' + id + '"]');
+                    if (card) card.href = _buildGaugeHref(card.dataset.baseLink);
+                } else {
+                    const i = document.getElementById('issues-' + id); if (i) i.textContent = count.toLocaleString();
+                    const c = document.getElementById('clean-'  + id); if (c) c.textContent = clean.toLocaleString();
+                    const t = document.getElementById('total-'  + id); if (t) t.textContent = total.toLocaleString();
+                    const card = document.querySelector('[data-widget-id="' + id + '"]');
+                    if (card) card.href = _buildGaugeHref(card.dataset.baseLink);
+                }
+            });
+        }
+
+        /* ---- Region / OS dropdowns ---- */
+        function _setMultiDdLabel(ddId, labelId, value, label) {
+            document.getElementById(labelId).textContent = label;
+            document.querySelectorAll('#' + ddId + ' .permanentfilter-dropdown-item').forEach(function (item) {
+                item.classList.toggle('pf-active', item.dataset.value === value);
+            });
+        }
+
+        document.querySelectorAll('#pf-multi-panel [data-dd-id]').forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const dd = document.getElementById(btn.dataset.ddId);
+                const wasOpen = dd.classList.contains('pf-open');
+                ['pf-dd-region', 'pf-dd-os'].forEach(function (id) {
+                    document.getElementById(id).classList.remove('pf-open');
+                });
+                if (!wasOpen) dd.classList.add('pf-open');
+            });
+        });
+
+        document.getElementById('pf-dd-region').addEventListener('click', function (e) {
+            const item = e.target.closest('.permanentfilter-dropdown-item');
+            if (!item) return;
+            _region = item.dataset.value;
+            _setMultiDdLabel('pf-dd-region', 'pf-dd-region-label', item.dataset.value, item.dataset.label);
+            document.getElementById('pf-dd-region').classList.remove('pf-open');
+            _refreshPamelaDashboard();
+        });
+
+        document.getElementById('pf-dd-os').addEventListener('click', function (e) {
+            const item = e.target.closest('.permanentfilter-dropdown-item');
+            if (!item) return;
+            _osBucket = item.dataset.value;
+            _setMultiDdLabel('pf-dd-os', 'pf-dd-os-label', item.dataset.value, item.dataset.label);
+            document.getElementById('pf-dd-os').classList.remove('pf-open');
+            _refreshPamelaDashboard();
+        });
+
+        document.addEventListener('click', function () {
+            ['pf-dd-region', 'pf-dd-os'].forEach(function (id) {
+                document.getElementById(id).classList.remove('pf-open');
+            });
+        });
+
+        /* ---- Days open widget ---- */
+        function _setDaysOpenUI(val) {
+            const input    = document.getElementById('pf-days-input');
+            const clearBtn = document.getElementById('pf-days-clear');
+            const widget   = document.getElementById('pf-days-widget');
+            if (input)    input.value = val > 0 ? val : '';
+            if (clearBtn) clearBtn.style.display = val > 0 ? '' : 'none';
+            if (widget)   widget.classList.toggle('active', val > 0);
+            document.querySelectorAll('.pf-days-preset').forEach(function (el) {
+                el.classList.toggle('active', parseInt(el.dataset.days) === val);
+            });
+        }
+
+        function _setDaysOpen(val) {
+            _daysOpen = val;
+            _setDaysOpenUI(val);
+            _refreshPamelaDashboard();
+        }
+
+        document.querySelectorAll('.pf-days-preset').forEach(function (el) {
+            el.addEventListener('click', function () {
+                _setDaysOpen(_daysOpen === parseInt(el.dataset.days) ? 0 : parseInt(el.dataset.days));
+            });
+        });
+
+        document.getElementById('pf-days-clear').addEventListener('click', function () {
+            _setDaysOpen(0);
+        });
+
+        let _daysTimer = null;
+        document.getElementById('pf-days-input').addEventListener('input', function (e) {
+            clearTimeout(_daysTimer);
+            _daysTimer = setTimeout(function () {
+                const raw = parseInt(e.target.value);
+                _setDaysOpen((!isNaN(raw) && raw > 0) ? raw : 0);
+            }, 500);
+        });
+
+        _setDaysOpenUI(_daysOpen);
+        if (_region)   _setMultiDdLabel('pf-dd-region', 'pf-dd-region-label', _region, _region);
+        if (_osBucket) _setMultiDdLabel('pf-dd-os', 'pf-dd-os-label', _osBucket, _osBucket);
+
+        /* ---- Quality Trend ---- */
+        {% if trend_data %}
+        var TREND_DAYS = {{ historic_config.days|default:30 }};
+        const TREND_API_URL = "{% url 'discrepancies:pamela_trend_api' %}";
+        initTrendChart(
+            {{ trend_data.labels|safe }},
+            {{ trend_data.values|safe }},
+            '{{ trend_metric_config.color|default:"#A0826D" }}',
+            '{{ trend_metric_config.label|default:"Any tool missing" }}'
+        );
+
+        document.getElementById('metric-selector').addEventListener('change', function (e) {
+            const opt = e.target.selectedOptions[0];
+            updateTrendChart(opt.dataset.metric, opt.dataset.color, opt.text);
+        });
+
+        document.getElementById('period-selector').addEventListener('change', function (e) {
+            TREND_DAYS = e.target.value;
+            var label = document.getElementById('trend-period-label');
+            var periodLabels = {'7': '7 days', '30': '30 days', '90': '90 days', 'all': 'all time'};
+            if (label) label.textContent = '(' + (periodLabels[TREND_DAYS] || TREND_DAYS + ' days') + ')';
+            const opt = document.getElementById('metric-selector').selectedOptions[0];
+            updateTrendChart(opt.dataset.metric, opt.dataset.color, opt.text);
+        });
+        {% endif %}
+    </script>
+{% endblock %}

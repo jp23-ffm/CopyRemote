@@ -1,0 +1,86 @@
+{
+  "dashboard": {
+    "title": "PAMELA Tool Coverage Dashboard",
+    "historic_section": {
+      "enabled": true,
+      "title": "Quality Trend",
+      "days": 30,
+      "default_metric": "any_missing",
+      "metrics": [
+        {"id": "any_missing", "metric": "any_missing", "label": "Any tool missing", "color": "#A0826D"},
+        {"id": "trend_AD", "metric": "AD", "label": "Missing AD", "color": "#dc3545"},
+        {"id": "trend_ADDM", "metric": "ADDM", "label": "Missing ADDM", "color": "#fd7e14"},
+        {"id": "trend_SA", "metric": "SA", "label": "Missing SA", "color": "#ffc107"},
+        {"id": "trend_LA", "metric": "LA", "label": "Missing LA", "color": "#20c997"},
+        {"id": "trend_EPO", "metric": "EPO", "label": "Missing EPO", "color": "#0dcaf0"},
+        {"id": "trend_CA", "metric": "CA", "label": "Missing CA", "color": "#6f42c1"}
+      ]
+    },
+    "widgets": [
+      {
+        "id": "missing_any",
+        "type": "gauge",
+        "size": "large",
+        "title": "Tool Coverage\n(any tool missing)",
+        "thresholds": {"critical": 90, "warning": 97, "good": 100},
+        "colors": {"critical": "#dc3545", "warning": "#ffc107", "good": "#28a744"},
+        "link": "/discrepancies/pamela/servers/",
+        "info": "Servers missing at least one of the 6 PAMELA tools (AD/ADDM/SA/LA/EPO/CA), over PAMELA's full known population (allserver)"
+      },
+      {
+        "id": "missing_AD",
+        "type": "gauge",
+        "size": "small",
+        "title": "AD",
+        "tool": "AD",
+        "link": "/discrepancies/pamela/servers/?missing_tools=AD",
+        "info": "Servers missing AD coverage"
+      },
+      {
+        "id": "missing_ADDM",
+        "type": "gauge",
+        "size": "small",
+        "title": "ADDM",
+        "tool": "ADDM",
+        "link": "/discrepancies/pamela/servers/?missing_tools=ADDM",
+        "info": "Servers missing ADDM coverage"
+      },
+      {
+        "id": "missing_SA",
+        "type": "gauge",
+        "size": "small",
+        "title": "SA",
+        "tool": "SA",
+        "link": "/discrepancies/pamela/servers/?missing_tools=SA",
+        "info": "Servers missing SA coverage"
+      },
+      {
+        "id": "missing_LA",
+        "type": "gauge",
+        "size": "small",
+        "title": "LA",
+        "tool": "LA",
+        "link": "/discrepancies/pamela/servers/?missing_tools=LA",
+        "info": "Servers missing LA coverage"
+      },
+      {
+        "id": "missing_EPO",
+        "type": "gauge",
+        "size": "small",
+        "title": "EPO",
+        "tool": "EPO",
+        "link": "/discrepancies/pamela/servers/?missing_tools=EPO",
+        "info": "Servers missing EPO coverage"
+      },
+      {
+        "id": "missing_CA",
+        "type": "gauge",
+        "size": "small",
+        "title": "CA",
+        "tool": "CA",
+        "link": "/discrepancies/pamela/servers/?missing_tools=CA",
+        "info": "Servers missing CA coverage"
+      }
+    ]
+  }
+}
