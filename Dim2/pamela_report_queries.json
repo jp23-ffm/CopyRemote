@@ -1,0 +1,58 @@
+{
+  "_comment": "Per-server counterpart to run_daily_report.py's report_queries.json. That file GROUPs BY [name],[techfamily],[area] and only returns COUNT(*) — fine for DailyPamelaDBSummary (population totals) but it discards which SERVER each row belongs to, so it can't be reused for ServerDiscrepancyPamela (per-server missing-tool detail). These 6 queries return the raw per-server rows instead, no GROUP BY. [SERVER_ID] below is a PLACEHOLDER for whatever the real hostname/server-identifier column is called in [dbo].[test] (not shown in the aggregate queries we copied it from, since those never SELECT it) — verify the real column name against the source schema before the first real run against prod, and fix it here (only here, nothing in analyze_pamela_discrepancies.py or pamela_db_utils.py hardcodes the column name a second time).",
+
+  "missing_AD": {
+    "comment": "Active Directory - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  },
+  "missing_ADDM": {
+    "comment": "Active Directory Domain Services - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  },
+  "missing_SA": {
+    "comment": "System Administration - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  },
+  "missing_LA": {
+    "comment": "Local Administration - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  },
+  "missing_EPO": {
+    "comment": "Endpoint Protection - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  },
+  "missing_CA": {
+    "comment": "Certificate Authority - To exclude staging machines, add AND [techfamily] NOT LIKE 'IV2-MP-STG%'",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+
+    "categories" : {
+
+	    "cat0" : "Pamela",
+	    "cat1" : "Pamela Fields"
+    },
+
+    "query_builder_exclude": {
+        "fields": ["ANNOTATION"]
+    },
+
+    "fields" : {
+
+ 	    "SERVER_ID" : {
+	      "displayname" : "Host",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "ischeckeddisabled" : "True",
+	      "inputname" : "server"
+	    },
+
+	    "missing_tools" : {
+	      "displayname" : "Missing Tools",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "missing_tools"
+	    },
+
+	    "techfamily" : {
+	      "displayname" : "Techfamily",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "listbox" : "techfamilys",
+	      "listboxmsg" : "Techfamily",
+	      "listid" : "techfamily",
+	      "inputname" : "techfamily"
+	    },
+
+	    "area" : {
+	      "displayname" : "Region",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "listbox" : "regions",
+	      "listboxmsg" : "Region",
+	      "listid" : "region",
+	      "inputname" : "region"
+	    },
+
+	    "days_open" : {
+	      "displayname" : "Days Open",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "daysopen"
+	    },
+
+	    "ANNOTATION" : {
+	      "displayname" : "Annotation",
+	      "selectionsection" : "cat1",
+	      "ischecked" : "True",
+	      "inputname" : "annotation"
+	    }
+
+    }
+
+}
