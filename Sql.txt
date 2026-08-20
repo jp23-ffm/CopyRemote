@@ -1,0 +1,63 @@
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM inventory_server
+WHERE snow_status = 'ALIVE'
+  AND operational_status = 'Operational'
+  AND environment = 'PROD';
+
+
+CREATE INDEX idx_srv_active
+ON inventory_server (id)
+WHERE snow_status = 'ALIVE' AND operational_status = 'Operational';
+
+
+CREATE INDEX idx_srv_active_env
+ON inventory_server (environment, datacenter)
+WHERE snow_status = 'ALIVE' AND operational_status = 'Operational';
+
+
+
+CREATE INDEX CONCURRENTLY idx_srv_active_env
+ON inventory_server (environment, datacenter)
+WHERE snow_status = 'ALIVE' AND operational_status = 'Operational';
+
+
+from django.db.models import Q, Index
+
+class Server(models.Model):
+    # ... tes champs ...
+    
+    class Meta:
+        indexes = [
+            # Index "générique" - couvre le WHERE peu importe les autres filtres
+            Index(
+                fields=['id'],
+                name='idx_srv_active',
+                condition=Q(snow_status='ALIVE', operational_status='Operational'),
+            ),
+            # Index spécifique - accélère en plus les filtres/tri par environment+datacenter
+            Index(
+                fields=['environment', 'datacenter'],
+                name='idx_srv_active_env',
+                condition=Q(snow_status='ALIVE', operational_status='Operational'),
+            ),
+        ]
+
+
+CREATE TABLE inventorystaging (
+    LIKE inventory INCLUDING INDEXES INCLUDING DEFAULTS INCLUDING CONSTRAINTS
+);
+
+
+
+-- Utilisation de tous les index sur la table Server
+SELECT
+    schemaname,
+    relname AS table_name,
+    indexrelname AS index_name,
+    idx_scan AS nb_scans,
+    idx_tup_read AS lignes_lues,
+    idx_tup_fetch AS lignes_recuperees,
+    pg_size_pretty(pg_relation_size(indexrelid)) AS taille_index
+FROM pg_stat_user_indexes
+WHERE relname = 'inventory_server'  -- adapte au nom réel de ta table
+ORDER BY idx_scan ASC;
