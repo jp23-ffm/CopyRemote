@@ -1,0 +1,106 @@
+----------------------- bc -----------------------
+
+# SUPPRIMER :
+DPR_PATCH_FILE_GOLDENAPP_PATH = "/data/DPR_DATA/dpr_goldenapp_businesscontinuity.json"
+
+# SUPPRIMER (bloc de lecture JSON, ~lignes 415-427) :
+try:
+    with open(DPR_PATCH_FILE_GOLDENAPP_PATH, 'r') as goldenapp_file:
+        goldenapp_data = json.load(goldenapp_file)
+except Exception as e:
+    ...
+if not isinstance(goldenapp_data, list):
+    ...
+	
+	
+# REMPLACER le bloc de construction du mapping (~lignes 442-446) par :
+from applications.models import Application
+
+goldenapp_mapping = {
+    app.APPLICATION_AUID: {"APM-DETAILS__ITCLUSTER": app.IT_CLUSTER}
+    for app in Application.objects.exclude(IT_CLUSTER__isnull=True).only("APPLICATION_AUID", "IT_CLUSTER")
+}
+
+
+----------------------- nginx -----------------------
+
+# monitor/signals.py
+TRUSTED_PROXY_COUNT = 2  # load balancer + nginx
+
+def _get_ip(request):
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        parts = [p.strip() for p in x_forwarded_for.split(',') if p.strip()]
+        if len(parts) >= TRUSTED_PROXY_COUNT:
+            return parts[-TRUSTED_PROXY_COUNT]
+        return parts[0] if parts else request.META.get('REMOTE_ADDR')
+    return request.META.get('REMOTE_ADDR')
+	
+	
+	
+ok: proxy_set_header X-Forwarded-For $remote_addr;
+ko: proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+
+----------------------- cache -----------------------
+
+# crontab, une fois par jour
+0 3 * * * cd /path/to/chimera && python manage.py purge_expired_cache
+
+
+# businesscontinuity/management/commands/purge_expired_cache.py
+from django.core.management.base import BaseCommand
+from django.utils import timezone
+from django.db import connection
+
+class Command(BaseCommand):
+    def handle(self, *args, **options):
+        with connection.cursor() as cur:
+            cur.execute(
+                "DELETE FROM inventory_listbox_cache WHERE expires < %s",
+                [timezone.now()]
+            )
+            self.stdout.write(f"{cur.rowcount} entrées expirées supprimées")
+			
+
+
+'longcache': {
+    'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+    'LOCATION': 'inventory_listbox_cache',
+    'OPTIONS': {
+        'MAX_ENTRIES': 300,       # déclenche le nettoyage au-delà
+        'CULL_FREQUENCY': 3,      # purge 1/3 des entrées à chaque cull
+    }
+}
+
+
+ex:
+-- SQLite
+DELETE FROM inventory_listbox_cache WHERE expires < datetime('now');
+
+-- Postgres
+DELETE FROM inventory_listbox_cache WHERE expires < NOW();
+
+
+DELETE FROM inventory_listbox_cache WHERE cache_key LIKE '%polling_job_%' AND expires < NOW();
+
+
+
+dbshell
+
+from django.core.cache import caches
+listbox_cache = caches['longcache']
+
+# Lister une clé précise
+print(listbox_cache.get('listbox_REGION'))  # adapte le préfixe/nom de clé exact utilisé dans le code
+
+# Voir toutes les clés stockées (via SQL) puis les récupérer une par une
+from django.db import connection
+with connection.cursor() as cur:
+    cur.execute("SELECT cache_key FROM inventory_listbox_cache")
+    keys = [row[0] for row in cur.fetchall()]
+print(keys)
+for k in keys:
+    print(k, '->', listbox_cache.get(k))
+	
+	
