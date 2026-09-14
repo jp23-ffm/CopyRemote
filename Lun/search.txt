@@ -1,2 +1,0 @@
-Recherche annotations (UI) — inventory/views.py:355-360, relié à field_labels.json via "inputname": "annotation" (le
-  champ ANNOTATION dans le JSON, cat6). Le filtre construit Q(notes__icontains=terme) sur ServerAnnotation.notes.
