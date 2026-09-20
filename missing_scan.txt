@@ -1,0 +1,103 @@
+Update(discrepancies\pamela_sync.py)
+  ⎿  Added 24 lines, removed 5 lines
+      30          raise RuntimeError(f'Cannot load pamela_report_queries.json: {e}')
+      31
+      32
+      33 +PAMELA_REPORT_PREFIXES = ('missing_', 'scan_')
+      34 +
+      35 +
+      36 +def _pamela_tool_reports():
+      37 +    # tool_code -> full report name, e.g. 'AD' -> 'missing_AD', 'Orphans' -> 'scan_Orphans'.
+      38 +    # Supports both prefixes so a report can be added as scan_* (e.g. scan_Orphans) without
+      39 +    # changing the short 'AD'/'SA'-style codes already stored in
+      40 +    # ServerDiscrepancyPamela.missing_fields / PamelaDiscrepancyTracking.active_issues for the
+      41 +    # existing missing_* tools — that file is the single source of truth for which reports
+      42 +    # exist; adding one there (with a recognized prefix) is enough, nothing else needs editing.
+      43 +    queries = load_pamela_report_queries()
+      44 +    mapping = {}
+      45 +    for name in queries:
+      46 +        for prefix in PAMELA_REPORT_PREFIXES:
+      47 +            if name.startswith(prefix):
+      48 +                mapping[name[len(prefix):]] = name
+      49 +                break
+      50 +    return mapping
+      51 +
+      52 +
+      53 +PAMELA_TOOL_REPORTS = _pamela_tool_reports()
+      54 +
+      55 +
+      56  def _pamela_tool_choices():
+      34 -    # Derived from pamela_report_queries.json's keys (missing_AD -> AD) instead of hardcoded a
+      35 -    # second time — that file is already the single source of truth for which per-tool reports
+      36 -    # exist; adding/removing a tool there is enough, nothing else needs editing to match.
+      57      queries = load_pamela_report_queries()
+      58      order = {name: i for i, name in enumerate(queries.keys())}
+      39 -    tools = [name[len('missing_'):] for name in queries if name.startswith('missing_')]
+      40 -    return sorted(tools, key=lambda t: order[f'missing_{t}'])
+      59 +    return sorted(PAMELA_TOOL_REPORTS, key=lambda t: order[PAMELA_TOOL_REPORTS[t]])
+      60
+      61
+      62  PAMELA_TOOL_CHOICES = _pamela_tool_choices()
+
+● Update(discrepancies\pamela_sync.py)
+  ⎿  Added 1 line, removed 1 line
+      70      queries = load_pamela_report_queries()
+      71      labels = {}
+      72      for tool in PAMELA_TOOL_CHOICES:
+      73 -        comment = queries.get(f'missing_{tool}', {}).get('comment', '')
+      73 +        comment = queries.get(PAMELA_TOOL_REPORTS[tool], {}).get('comment', '')
+      74          labels[tool] = comment.split(' - ')[0].strip() or tool
+      75      return labels
+      76
+
+● Maintenant analyze_pamela_discrepancies.py — utiliser le mapping au lieu de reconstruire missing_{tool} :
+
+● Update(discrepancies\management\commands\analyze_pamela_discrepancies.py)
+  ⎿  Added 1 line, removed 1 line
+      25
+      26  from discrepancies.models import ServerDiscrepancyPamela, PamelaAnalysisSnapshot, PamelaImportStatus
+      27  from discrepancies.pamela_db_utils import get_missing_servers
+      28 -from discrepancies.pamela_sync import PAMELA_TOOL_CHOICES, write_log, sync_serverdiscrepancypamela, upd
+         -ate_pamela_tracker
+      28 +from discrepancies.pamela_sync import PAMELA_TOOL_CHOICES, PAMELA_TOOL_REPORTS, write_log, sync_serverd
+         +iscrepancypamela, update_pamela_tracker
+      29
+      30  # A single tool's server count swinging by more than this vs. the last snapshot before it (or
+      31  # coming back as exactly 0) is treated as a bad query result for that tool, not real news — see
+
+● Update(discrepancies\management\commands\analyze_pamela_discrepancies.py)
+  ⎿  Added 1 line, removed 1 line
+      77
+      78      current = {}
+      79      for tool in PAMELA_TOOL_CHOICES:
+      80 -        report_name = f'missing_{tool}'
+      80 +        report_name = PAMELA_TOOL_REPORTS[tool]
+      81          write_log(f"Querying {report_name} for {target_date}...")
+      82          rows = get_missing_servers(report_name, target_date)
+      83          current_count = len(rows)
+
+● Fichiers modifiés :
+
+  1. discrepancies/pamela_sync.py — remplace _pamela_tool_choices() par un mapping PAMELA_TOOL_REPORTS (code → nom
+     complet du report) qui reconnaît les préfixes missing_ et scan_ ; _pamela_tool_labels() utilise ce mapping au lieu
+     de reconstruire missing_{tool}.
+  2. discrepancies/management/commands/analyze_pamela_discrepancies.py — report_name = PAMELA_TOOL_REPORTS[tool] au lieu
+     de f'missing_{tool}'.
+  3. discrepancies/pamela_db_utils.py — rien à changer, get_missing_servers() était déjà agnostique au préfixe.
+
+  Il te reste à ajouter tes entrées scan_* dans pamela_report_queries.json, même forme que les existantes, par ex. :
+
+  "scan_Orphans": {
+    "comment": "Orphaned servers - ...",
+    "query": [
+      "SELECT [SERVER_ID], [techfamily], [area]",
+      "FROM [{database}].[dbo].[test]",
+      "WHERE CAST([Date] AS DATE) = ?",
+      "AND [Name] = ?"
+    ]
+  }
+  
+  
+------------------------------------------------------------------------------------------------------------------------
+
+
