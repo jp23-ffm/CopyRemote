@@ -1,0 +1,51 @@
+<select id="app-select" autocomplete="off">
+    {% for item in nav_main %}
+        <option value="{{ item.url }}"{% if item.new_tab %} data-new-tab="true"{% endif %}{% if item.current %} selected data-current="true"{% endif %}>{{ item.label }}</option>
+    {% endfor %}
+</select>
+{% if nav_sub %}
+    <select id="app-subselect" autocomplete="off">
+        <option value="" data-current="true">More pages…</option>
+        {% for item in nav_sub %}
+            <option value="{{ item.url }}"{% if item.new_tab %} data-new-tab="true"{% endif %}>{{ item.label }}</option>
+        {% endfor %}
+    </select>
+{% endif %}
+
+<script>
+(function () {
+    function wireNavSelect(id) {
+        const select = document.getElementById(id);
+        if (!select) return;
+
+        // Force back to the server-rendered state: browsers restore stale
+        // select values from history (back/forward, bfcache) on their own.
+        const currentOption = select.querySelector('option[data-current="true"]');
+        if (currentOption) select.value = currentOption.value;
+
+        let previousValue = select.value;
+
+        select.addEventListener('change', function () {
+            const url = this.value;
+            if (!url) return;
+
+            if (this.options[this.selectedIndex].dataset.newTab) {
+                select.value = previousValue;
+                window.open(url, '_blank');
+            } else {
+                window.location.href = url;
+            }
+        });
+
+        window.addEventListener('pageshow', function (event) {
+            if (event.persisted) {
+                const currentOption = select.querySelector('option[data-current="true"]');
+                if (currentOption) select.value = currentOption.value;
+            }
+        });
+    }
+
+    wireNavSelect('app-select');
+    wireNavSelect('app-subselect');
+})();
+</script>

@@ -1,0 +1,52 @@
+Fichiers créés :
+  - common/nav_config.json — config JSON (main = 5 apps majeures, sub.inventory = History)
+  - common/nav.py — loader avec cache mtime, même pattern que get_field_labels() dans inventory/views.py
+  - common/templatetags/nav_tags.py — inclusion tag {% render_nav 'inventory' %}, filtre via user_perms() (une requête),
+    résout les URLs via reverse()
+  - common/templates/common/nav_selector.html — rend les 2 <select> + le JS (change/new-tab/bfcache), repris à
+    l'identique du comportement existant
+
+  Fichier modifié : inventory/templates/inventory/servers.html — le <select id="app-select"> codé en dur (ex-lignes
+  43-54) remplacé par {% render_nav 'inventory' %}, et le JS mort associé (listeners app-select, variables
+  select/previousValue) supprimé.
+
+-----------
+
+
+Update(inventory\static\inventory\css\inventory.css)
+  ⎿  Added 7 lines, removed 3 lines
+      1628      cursor: wait !important;
+      1629  }
+      1630
+      1631 -#app-select {
+      1631 +#app-select, #app-subselect {
+      1632      font-size: 16px;
+      1633      width: 200px;
+      1634      border: none;
+     ...
+      1638      cursor: pointer;
+      1639  }
+      1640
+      1641 -#app-select option {
+      1641 +#app-subselect {
+      1642 +    margin-left: 8px;
+      1643 +}
+      1644 +
+      1645 +#app-select option, #app-subselect option {
+      1646      font-size: 16px;
+      1647  }
+      1648
+      1645 -#app-select:focus {
+      1649 +#app-select:focus, #app-subselect:focus {
+      1650      outline: none;
+      1651  }
+	  
+	  
+Update(inventory\static\inventory\css\inventory.css)
+  ⎿  Added 1 line, removed 1 line
+      1639  }
+      1640
+      1641  #app-subselect {
+      1642 -    margin-left: 8px;
+      1642 +    margin-left: 20px;
+      1643  }

@@ -1,0 +1,14 @@
+{
+  "main": [
+    {"key": "inventory", "label": "Inventory View", "url_name": "inventory:server_view"},
+    {"key": "businesscontinuity", "label": "Continuity View", "url_name": "businesscontinuity:server_view"},
+    {"key": "discrepancies", "label": "Discrepancies Dashboard", "url_name": "discrepancies:dashboard_view", "permission": "discrepancies.access", "new_tab": true},
+    {"key": "storage", "label": "Storage View", "url_name": "storage:shares"},
+    {"key": "accessrights", "label": "Access Rights", "url_name": "accessrights:dashboard", "permission": "accessrights.admin", "new_tab": true}
+  ],
+  "sub": {
+    "inventory": [
+      {"label": "Inventory History", "url_name": "inventory:history_query", "permission": "inventory.history"}
+    ]
+  }
+}
