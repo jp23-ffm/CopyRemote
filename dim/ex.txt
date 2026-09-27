@@ -1,0 +1,8 @@
+ Résumé des changements :
+  - common/nav_config.json — l'entrée History a maintenant une key: "history"
+  - common/templatetags/nav_tags.py — render_nav accepte un 2ème paramètre optionnel current_page ; sert à marquer
+    l'entrée sub correspondante comme sélectionnée par défaut
+  - common/templates/common/nav_selector.html — le sous-sélecteur ne s'affiche que si nav_sub a plus d'1 entrée ; "More
+    pages…" reste le défaut seulement si aucune entrée sub ne matche current_page
+
+  Pour l'utiliser plus tard sur la page History elle-même : {% render_nav 'inventory' 'history' %}.
