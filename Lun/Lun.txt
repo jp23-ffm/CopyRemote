@@ -1,0 +1,25 @@
+ - discrepancies/breakdown_groups.json — nouvelle section region_groups : {"EMEA + MEAA": ["EMEA", "MEAA"]}. C'est là
+    qu'on ajoute/modifie les régions mix, sans toucher au code.
+  - discrepancies/views.py :
+    - _region_groups() — lit cette config.
+    - _available_regions() — ajoute les combos configurés à la suite des vraies régions trouvées en base.
+    - _merge_cross_cells() — additionne les cellules de plusieurs régions réelles (pour les cartes et la recap table).
+    - _region_scoped_card() et _build_recap_table() — détectent un combo et agrègent sur ses régions membres au lieu
+      d'un match exact.
+	  
+
+  - discrepancies/views.py :
+    - _pamela_area_filter(qs, region) — nouveau helper (miroir de _pamela_bucket_filter), comprend un combo
+      region_groups et l'applique en OR sur le champ area (commun à DailyPamelaDBSummary et ServerDiscrepancyPamela).
+    - Branché dans les 3 vues (pamela_dashboard_view, pamela_dashboard_filter_api, pamela_dashboard_export_excel).
+    - all_regions inclut maintenant les combos configurés.
+    - Le lien du widget vers la page Servers traduit le nom du combo en régions réelles séparées par virgule
+      (region=EMEA,MEAA), car la page Servers ne connaît que ses vraies valeurs area, pas les noms de combo.
+  - discrepancies/templates/discrepancies/pamela_dashboard.html — même traduction côté JS (PAMELA_REGION_GROUPS) pour le
+    clic AJAX sur le sélecteur Region sans rechargement de page.
+
+  Même config region_groups réutilisée (breakdown_groups.json) — pas besoin de la dupliquer, et c'est justement là que
+  "EMEA + MEAA" a du vrai sens puisque MEAA existe réellement côté Pamela. Vérifié bout en bout (chargement complet +
+  AJAX) : jauge et clic-through cohérents (17 = 17), export Excel aussi OK.
+  
+  
