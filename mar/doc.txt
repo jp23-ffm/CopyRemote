@@ -1,0 +1,35 @@
+  python manage.py export_bc_changes                                      # aujourd'hui
+  python manage.py export_bc_changes --from 2026-05-01 --to 2026-05-31    # entre 2 dates (incluses)
+  python manage.py export_bc_changes --from 2026-05-23 --hostname DB35501D
+  python manage.py export_bc_changes --output C:/chemin/fichier.csv
+  Par défaut, le fichier bc_changes_<from>_<to>.csv est créé dans le dossier courant. Il est séparé par ; et encodé en
+  UTF-8 avec BOM, pour qu'Excel l'ouvre correctement.
+  
+ 
+Invoke-RestMethod http://localhost:8765/stats
+  Invoke-RestMethod http://localhost:8765/running
+  
+        35 +  [parameter(Mandatory=$False)] [ValidateSet($True,$False)] $PathsCheck=$True,
+      36 +  [parameter(Mandatory=$False)] [Switch] $UseLiveServer=$False,
+      37 +  [parameter(Mandatory=$False)] [int] $LiveServerPort=8765
+	  
+Hydra7.ps1 : deux paramètres ajoutés à la fin du bloc Param(...), avec une virgule après $PathsCheck=$True :
+    [parameter(Mandatory=$False)] [ValidateSet($True,$False)] $PathsCheck=$True,
+    [parameter(Mandatory=$False)] [Switch] $UseLiveServer=$False,
+    [parameter(Mandatory=$False)] [int] $LiveServerPort=8765
+
+  GUI\Hydra7_Addon_LiveServer.ps1 : la ligne $Script:LiveServerPort=8765 est remplacée par :
+  if (!$UseLiveServer) { return }  # Only started with -UseLiveServer (port set by -LiveServerPort)
+  Le return arrête seulement le chargement de l'addon, pas Hydra : les autres addons et le reste du démarrage continuent
+  normalement. Le port vient maintenant du paramètre -LiveServerPort. J'ai aussi ajouté une ligne dans l'en-tête de
+  l'addon pour indiquer comment l'activer.
+
+  Utilisation :
+  .\Hydra7.ps1 -UseLiveServer                         # port 8765
+  .\Hydra7.ps1 -UseLiveServer -LiveServerPort 9000
+  Si vous démarrez Hydra via Hydra_Start.cmd, il faut ajouter -UseLiveServer à la ligne de commande dans ce fichier.
+
+  Vérifications :
+  - Syntaxe : les deux fichiers passent le parseur PowerShell sans erreur.
+  - Comportement du return : testé à part sur un petit script de test, il fonctionne comme prévu.
+  - Non testé : je n'ai pas lancé Hydra lui-même avec ces modifications.
