@@ -1,0 +1,360 @@
+{% extends 'discrepancies/discrepancies_dashboard_base.html' %}
+
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block dashboard_title %}{{ title }}{% endblock %}
+
+{% block dashboard_meta %}
+    {% if not no_data %}
+        Last analysis: {{ snapshot.analysis_date|date:"d M Y H:i" }} &middot;
+    {% endif %}
+    <a href="{% url 'storage:disc_dashboard' other_type %}" style="color: inherit;">{{ other_label }} dashboard &rarr;</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard, .dashboard-header { max-width: 100%; }
+    body { background-color: #f4f6f9; }
+    [data-theme="dark-mode"] body { background-color: #161b22; }
+    .dashboard-header {
+        background: #fff; border-radius: 12px; padding: 18px 28px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 5px solid #A0826D; margin-bottom: 28px;
+    }
+    [data-theme="dark-mode"] .dashboard-header { background: #1e1e2e; border-left-color: #B8956A; }
+    .dashboard-header h1 { font-size: 1.5rem; }
+
+    /* Gauges — same sizing as the Pamela dashboard */
+    .hero-section { display: flex; justify-content: center; gap: 100px; flex-wrap: wrap; }
+    .hero-gauge { padding: 20px; max-width: 320px; flex: 0 0 auto; margin: 0; }
+    .hero-gauge-card { padding: 24px 32px; }
+    .hero-gauge-card h2 { font-size: 1.1rem; margin-bottom: 16px; color: var(--text-secondary); }
+    .hero-gauge-container { width: 200px; height: 100px; }
+    .hero-gauge-value { font-size: 2rem; }
+    .hero-gauge-stats { margin-top: 20px; font-size: 0.88rem; gap: 0; }
+    .hero-gauge-stats > div { padding: 0 14px; }
+    .stat-clean span  { color: #28a745; font-weight: 700; }
+    .stat-issues span { color: #dc3545; font-weight: 700; }
+    .stat-total span  { color: var(--text-primary); font-weight: 700; }
+    .stat-clean-small span  { color: #28a745; font-size: 12px; }
+    .stat-issues-small span { color: #dc3545; font-size: 12px; }
+    .stat-total-small span  { color: var(--text-primary); font-size: 12px; }
+    .gauge-card { border-radius: 10px; padding: 18px 16px; }
+    .gauge-card-canvas-container { width: 150px; height: 100px; }
+    .gauge-card-value { font-size: 1.5rem; }
+    .gauge-card-header { min-height: 48px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .gauge-card-title { font-size: 0.9rem; text-align: center; white-space: normal; }
+    .gauges-grid {
+        background: transparent; gap: 16px; padding-left: 60px; padding-right: 60px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); justify-content: center;
+    }
+
+    /* Filter bar (Scope / Days open) */
+    .pf-bar { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 20px; padding: 0 4px; gap: 12px; }
+    #pf-bar-right { display: flex; align-items: flex-end; gap: 28px; flex-shrink: 0; padding-right: 20px; }
+    .pf-group { display: flex; flex-direction: column; gap: 3px; }
+    .pf-label { font-size: 0.8rem; font-weight: 600; color: #999; padding-left: 2px; }
+    [data-theme="dark-mode"] .pf-label { color: #777; }
+    .pf-select, .pf-days-row, .pf-link-btn {
+        background: #fff; border: 1px solid #d0c4bc; border-radius: 7px; padding: 9px 14px;
+        font-size: 0.94rem; color: #5a4a42; line-height: 1.4;
+    }
+    .pf-link-btn { text-decoration: none; font-weight: 500; }
+    .pf-link-btn:hover { border-color: #A0826D; color: #A0826D; }
+    [data-theme="dark-mode"] .pf-select,
+    [data-theme="dark-mode"] .pf-days-row,
+    [data-theme="dark-mode"] .pf-link-btn { background: #1e1e2e; border-color: #3d2b1f; color: #c9a07a; }
+    .pf-days-row { display: flex; align-items: center; gap: 4px; padding: 9px 10px; }
+    .pf-days-widget.active .pf-days-row { border-color: #A0826D; }
+    .pf-days-preset { font-size: 0.85rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; color: #999; user-select: none; }
+    .pf-days-preset:hover { background: #f5ede8; color: #A0826D; }
+    .pf-days-preset.active { background: #A0826D; color: #fff; font-weight: 600; }
+    [data-theme="dark-mode"] .pf-days-preset:hover { background: #2d1f16; color: #B8956A; }
+    [data-theme="dark-mode"] .pf-days-preset.active { background: #B8956A; color: #1e1e2e; }
+    .pf-days-sep { color: #ddd; font-size: 0.8rem; margin: 0 2px; }
+    #pf-days-input { width: 44px; border: none; background: transparent; font-size: 0.9rem; color: inherit; text-align: center; outline: none; }
+    #pf-days-clear { border: none; background: transparent; color: #bbb; cursor: pointer; font-size: 1rem; padding: 0 1px; }
+    #pf-days-clear:hover { color: #A0826D; }
+</style>
+{% endblock %}
+
+{% block no_data_message %}No analysis yet for {{ item_label }}. Run <code>python manage.py analyze_storage_discrepancies --type {{ resource_type }}</code>.{% endblock %}
+
+{% block hero_section %}
+    <div class="pf-bar">
+        <div></div>
+        <div id="pf-bar-right">
+            <a class="pf-link-btn" id="list-link" href="{{ list_url }}" target="_blank" rel="noopener noreferrer">All discrepancies &rarr;</a>
+            <div id="pf-days-widget" class="pf-group pf-days-widget">
+                <div class="pf-label">Days open &ge;</div>
+                <div class="pf-days-row">
+                    <span class="pf-days-preset" data-days="7">7</span>
+                    <span class="pf-days-preset" data-days="15">15</span>
+                    <span class="pf-days-preset" data-days="30">30</span>
+                    <span class="pf-days-preset" data-days="90">90</span>
+                    <span class="pf-days-sep">|</span>
+                    <input type="number" id="pf-days-input" min="1" placeholder="—" autocomplete="off">
+                    <button id="pf-days-clear" title="Show all" style="display:none">&times;</button>
+                </div>
+            </div>
+            <div class="pf-group">
+                <div class="pf-label">Region</div>
+                <select id="pf-region" class="pf-select">
+                    <option value="">All regions</option>
+                    {% for r in all_regions %}
+                    <option value="{{ r }}" {% if r == region %}selected{% endif %}>{{ r }}</option>
+                    {% endfor %}
+                    {% for g in region_group_names %}
+                    <option value="{{ g }}" {% if g == region %}selected{% endif %}>{{ g }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="pf-group">
+                <div class="pf-label">Scope</div>
+                <select id="pf-scope" class="pf-select">
+                    <option value="">All scopes</option>
+                    {% for s in all_scopes %}
+                    <option value="{{ s }}" {% if s == scope %}selected{% endif %}>{{ s }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="hero-section">
+        {% for w in widgets %}{% if w.size == 'large' %}
+        <div class="hero-gauge">
+            <a href="{{ w.base_link }}" class="hero-gauge-card" data-gauge-id="{{ w.id }}" data-base-link="{{ w.base_link }}"
+               target="_blank" rel="noopener noreferrer" data-info="{{ w.info }}">
+                <h2>{{ w.title|linebreaksbr }}</h2>
+                <div class="hero-gauge-container">
+                    <canvas id="gauge-{{ w.id }}" style="margin-top: -30px; display: inline"></canvas>
+                    <div class="hero-gauge-value" id="val-{{ w.id }}">{{ w.display_value }}</div>
+                </div>
+                <div class="hero-gauge-stats">
+                    <div class="stat-issues">Issues <span id="issues-{{ w.id }}">{{ w.issues }}</span></div>
+                    <div class="stat-clean">OK <span id="clean-{{ w.id }}">{{ w.clean }}</span></div>
+                    <div class="stat-total">Total <span id="total-{{ w.id }}">{{ w.total }}</span></div>
+                </div>
+                <div class="gauge-tooltip">{{ w.info }}</div>
+            </a>
+        </div>
+        {% endif %}{% endfor %}
+    </div>
+{% endblock %}
+
+{% block widgets_grid %}
+    <div class="gauges-grid">
+        {% for w in widgets %}{% if w.size == 'small' %}
+        <a href="{{ w.base_link }}" class="gauge-card" data-gauge-id="{{ w.id }}" data-base-link="{{ w.base_link }}"
+           target="_blank" rel="noopener noreferrer" data-info="{{ w.info }}">
+            <div class="gauge-card-header">
+                <h3 class="gauge-card-title">{{ w.title }}</h3>
+            </div>
+            <div class="gauge-card-canvas-container">
+                <canvas id="gauge-{{ w.id }}" style="margin-top: -30px; display: inline"></canvas>
+                <div class="gauge-card-value" id="val-{{ w.id }}">{{ w.display_value }}</div>
+            </div>
+            <div class="hero-gauge-stats">
+                <div class="stat-issues-small">Issues <span id="issues-{{ w.id }}">{{ w.issues }}</span></div>
+                <div class="stat-clean-small">OK <span id="clean-{{ w.id }}">{{ w.clean }}</span></div>
+                <div class="stat-total-small">Total <span id="total-{{ w.id }}">{{ w.total }}</span></div>
+            </div>
+            <div class="gauge-tooltip">{{ w.info }}</div>
+        </a>
+        {% endif %}{% endfor %}
+    </div>
+{% endblock %}
+
+{% block historic_section %}
+    <div class="historic-section">
+        <div class="historic-header">
+            <h2>Quality Trend <span id="trend-period-label">(30 days)</span></h2>
+            <div class="selector-group">
+                <select id="sd-period" class="metric-selector period-selector">
+                    <option value="7">7 days</option>
+                    <option value="30" selected>30 days</option>
+                    <option value="90">90 days</option>
+                    <option value="365">1 year</option>
+                    <option value="all">All time</option>
+                </select>
+                <select id="sd-metric" class="metric-selector">
+                    {% for m in trend_metrics %}
+                    <option value="{{ m.metric }}" data-color="{{ m.color }}">{{ m.label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="trend-chart-container">
+            <canvas id="trend-chart"></canvas>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    {% if not no_data %}
+    <script src="{% static 'discrepancies/js/trend.js' %}"></script>
+    <script>
+        const FILTER_API_URL = "{% url 'storage:disc_dashboard_filter_api' resource_type %}";
+        const TREND_URL = "{% url 'storage:disc_trend_api' resource_type %}";
+        const LIST_URL = "{{ list_url }}";
+
+        /* ---- Gauges ---- */
+        const gauges = {};
+        const GAUGE_CONF = {
+            {% for w in widgets %}
+            '{{ w.id }}': { thresholds: {{ w.thresholds|safe }}, colors: {{ w.colors|safe }}, isLarge: {% if w.size == 'large' %}true{% else %}false{% endif %} },
+            {% endfor %}
+        };
+        {% for w in widgets %}
+        gauges['{{ w.id }}'] = createGauge('gauge-{{ w.id }}', {{ w.value }}, GAUGE_CONF['{{ w.id }}'].thresholds, GAUGE_CONF['{{ w.id }}'].colors, GAUGE_CONF['{{ w.id }}'].isLarge);
+        {% endfor %}
+
+        let _region = "{{ region|escapejs }}";
+        let _scope = "{{ scope|escapejs }}";
+        let _daysOpen = parseInt("{{ days_open }}") || 0;
+        let _refreshToken = 0;
+
+        // group label -> real regions (e.g. "EMEA + MEAA" -> ["EMEA", "MEAA"])
+        const REGION_GROUPS = {{ region_groups_json|safe }};
+
+        // Region/scope/days params for the list page (region / scope / daysopen are its column
+        // filter names); a region group is expanded to its real regions, OR'd as @EMEA,@MEAA
+        function _listParams() {
+            const p = new URLSearchParams();
+            if (_region) p.set('region', (REGION_GROUPS[_region] || [_region]).map(r => '@' + r).join(','));
+            if (_scope) p.set('scope', '@' + _scope);
+            if (_daysOpen) p.set('daysopen', _daysOpen);
+            return p;
+        }
+
+        function _mergeLink(base) {
+            const idx = base.indexOf('?');
+            const merged = new URLSearchParams(idx >= 0 ? base.slice(idx + 1) : '');
+            for (const [k, v] of _listParams()) merged.set(k, v);
+            const qs = merged.toString();
+            return (idx >= 0 ? base.slice(0, idx) : base) + (qs ? '?' + qs : '');
+        }
+
+        function _syncPageUrl() {
+            const p = new URLSearchParams();
+            if (_region) p.set('region', _region);
+            if (_scope) p.set('scope', _scope);
+            if (_daysOpen) p.set('days_open', _daysOpen);
+            history.replaceState(null, '', window.location.pathname + (p.toString() ? '?' + p.toString() : ''));
+            document.getElementById('list-link').href = _mergeLink(LIST_URL);
+            document.querySelectorAll('[data-gauge-id]').forEach(function (card) {
+                card.href = _mergeLink(card.dataset.baseLink);
+            });
+        }
+
+        async function refreshGauges() {
+            _syncPageUrl();
+            const token = ++_refreshToken;
+            const p = new URLSearchParams();
+            if (_region) p.set('region', _region);
+            if (_scope) p.set('scope', _scope);
+            if (_daysOpen) p.set('days_open', _daysOpen);
+            const resp = await fetch(FILTER_API_URL + '?' + p.toString());
+            const data = await resp.json();
+            if (token !== _refreshToken) return;
+            const total = data.population;
+            Object.entries(GAUGE_CONF).forEach(function ([id, conf]) {
+                const issues = id === 'any_missing' ? data.any_missing : (data.field_counts[id] || 0);
+                const clean = Math.max(0, total - issues);
+                const pct = total > 0 ? Math.trunc(clean / total * 10000) / 100 : 100;
+                const chart = gauges[id];
+                if (chart) {
+                    chart.data.datasets[0].data = [pct, 100 - pct];
+                    chart.data.datasets[0].backgroundColor[0] = getColorForValue(pct, conf.thresholds, conf.colors);
+                    chart.update('none');
+                }
+                document.getElementById('val-' + id).textContent = pct + '%';
+                document.getElementById('issues-' + id).textContent = issues.toLocaleString();
+                document.getElementById('clean-' + id).textContent = clean.toLocaleString();
+                document.getElementById('total-' + id).textContent = total.toLocaleString();
+            });
+            refreshTrend();
+        }
+
+        /* ---- Region / Scope ---- */
+        document.getElementById('pf-region').addEventListener('change', function (e) {
+            _region = e.target.value;
+            refreshGauges();
+        });
+        document.getElementById('pf-scope').addEventListener('change', function (e) {
+            _scope = e.target.value;
+            refreshGauges();
+        });
+
+        /* ---- Days open ---- */
+        function _setDaysOpenUI(val) {
+            document.getElementById('pf-days-input').value = val > 0 ? val : '';
+            document.getElementById('pf-days-clear').style.display = val > 0 ? '' : 'none';
+            document.getElementById('pf-days-widget').classList.toggle('active', val > 0);
+            document.querySelectorAll('.pf-days-preset').forEach(function (el) {
+                el.classList.toggle('active', parseInt(el.dataset.days) === val);
+            });
+        }
+        function _setDaysOpen(val) {
+            _daysOpen = val;
+            _setDaysOpenUI(val);
+            refreshGauges();
+        }
+        document.querySelectorAll('.pf-days-preset').forEach(function (el) {
+            el.addEventListener('click', function () {
+                const d = parseInt(el.dataset.days);
+                _setDaysOpen(_daysOpen === d ? 0 : d);
+            });
+        });
+        document.getElementById('pf-days-clear').addEventListener('click', function () { _setDaysOpen(0); });
+        let _daysTimer = null;
+        document.getElementById('pf-days-input').addEventListener('input', function (e) {
+            clearTimeout(_daysTimer);
+            _daysTimer = setTimeout(function () {
+                const raw = parseInt(e.target.value);
+                _setDaysOpen(!isNaN(raw) && raw > 0 ? raw : 0);
+            }, 500);
+        });
+        _setDaysOpenUI(_daysOpen);
+        _syncPageUrl();
+
+        /* ---- Quality trend (scope-aware; own selectors, not trend.js's default ones) ---- */
+        const initialTrend = {{ trend_data_json|safe }};
+        const metricSel = document.getElementById('sd-metric');
+        const periodSel = document.getElementById('sd-period');
+        initTrendChart(initialTrend.labels, initialTrend.values,
+            metricSel.selectedOptions[0].dataset.color, metricSel.selectedOptions[0].text);
+
+        let _trendToken = 0;
+        async function refreshTrend() {
+            const opt = metricSel.selectedOptions[0];
+            const p = new URLSearchParams({ metric: opt.value, days: periodSel.value });
+            if (_region) p.set('region', _region);
+            if (_scope) p.set('scope', _scope);
+            const token = ++_trendToken;
+            const resp = await fetch(TREND_URL + '?' + p.toString());
+            const data = await resp.json();
+            if (token !== _trendToken) return;
+            const ds = trendChart.data.datasets[0];
+            trendChart.data.labels = data.labels;
+            ds.data = data.values;
+            ds.borderColor = opt.dataset.color;
+            ds.backgroundColor = opt.dataset.color + '33';
+            ds.label = opt.text;
+            trendChart.update('active');
+        }
+        metricSel.addEventListener('change', refreshTrend);
+        periodSel.addEventListener('change', function () {
+            document.getElementById('trend-period-label').textContent =
+                '(' + (PERIOD_LABELS[periodSel.value] || periodSel.value + ' days') + ')';
+            refreshTrend();
+        });
+    </script>
+    {% endif %}
+
+    {% include 'common/settings_modal.html' %}
+    <script src="{% static 'common/js/settings-modal.js' %}"></script>
+    <script>initSettingsModal('storage');</script>
+{% endblock %}
