@@ -1,0 +1,134 @@
+● Je vais modifier uniquement api/views_v2.py (QueryBuilderView) pour ajouter une clé optionnelle dans le JSON, en ne
+  gardant que les champs réellement présents sur le modèle, tout en préservant ceux passant par ALIAS_MAP (comme
+  priority_asset) qui ne sont pas des champs directs.
+
+● Update(api\views_v2.py)
+  ⎿  Added 2 lines
+      1283                  exclude_cfg = data.get('query_builder_exclude', {})
+      1284                  exclude_cats = set(exclude_cfg.get('categories', []))
+      1285                  exclude_fields = set(exclude_cfg.get('fields', []))
+      1286 +                # Optional: restrict to fields that really exist on the target model
+      1287 +                model_fields = self._get_model_field_names(app, data.get('model_to_use'))
+      1288                  fields = [
+      1289                      {
+      1290                          'name': field_name,
+  ⎿  Allowed by auto mode classifier
+
+● Update(api\views_v2.py)
+  ⎿  Added 1 line
+      1294                      for field_name, props in data.get('fields', {}).items()
+      1295                      if props.get('selectionsection', '') not in exclude_cats
+      1296                      and field_name not in exclude_fields
+      1297 +                    and (model_fields is None or field_name in model_fields)
+      1298                  ]
+      1299                  fields_data[app] = {
+      1300                      'categories': data.get('categories', {}),
+  ⎿  Allowed by auto mode classifier
+
+● Update(api\views_v2.py)
+  ⎿  Added 13 lines
+      1304                  fields_data[app] = {'categories': {}, 'fields': []}
+      1305          ctx['fields_json'] = json.dumps(fields_data)
+      1306          return ctx
+      1307 +
+      1308 +    @staticmethod
+      1309 +    def _get_model_field_names(app, model_ref):
+      1310 +        """Return the set of usable field names for model_ref ('Model' or 'app.Model'), or None if un
+           +set/unknown."""
+      1311 +        if not model_ref:
+      1312 +            return None
+      1313 +        try:
+      1314 +            model = apps.get_model(model_ref) if '.' in model_ref else apps.get_model(app, model_ref)
+      1315 +        except LookupError:
+      1316 +            logger.warning(f"QueryBuilder: unknown model_to_use '{model_ref}' in {app}/field_labels.j
+           +son")
+      1317 +            return None
+      1318 +        # Aliases (e.g. priority_asset) are not direct model fields but are valid in queries
+      1319 +        return {f.name for f in model._meta.concrete_fields} | set(SrvPropView.ALIAS_MAP)
+      1320
+      1321   No newline at end of file
+  ⎿  Allowed by auto mode classifier
+
+  Searched for 1 pattern (ctrl+o to expand)
+
+● PowerShell(python manage.py check 2>&1 | Select-Object -Last 3)
+  ⎿  System check identified no issues (0 silenced).
+  ⎿  Allowed by auto mode classifier
+
+● PowerShell(python manage.py shell -c "from api.views_v2 import QueryBuilderView as Q;
+            s=Q._get_model_field_names('inventory','Server'); print(len(s), 'HOSTNAME' in s, 'pri…)
+  ⎿  102 False True
+     True
+     None
+     … +2 lines (ctrl+o to expand)
+  ⎿  Allowed by auto mode classifier
+
+● PowerShell(python manage.py shell -c "from inventory.models import Server; print([f.name for f in
+            Server._meta.concrete_fields][:15])")
+  ⎿  65 objects imported automatically (use -v 2 for details).
+
+     ['id', 'APP_DESCRIPTION', 'APP_MANAGER', 'APP_CRITICALITY', 'APP_ITCLUSTER', 'APP_OWNERBUSINESSLINE', 'APP_PRO
+     … +3 lines (ctrl+o to expand)
+  ⎿  Allowed by auto mode classifier
+
+● PowerShell(python manage.py shell -c "from inventory.models import Server; print([f.name for f in
+            Server._meta.concrete_fields if 'HOST' in f.name.upper() or 'SERVER' in f…)
+  ⎿  ['OPENSTACK_HOST', 'SERVER_ID', 'SERVER_IP', 'SERVER_ORPHAN', 'VPIC_HOST']
+  ⎿  Allowed by auto mode classifier
+
+● Oui, c'est fait, sans trop d'effort. Une seule modification, dans api/views_v2.py (QueryBuilderView).
+
+  Ce qui change :
+  - Le JSON accepte une nouvelle clé optionnelle model_to_use, en minuscules comme les autres clés
+    (query_builder_exclude, categories).
+  - La valeur peut être le nom du modèle seul, cherché dans l'app du JSON : "model_to_use": "Schedpatch".
+  - Elle peut aussi préciser l'app : "model_to_use": "autreapp.Schedpatch".
+  - Quand la clé est là, seuls les champs du JSON qui existent vraiment sur ce modèle sont proposés.
+  - Les clés de SrvPropView.ALIAS_MAP restent autorisées, sinon priority_asset & co disparaîtraient de la liste.
+  - Sans la clé, ou avec un modèle introuvable, la liste reste comme avant. Un nom de modèle introuvable écrit en plus
+    un warning dans le logger chimera.api.
+
+  À savoir : le filtre s'applique au niveau de l'index, donc à toutes les listes du builder (champs, filtres, unify,
+  enrich) et pas seulement à l'Enrich. Je pense que c'est ce qu'on veut : un champ absent du modèle ne fonctionne nulle
+  part.
+
+  Vérifié :
+  - manage.py check ne remonte aucune erreur.
+  - J'ai testé la fonction de résolution dans manage.py shell : modèle seul, app.Model et nom invalide se comportent
+    comme prévu.
+  - Je n'ai pas chargé la page du builder dans le navigateur. Comme aucun JSON ici n'a la clé, l'affichage actuel ne
+    bouge pas.
+
+  En passant : sur inventory.Server, il n'y a pas de champ HOSTNAME (il y a SERVER_ID, SERVER_IP…). Si tu mets
+  model_to_use sur l'inventory, HOSTNAME disparaîtra de la liste, s'il est dans le JSON.
+
+  Pour ton autre app, il suffit d'ajouter "model_to_use": "Schedpatch" à la racine de son field_labels.json. Il faut
+  aussi que l'app soit lue par le builder : pour l'instant la boucle ne lit que inventory, businesscontinuity et
+  discrepancies.
+
+✻ Baked for 58s · done 18:12
+
+> en fait, je suis plus trop sûr. Peut être qu'un tag dans le json, par entrée, comme query_builder=false serait plus
+  simple et ne toucherait pas du tout au code python ?
+
+● Un tag par entrée demanderait quand même du code. La vue construit la liste elle-même, donc il faudrait qu'elle lise
+  ce nouveau flag : une ligne dans le filtre de QueryBuilderView, du genre and props.get('query_builder', True). Pas
+  énorme, mais pas zéro.
+
+  Par contre, ce que tu veux existe déjà sans toucher au code. Le bloc query_builder_exclude du JSON accepte une liste
+  de champs :
+
+  "query_builder_exclude": {
+      "categories": [],
+      "fields": ["CHAMP_A", "CHAMP_B"]
+  }
+
+  Les deux solutions manuelles ont le même défaut : il faut tenir la liste à jour à la main. Avec beaucoup de champs qui
+  ne sont pas au bon modèle, c'est fastidieux et ça dérive avec le temps. model_to_use filtre tout seul à partir du
+  vrai modèle et reste juste si le modèle change.
+
+  Ma recommandation : garder model_to_use pour le gros du tri, et query_builder_exclude.fields pour les quelques
+  exceptions.
+
+  Si tu préfères la solution sans code, je retire ma modif de api/views_v2.py et tu passes par query_builder_exclude. Je
+  retire ?
