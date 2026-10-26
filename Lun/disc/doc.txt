@@ -1,0 +1,86 @@
+● Update(discrepancies\views.py)
+  ⎿  Added 16 lines, removed 21 lines
+      243          listbox_value=val.get("listbox", '')
+      244          listempty_value=val.get("listempty", '')
+      245          if listbox_value:
+      246 -            cache_key = f"listbox_disc_{key}"
+      247 -            listbox_evaluated_disc = cache.get(cache_key)
+      248 -            if listbox_evaluated_disc is None:
+      249 -                if listempty_value =="True":
+      250 -                    # listextra: additional markers produced by the analysis (e.g. retired application
+          -)
+      251 -                    listbox_evaluated_disc = ['MISSING'] + [x.strip() for x in val.get("listextra", ''
+          -).split(',') if x.strip()]
+      252 -                else:
+      253 -                    listbox_evaluated_disc = ServerDiscrepancy.objects.values_list(key, flat=True).dis
+          -tinct().order_by(key)
+      246 +            if listempty_value =="True":
+      247 +                # listextra: additional markers produced by the analysis (e.g. retired application)
+      248 +                listbox_evaluated_disc = ['MISSING'] + [x.strip() for x in val.get("listextra", '').sp
+          +lit(',') if x.strip()]
+      249 +            else:
+      250 +                # Options reflect the current filter (no cache: values depend on the request)
+      251 +                listbox_evaluated_disc = all_servers.values_list(key, flat=True).distinct().order_by(k
+          +ey)
+      252
+      255 -                if listbox_evaluated_disc:  # Sort the entry to put "EMPTY" at the end
+      256 -                    listbox_evaluated_disc = list(listbox_evaluated_disc)
+      257 -                    if any(x is None or x.upper() == "EMPTY" for x in listbox_evaluated_disc):
+      258 -                        has_na = any(isinstance(x, str) and x.upper() == "EMPTY" for x in listbox_eval
+          -uated_disc)  #"EMPTY" in listbox_evaluated_disc
+      259 -                        listbox_evaluated_disc = [
+      260 -                            x for x in listbox_evaluated_disc if x is not None and x != "" and x.upper
+          -() != "EMPTY"
+      261 -                        ]
+      253 +            if listbox_evaluated_disc:  # Sort the entry to put "EMPTY" at the end
+      254 +                listbox_evaluated_disc = list(listbox_evaluated_disc)
+      255 +                if any(x is None or x.upper() == "EMPTY" for x in listbox_evaluated_disc):
+      256 +                    has_na = any(isinstance(x, str) and x.upper() == "EMPTY" for x in listbox_evaluate
+          +d_disc)  #"EMPTY" in listbox_evaluated_disc
+      257 +                    listbox_evaluated_disc = [
+      258 +                        x for x in listbox_evaluated_disc if x is not None and x != "" and x.upper() !
+          += "EMPTY"
+      259 +                    ]
+      260
+      263 -                        listbox_evaluated_disc.sort()
+      264 -                        if has_na:
+      265 -                            listbox_evaluated_disc.append("EMPTY")
+      266 -
+      267 -                cache.set(cache_key, listbox_evaluated_disc, timeout=3600)  # Cache for 1 hour
+      268 -                cacheset=True
+      261 +                    listbox_evaluated_disc.sort()
+      262 +                    if has_na:
+      263 +                        listbox_evaluated_disc.append("EMPTY")
+      264          else:
+      265              listbox_evaluated_disc = ''
+      266
+  ⎿  Allowed by auto mode classifier
+
+● Bash(python -m py_compile discrepancies/views.py && echo OK)
+  ⎿  OK
+  ⎿  Allowed by auto mode classifier
+
+● J'ai modifié uniquement server_view dans discrepancies/views.py. Le fichier compile, mais je n'ai pas testé la page
+  dans le navigateur.
+
+  Ce qui change :
+  - Les listboxes sont maintenant calculées à partir de all_servers, donc avec tous les filtres en cours appliqués.
+    Avant, elles partaient de toute la table ServerDiscrepancy.
+  - J'ai supprimé le cache (cache.get / cache.set sur listbox_disc_{key}). Les listes sont recalculées à chaque
+    affichage de la page.
+
+  Ce qui ne change pas :
+  - Les listboxes listempty (MISSING + listextra) restent fixes, sans requête en base.
+  - Le tri qui met EMPTY à la fin est identique.
+  - cacheset reste à False : le template ne s'en sert que pour un console.log.
+
+  Le seul nouveau code est cette ligne :
+
+  # Options reflect the current filter (no cache: values depend on the request)
+  listbox_evaluated_disc = all_servers.values_list(key, flat=True).distinct().order_by(key)
+
+  Si des clés listbox_disc_* sont encore en cache, elles ne sont plus lues et expireront seules d'ici une heure. Il n'y
+  a rien à purger.
+
+  Pour vérifier : filtre sur Linux, puis contrôle que la listbox OS et celle des groupes de support ne proposent plus
+  d'options Windows.

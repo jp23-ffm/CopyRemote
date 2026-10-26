@@ -1,0 +1,74 @@
+● Bonne idée. C'est un garde-fou simple qui aurait bloqué ton incident. Il y a deux pièges à éviter, et j'ai trouvé un
+  autre endroit avec le même bug.
+
+  Piège 1 : le compteur à comparer
+
+  Le titre du modal affiche {{ page_obj.paginator.count }}, qui compte les lignes Server. Or total_updates compte les
+  ServerUnique distincts. Dès qu'un serveur a plusieurs applis ou databases, les deux chiffres diffèrent et le garde-fou
+  bloquerait tout. Il faut envoyer unique_servers_count (déjà dans le contexte, views.py:320), qui compte les SERVER_ID
+  distincts.
+
+  Fichiers à modifier
+
+  1. businesscontinuity/templates/businesscontinuity/servers.html : ajouter un champ caché dans bulkEditForm
+  2. businesscontinuity/views.py : faire la comparaison dans servers_bulk_update
+
+  1. servers.html, dans #bulkEditForm (vers la ligne 493)
+
+  <input type="hidden" name="query" value="{{ request.GET.urlencode }}">
+  <input type="hidden" name="expected_count" value="{{ unique_servers_count }}">
+
+  Je te conseille aussi d'afficher ce même chiffre dans le titre du modal (ligne 432) et dans le confirm() (ligne 1127).
+  Sinon l'utilisateur valide un nombre de lignes et le serveur en vérifie un autre :
+
+  <h2 class="modal-title">Bulk Edit ({{ unique_servers_count }} servers)</h2>
+  if (!confirm("Are you sure you want to apply the bulk update to the {{ unique_servers_count }} selected servers?")) {
+
+  2. views.py, servers_bulk_update, juste après total_updates = len(updates) (ligne 522)
+
+          total_updates = len(updates)
+
+          # Safety net: refuse if server-side filtering diverges from what the user saw in the modal
+          try:
+              expected_count = int(request.POST.get('expected_count', ''))
+          except ValueError:
+              return JsonResponse({'status': 'error', 'message': 'Missing or invalid expected server count.'},
+  status=400)
+
+          if expected_count != total_updates:
+              logger.warning(
+                  f"[Bulk Edit] {request.user.username} aborted — expected {expected_count}, "
+                  f"computed {total_updates}, query={query_param}"
+              )
+              return JsonResponse({
+                  'status': 'error',
+                  'message': f'Safety check failed: {expected_count} servers displayed but {total_updates} '
+                             f'would be updated. Bulk update aborted, nothing was modified.'
+              }, status=409)
+
+          if total_updates == 0:
+
+  Le JS gère déjà data.status === 'error' en affichant une alert, donc rien d'autre à changer côté front.
+
+  Piège 2 : les faux positifs possibles
+
+  - Données modifiées entre l'affichage et le clic (un import pendant que le modal est ouvert) : le bulk est bloqué.
+    C'est voulu, mieux vaut bloquer à tort que tout écraser.
+  - Un SERVER_ID sans ServerUnique correspondant : unique_servers_count le compte mais total_updates non, donc le bulk
+    serait bloqué à chaque fois sur ce filtre. Si ça arrive en pratique, compare plutôt
+    servers_to_bulkedit.values('SERVER_ID').distinct().count() à expected_count. Tu détectes toujours un filtre ignoré,
+    sans dépendre de la jointure.
+  - Ce n'est pas une protection de sécurité, puisque le client peut envoyer n'importe quelle valeur. Ça sert uniquement
+    à attraper les bugs de parsing, ce qui correspond à ton besoin.
+
+  Le même bug ailleurs
+
+  _build_filtered_queryset (views.py:1410, utilisé par reset_dr) contient la même ligne
+  'server_unique__original_action_during_lp': parsed_query.get('originalactionduringlp', ...). Si la vue appelée lit le
+  nouveau nom de paramètre, un reset DR filtré sur annotation touche tous les serveurs. C'est sans doute plus grave que
+  le bulk edit. Corrige-la et ajoute-lui le même garde-fou (reset_dr_preview donne probablement déjà un compteur à
+  réutiliser).
+
+  À plus long terme, ces deux blocs filters = {...} copiés-collés dans les vues sont la vraie cause. Les regrouper dans
+  une fonction partagée avec get_filtered_servers empêcherait que ça recommence. Je ne fais rien tant que tu ne me le
+  demandes pas.
