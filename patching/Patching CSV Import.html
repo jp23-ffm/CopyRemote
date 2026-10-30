@@ -1,0 +1,451 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Patching CSV Import</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one vertical pipeline, branch exits on the right, transaction steps framed together */
+:root {
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --fg: #1b2530;
+  --muted: #5b6875;
+  --line: #d3dbe3;
+  --accent: #2b5f8e;
+  --accent-soft: #e3edf6;
+  --tx: #6a4fa3;
+  --tx-soft: #f1ecfa;
+  --ok: #2e7d4f;
+  --ok-soft: #e4f3ea;
+  --warn: #9a6200;
+  --warn-soft: #fbf0db;
+  --stop: #a23b3b;
+  --stop-soft: #f9e6e6;
+  --idle: #6b7682;
+  --idle-soft: #eceff2;
+  --code-bg: #eef2f6;
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --surface: #1a2129; --fg: #e3e9ef; --muted: #98a5b2; --line: #2e3945;
+    --accent: #7fb0dc; --accent-soft: #1d2d3d; --tx: #b49be6; --tx-soft: #241e33;
+    --ok: #6cc391; --ok-soft: #17291f; --warn: #e2b05a; --warn-soft: #2e2414;
+    --stop: #e58a8a; --stop-soft: #321b1b; --idle: #9aa5b0; --idle-soft: #222a32;
+    --code-bg: #222b35; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --surface: #1a2129; --fg: #e3e9ef; --muted: #98a5b2; --line: #2e3945;
+  --accent: #7fb0dc; --accent-soft: #1d2d3d; --tx: #b49be6; --tx-soft: #241e33;
+  --ok: #6cc391; --ok-soft: #17291f; --warn: #e2b05a; --warn-soft: #2e2414;
+  --stop: #e58a8a; --stop-soft: #321b1b; --idle: #9aa5b0; --idle-soft: #222a32;
+  --code-bg: #222b35; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 64px;
+}
+.wrap { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 40px; }
+header h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; font-weight: 700; text-wrap: balance; }
+header p { margin: 0; color: var(--muted); max-width: 68ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+
+h2 { font-size: 20px; margin: 0 0 14px; text-wrap: balance; }
+.lead { margin: -6px 0 14px; color: var(--muted); font-size: 14px; max-width: 68ch; }
+
+/* Pipeline */
+.flow { display: flex; flex-direction: column; }
+.phase-label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0 0 8px 54px; }
+.row { display: grid; grid-template-columns: 40px minmax(0, 1fr) 260px; gap: 0 14px; align-items: start; }
+.rail { position: relative; align-self: stretch; display: flex; justify-content: center; }
+.rail::before { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: var(--line); }
+.row:first-child .rail::before { top: 18px; }
+.row.last .rail::before { bottom: auto; height: 18px; }
+.num {
+  position: relative; z-index: 1; margin-top: 10px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--accent); color: var(--surface);
+  font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums;
+}
+.tx .num { background: var(--tx); }
+.step {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 12px 16px; margin-bottom: 14px; min-width: 0;
+}
+.step h3 { margin: 0 0 4px; font-size: 16px; }
+.step p { margin: 0; color: var(--muted); font-size: 14px; }
+.step ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.step ul li + li { margin-top: 2px; }
+.where { font-size: 12.5px; color: var(--muted); margin-top: 8px; font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+.branch { position: relative; margin-top: 8px; margin-bottom: 14px; min-width: 0; }
+.branch::before {
+  content: ""; position: absolute; left: -14px; top: 22px; width: 14px;
+  border-top: 2px dashed var(--line);
+}
+.exit { border-radius: 8px; padding: 10px 12px; font-size: 13.5px; border: 1px solid; }
+.exit strong { display: block; font-size: 13.5px; margin-bottom: 2px; }
+.exit.skip { background: var(--idle-soft); border-color: var(--line); color: var(--fg); }
+.exit.stop { background: var(--stop-soft); border-color: transparent; color: var(--fg); }
+.exit.stop strong { color: var(--stop); }
+.exit.done { background: var(--ok-soft); border-color: transparent; }
+.exit.done strong { color: var(--ok); }
+
+/* Transaction frame */
+.txframe {
+  border: 2px solid var(--tx); border-radius: 12px; background: var(--tx-soft);
+  padding: 14px 14px 0 0; margin: 4px 0 18px; position: relative;
+}
+.txframe > .tx-title { margin: 0 0 12px 54px; font-size: 14px; font-weight: 600; color: var(--tx); }
+.txframe .row:first-of-type .rail::before { top: 0; }
+
+/* Flowcharts */
+.charts { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+.chart { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; min-width: 0; }
+.chart h3 { margin: 0 0 10px; font-size: 16px; }
+.chart .scroll { overflow-x: auto; }
+.chart pre.mermaid { background: transparent; padding: 0; margin: 0; text-align: center; font-family: var(--font-sans); }
+.chart p { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); }
+
+/* Decision table */
+.decide { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 14px; vertical-align: top; }
+th { font-weight: 600; background: var(--code-bg); }
+tr:last-child td { border-bottom: 0; }
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.p-ins { background: var(--accent-soft); color: var(--accent); }
+.p-upd { background: var(--warn-soft); color: var(--warn); }
+.p-none { background: var(--idle-soft); color: var(--idle); }
+
+/* Side notes */
+.notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; min-width: 0; }
+.note h3 { margin: 0 0 6px; font-size: 16px; }
+.note p { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.note p:last-child { margin-bottom: 0; }
+.bars { display: grid; gap: 8px; margin-top: 10px; }
+.bar { display: grid; grid-template-columns: 110px minmax(0, 1fr) 72px; gap: 10px; align-items: center; font-size: 13px; }
+.bar .track { height: 10px; background: var(--idle-soft); border-radius: 5px; overflow: hidden; }
+.bar .fill { display: block; height: 100%; border-radius: 5px; }
+.bar .val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+pre.sql {
+  margin: 0; background: var(--code-bg); border-radius: 8px; padding: 14px 16px;
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.5; overflow-x: auto; color: var(--fg);
+}
+pre.sql .c { color: var(--muted); }
+pre.sql .k { color: var(--tx); font-weight: 500; }
+.hl { background: var(--warn-soft); color: var(--warn); border-radius: 3px; }
+
+@media (max-width: 760px) {
+  .row { grid-template-columns: 32px minmax(0, 1fr); }
+  .row .rail { grid-row: span 2; }
+  .branch { grid-column: 2; margin-top: -6px; }
+  .branch::before { display: none; }
+  .phase-label, .txframe > .tx-title { margin-left: 46px; }
+  .notes, .charts { grid-template-columns: minmax(0, 1fr); }
+  header h1 { font-size: 25px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Patching CSV import</h1>
+    <p>Every 15 minutes, a CSV file of about 70,000 servers is loaded into Postgres. Only rows that actually changed are written, and nothing is ever deleted: a server missing from the file stays in the database as it is.</p>
+  </header>
+
+  <section>
+    <h2>Import steps</h2>
+    <div class="flow">
+
+      <p class="phase-label">Trigger</p>
+      <div class="row">
+        <div class="rail"><span class="num">1</span></div>
+        <div class="step">
+          <h3>Scheduled run</h3>
+          <p>A cron job (or systemd timer) runs the command every 15 minutes, outside Django web requests.</p>
+          <div class="where">manage.py import_patching &lt;file.csv&gt;</div>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="row">
+        <div class="rail"><span class="num">2</span></div>
+        <div class="step">
+          <h3>Overlap lock</h3>
+          <p>A Postgres lock ensures only one import runs at a time, even if the previous one takes longer than 15 minutes.</p>
+          <div class="where">pg_try_advisory_lock(...)</div>
+        </div>
+        <div class="branch">
+          <div class="exit skip"><strong>Lock already held</strong>An import is running: exit without doing anything.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="rail"><span class="num">3</span></div>
+        <div class="step">
+          <h3>Same file as last time?</h3>
+          <p>The file hash is compared with the hash of the last successful import. Outside patching campaigns, this is the most frequent case.</p>
+          <div class="where">sha256(file) == last hash</div>
+        </div>
+        <div class="branch">
+          <div class="exit skip"><strong>Identical</strong>Nothing to do, exit. Almost zero cost.</div>
+        </div>
+      </div>
+
+      <p class="phase-label">Preparation in Python</p>
+      <div class="row">
+        <div class="rail"><span class="num">4</span></div>
+        <div class="step">
+          <h3>Read and clean the CSV</h3>
+          <ul>
+            <li><code>;</code> delimiter, extra empty column from the trailing <code>;</code> ignored</li>
+            <li>Column names: <code>__</code> → <code>_</code> (Django forbids double underscores in field names)</li>
+            <li><code>null</code> → <code>EMPTY</code> on the relevant fields</li>
+            <li>All fields stay strings</li>
+          </ul>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="txframe">
+        <p class="tx-title">One single Postgres transaction: all or nothing</p>
+
+        <div class="row tx">
+          <div class="rail"><span class="num">5</span></div>
+          <div class="step">
+            <h3>Create the staging table</h3>
+            <p>Temporary table with the same columns as the real table. Only visible to this import, no Django model and no migration.</p>
+            <div class="where">CREATE TEMP TABLE ... ON COMMIT DROP</div>
+          </div>
+          <div class="branch">
+            <div class="exit stop"><strong>Error at any step</strong>ROLLBACK: the database stays exactly as before, the staging table disappears.</div>
+          </div>
+        </div>
+
+        <div class="row tx">
+          <div class="rail"><span class="num">6</span></div>
+          <div class="step">
+            <h3>Bulk load into staging</h3>
+            <p>The 70,000 cleaned rows are sent in one block. About one second, with no Postgres write-ahead log.</p>
+            <div class="where">COPY patching_staging FROM STDIN</div>
+          </div>
+          <div></div>
+        </div>
+
+        <div class="row tx last">
+          <div class="rail"><span class="num">7</span></div>
+          <div class="step">
+            <h3>Upsert into the real table</h3>
+            <p>One SQL query compares every staging row with the database and decides what to do (see the per-row flowchart below).</p>
+            <div class="where">INSERT ... ON CONFLICT (servername) DO UPDATE ... WHERE ... IS DISTINCT FROM ...</div>
+          </div>
+          <div></div>
+        </div>
+      </div>
+
+      <p class="phase-label">End</p>
+      <div class="row">
+        <div class="rail"><span class="num">8</span></div>
+        <div class="step">
+          <h3>COMMIT</h3>
+          <p>Users see the new state all at once, never a partial one. The staging table is dropped automatically.</p>
+        </div>
+        <div></div>
+      </div>
+
+      <div class="row last">
+        <div class="rail"><span class="num">9</span></div>
+        <div class="step">
+          <h3>Store the hash</h3>
+          <p>The file hash is saved for step 3 of the next import, then the lock is released.</p>
+        </div>
+        <div class="branch">
+          <div class="exit done"><strong>Import done</strong>From 0 to a few thousand rows written, depending on the period.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>Flowcharts</h2>
+    <p class="lead">The same logic as above, as decision diagrams.</p>
+    <div class="charts">
+      <div class="chart">
+        <h3>Whole import</h3>
+        <div class="scroll">
+<pre class="mermaid">
+flowchart TD
+    A(["Cron, every 15 min"]) --> B{"Lock acquired?"}
+    B -- No --> X1(["Exit: import already running"])
+    B -- Yes --> C["Compute file SHA-256"]
+    C --> D{"Same hash as last import?"}
+    D -- Yes --> X2(["Release lock, exit"])
+    D -- No --> E["Read and clean CSV"]
+    E --> F["BEGIN transaction"]
+    F --> G["CREATE TEMP TABLE staging"]
+    G --> H["COPY rows into staging"]
+    H --> I["Upsert into patching_server"]
+    I --> J{"Error?"}
+    J -- Yes --> K["ROLLBACK, database unchanged"]
+    K --> X3(["Release lock, log error"])
+    J -- No --> L["COMMIT, staging dropped"]
+    L --> M["Store file hash"]
+    M --> X4(["Release lock, done"])
+</pre>
+        </div>
+      </div>
+      <div class="chart">
+        <h3>Upsert, for each row</h3>
+        <div class="scroll">
+<pre class="mermaid">
+flowchart TD
+    R(["Row from the file"]) --> S{"servername already in database?"}
+    S -- No --> INS["INSERT new server"]
+    S -- Yes --> T{"Any value different?"}
+    T -- Yes --> UPD["UPDATE this row"]
+    T -- No --> N["Do nothing"]
+</pre>
+        </div>
+        <p>Servers in the database but missing from the file are never read by this query, so they are kept as they are.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>What the upsert does, row by row</h2>
+    <div class="decide">
+      <table>
+        <thead>
+          <tr><th>Server situation</th><th>Action</th><th>Explanation</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>In the file, not yet in the database</td><td><span class="pill p-ins">INSERT</span></td><td>New server, it is added.</td></tr>
+          <tr><td>In the file and in the database, with at least one different value</td><td><span class="pill p-upd">UPDATE</span></td><td>Only this row is rewritten.</td></tr>
+          <tr><td>In the file and in the database, strictly identical</td><td><span class="pill p-none">Nothing</span></td><td>No write. This is the case for the vast majority of rows.</td></tr>
+          <tr><td>In the database but missing from the file</td><td><span class="pill p-none">Nothing</span></td><td>The server is kept as it is. An incomplete file deletes nothing.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why not rewrite everything every time</h2>
+    <div class="notes">
+      <div class="note">
+        <h3>An UPDATE creates a new version of the row</h3>
+        <p>Postgres does not modify a row in place: it writes a new version and keeps the old one for readers still using it. This is what lets users browse the page during an import without waiting.</p>
+        <p>Autovacuum later reclaims the space of old versions. It only becomes a problem when rows that did not change are rewritten.</p>
+      </div>
+      <div class="note">
+        <h3>Rows written per day, outside campaigns</h3>
+        <p>96 imports per day, about 70,000 rows each.</p>
+        <div class="bars" role="img" aria-label="Rewrite everything: 6.7 million rows per day. Write changes only: close to zero outside campaigns.">
+          <div class="bar"><span>Rewrite all</span><span class="track"><span class="fill" style="width:100%;background:var(--stop)"></span></span><span class="val">6.7 M</span></div>
+          <div class="bar"><span>Changes only</span><span class="track"><span class="fill" style="width:0.6%;min-width:3px;background:var(--ok)"></span></span><span class="val">~0</span></div>
+        </div>
+        <p style="margin-top:10px">Both approaches use the same code, apart from one <code>WHERE</code> line.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The step 7 query</h2>
+    <pre class="sql"><span class="k">INSERT INTO</span> patching_server <span class="k">AS</span> t (servername, sub_region, template, ...)
+<span class="k">SELECT DISTINCT ON</span> (servername) servername, sub_region, template, ...
+<span class="k">FROM</span> patching_staging
+<span class="k">ON CONFLICT</span> (servername) <span class="k">DO UPDATE</span>
+<span class="k">SET</span> sub_region = EXCLUDED.sub_region, template = EXCLUDED.template, ...
+<span class="hl"><span class="k">WHERE</span> (t.sub_region, t.template, ...) <span class="k">IS DISTINCT FROM</span>
+      (EXCLUDED.sub_region, EXCLUDED.template, ...);</span>  <span class="c">-- only rows that actually changed</span></pre>
+  </section>
+</div>
+
+<!--claude-mermaid-runtime-begin:3477-->
+<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
+<script src="/_runtime/mermaid-11.16.1.min.js"></script>
+<script>(function(){
+var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
+if(typeof mermaid==='undefined')return;
+var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
+if(!pres.length)return;
+var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+var root=document.documentElement;
+var items=pres.map(function(pre){
+var mount=document.createElement('div');mount.className='mermaid-diagram';
+return {pre:pre,mount:mount,src:pre.textContent||''};
+});
+var seq=0;
+var renderGen=0;
+var lastKey='';
+function pageBg(fallback){
+var els=[document.body,document.documentElement];
+for(var i=0;i<els.length;i++){
+var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
+if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
+}
+return fallback;
+}
+function render(){
+var theme=root.getAttribute('data-theme');
+var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
+var pal=dark?CFG.palettes.dark:CFG.palettes.light;
+var bg=pageBg(pal.bg);
+var key=(dark?'d':'l')+'|'+bg;
+if(key===lastKey)return;
+lastKey=key;
+var gen=++renderGen;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var nat={useMaxWidth:false};
+mermaid.initialize({
+startOnLoad:false,securityLevel:'strict',theme:'base',
+flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
+gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
+quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
+packet:nat,kanban:nat,architecture:nat,radar:nat,
+themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
+primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
+nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
+clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
+darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
+attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
+fontSize:'16px',fontFamily:font},
+themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
+});
+items.forEach(function(it){
+var id='claude-mermaid-'+seq++;
+mermaid.render(id,it.src).then(function(r){
+if(gen!==renderGen)return;
+var prev=it.pre.previousElementSibling;
+if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
+it.mount.innerHTML=r.svg;
+if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
+it.pre.style.display='none';
+},function(){
+var scratch=document.getElementById(id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+scratch=document.getElementById('d'+id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+if(gen!==renderGen)return;
+if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
+it.pre.style.display='';
+});
+});
+}
+render();
+if(mq&&mq.addEventListener)mq.addEventListener('change',render);
+if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
+})();</script>
+<!--claude-mermaid-runtime-end-->
+
+</body></html>
