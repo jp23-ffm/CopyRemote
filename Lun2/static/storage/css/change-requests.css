@@ -1,0 +1,51 @@
+/* User change requests (Storage) - reuses the theme variables of hardware.css */
+#requestModal .modal-content { max-width: 700px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+#requestModal .cr-sub { font-size: 0.85rem; color: var(--text-13, #666); margin-top: 2px; word-break: break-all; }
+#requestModal .cr-tabs { display: inline-flex; gap: 2px; padding: 3px; margin-top: 10px; background: var(--bg-15, #f0f0f0); border-radius: 8px; align-self: flex-start; }
+#requestModal .cr-tab { background: none; border: 0; padding: 6px 16px; border-radius: 6px; font-size: 0.85rem; color: var(--text-13, #666); cursor: pointer; transition: background 0.15s, color 0.15s; }
+#requestModal .cr-tab:hover { color: var(--text-6, #333); }
+#requestModal .cr-tab.active { background: var(--bg-14, #fff); color: var(--text-6, #333); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15); }
+/* No focus ring on mouse click; a discreet one for keyboard navigation only */
+#requestModal button:focus { outline: none; }
+#requestModal button:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--border-5, #ccc); }
+/* Fields: no blue ring, the border just gets darker */
+#requestModal input:focus, #requestModal textarea:focus, #requestModal select:focus { outline: none; box-shadow: none; border-color: var(--text-13, #888); }
+#requestModal .cr-badge { margin-left: 4px; background: var(--bg-19, #0d6efd); color: #fff; font-size: 0.7rem; padding: 1px 7px; border-radius: 10px; }
+#requestModal .cr-body { padding: 14px 2px 0; overflow-y: auto; }
+#requestModal .cr-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+#requestModal .cr-hint { font-size: 0.78rem; color: var(--text-13, #666); margin-top: 4px; }
+#requestModal textarea, #requestModal input[type="text"] { width: 100%; box-sizing: border-box; padding: 7px 10px; font-size: 0.9rem; border: 1px solid var(--border-9, #ced4da); border-radius: 5px; background: var(--bg-14, #fff); color: var(--text-6, #333); font-family: inherit; }
+#requestModal textarea { min-height: 90px; resize: vertical; }
+#requestModal .cr-grid { display: grid; grid-template-columns: 1.3fr 1.1fr 1.6fr auto; border: 1px solid var(--border-1, #ddd); border-radius: 5px; overflow: hidden; margin-bottom: 8px; font-size: 0.85rem; }
+#requestModal .cr-grid > div { padding: 6px 10px; border-top: 1px solid var(--border-1, #ddd); display: flex; align-items: center; min-width: 0; word-break: break-word; }
+#requestModal .cr-grid > .cr-head { background: var(--bg-15, #f0f0f0); font-size: 0.78rem; font-weight: 600; border-top: 0; }
+#requestModal .cr-grid select { width: 100%; box-sizing: border-box; padding: 6px 8px; font-size: 0.85rem; border: 1px solid var(--border-9, #ced4da); border-radius: 5px; background: var(--bg-14, #fff); color: var(--text-6, #333); font-family: inherit; }
+#requestModal .cr-grid input:disabled { opacity: 0.5; }
+#requestModal .cr-del-btn { border: 0; background: none; color: var(--text-13, #666); font-size: 1.1rem; line-height: 1; padding: 2px 4px; cursor: pointer; }
+#requestModal .cr-del-btn:hover { color: var(--text-19, #dc3545); }
+#requestModal .cr-add-btn { font-size: 0.8rem; padding: 3px 10px; margin-bottom: 8px; cursor: pointer; border: 1px dashed var(--border-5, #ccc); border-radius: 4px; background: none; color: var(--text-6, #333); }
+#requestModal .cr-add-btn:disabled { opacity: 0.5; cursor: default; }
+#requestModal .cr-current { font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; color: var(--text-13, #666); }
+#requestModal .cr-history { border-top: 1px solid var(--border-1, #ddd); margin-top: 6px; padding-top: 10px; }
+#requestModal .cr-entry { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; margin-bottom: 8px; }
+#requestModal .cr-entry-body { flex: 1; min-width: 0; word-break: break-word; }
+#requestModal .cr-status { flex-shrink: 0; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #feebc8; color: #7c2d12; }
+#requestModal .cr-status.acknowledged { background: #e2e8f0; color: #4a5568; }
+#requestModal .cr-status.rejected { background: #fee2e2; color: #991b1b; }
+#requestModal .cr-entry-actions { display: flex; gap: 6px; flex-shrink: 0; }
+#requestModal .cr-reject-btn { color: #b91c1c; }
+#requestModal .cr-reject-btn:hover { border-color: #f5a3a3; background: #fef2f2; }
+#requestModal .cr-rejected-reason { color: #991b1b; }
+#requestModal .cr-reject-form { display: flex; gap: 6px; align-items: center; margin-top: 6px; }
+#requestModal .cr-reject-form input[type="text"] { flex: 1; padding: 4px 8px; font-size: 0.8rem; }
+#requestModal .cr-ack-btn { font-size: 0.75rem; padding: 2px 8px; cursor: pointer; border: 1px solid var(--border-5, #ccc); border-radius: 4px; background: var(--bg-14, #fff); color: var(--text-6, #333); }
+#requestModal .cr-msg { font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; }
+#requestModal .cr-msg.error { color: var(--text-19, #dc3545); }
+#requestModal .cr-msg.ok { color: var(--text-3, green); }
+
+/* Column */
+.requests-cell { white-space: nowrap; }
+/* vertical-align: middle — inline-blocks sit on the baseline by default, which drops them a few px */
+.btn-open-requests { cursor: pointer; border: 1px solid var(--border-5, #ccc); background: var(--bg-14, #fff); color: var(--text-6, #333); border-radius: 4px; font-size: 0.8rem; line-height: 1.3; padding: 1px 7px; vertical-align: middle; }
+.req-badge { display: inline-block; font-size: 0.7rem; font-weight: 600; line-height: 1.4; padding: 1px 8px; border-radius: 10px; margin-left: 6px; background: #feebc8; color: #7c2d12; vertical-align: middle; }
+.req-badge.acknowledged { background: #e2e8f0; color: #4a5568; }
