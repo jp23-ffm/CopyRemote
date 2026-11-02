@@ -1,0 +1,34 @@
+/* User change requests (Storage) - reuses the theme variables of hardware.css */
+#requestModal .modal-content { max-width: 700px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+#requestModal .cr-sub { font-size: 0.85rem; color: var(--text-13, #666); margin-top: 2px; word-break: break-all; }
+#requestModal .cr-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-1, #ddd); margin-top: 8px; }
+#requestModal .cr-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 14px; margin-bottom: -1px; font-size: 0.9rem; color: var(--text-13, #666); cursor: pointer; }
+#requestModal .cr-tab.active { color: var(--bg-19, #0d6efd); border-bottom-color: var(--bg-19, #0d6efd); font-weight: 600; }
+#requestModal .cr-badge { margin-left: 4px; background: var(--bg-19, #0d6efd); color: #fff; font-size: 0.7rem; padding: 1px 7px; border-radius: 10px; }
+#requestModal .cr-body { padding: 14px 2px 0; overflow-y: auto; }
+#requestModal .cr-label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; }
+#requestModal .cr-hint { font-size: 0.78rem; color: var(--text-13, #666); margin-top: 4px; }
+#requestModal textarea, #requestModal input[type="text"] { width: 100%; box-sizing: border-box; padding: 7px 10px; font-size: 0.9rem; border: 1px solid var(--border-9, #ced4da); border-radius: 5px; background: var(--bg-14, #fff); color: var(--text-6, #333); font-family: inherit; }
+#requestModal textarea { min-height: 90px; resize: vertical; }
+#requestModal .cr-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+#requestModal .cr-chip { font-size: 0.82rem; padding: 4px 11px; border-radius: 14px; border: 1px solid var(--border-5, #ccc); background: var(--bg-14, #fff); color: var(--text-6, #333); cursor: pointer; }
+#requestModal .cr-chip[aria-pressed="true"] { border-color: var(--bg-19, #0d6efd); background: var(--bg-26, #f1f8ff); color: var(--bg-20, #084cd6); font-weight: 600; }
+#requestModal .cr-grid { display: grid; grid-template-columns: 1.1fr 1.3fr 1.6fr; border: 1px solid var(--border-1, #ddd); border-radius: 5px; overflow: hidden; margin-bottom: 12px; font-size: 0.85rem; }
+#requestModal .cr-grid > div { padding: 6px 10px; border-top: 1px solid var(--border-1, #ddd); display: flex; align-items: center; min-width: 0; word-break: break-word; }
+#requestModal .cr-grid > .cr-head { background: var(--bg-15, #f0f0f0); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; border-top: 0; }
+#requestModal .cr-current { font-family: ui-monospace, Menlo, monospace; font-size: 0.8rem; color: var(--text-13, #666); }
+#requestModal .cr-history { border-top: 1px solid var(--border-1, #ddd); margin-top: 6px; padding-top: 10px; }
+#requestModal .cr-entry { display: flex; gap: 10px; align-items: flex-start; font-size: 0.85rem; margin-bottom: 8px; }
+#requestModal .cr-entry-body { flex: 1; min-width: 0; word-break: break-word; }
+#requestModal .cr-status { flex-shrink: 0; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: #feebc8; color: #7c2d12; }
+#requestModal .cr-status.acknowledged { background: #e2e8f0; color: #4a5568; }
+#requestModal .cr-ack-btn { font-size: 0.75rem; padding: 2px 8px; cursor: pointer; border: 1px solid var(--border-5, #ccc); border-radius: 4px; background: var(--bg-14, #fff); color: var(--text-6, #333); }
+#requestModal .cr-msg { font-size: 0.85rem; margin-top: 8px; min-height: 1.2em; }
+#requestModal .cr-msg.error { color: var(--text-19, #dc3545); }
+#requestModal .cr-msg.ok { color: var(--text-3, green); }
+
+/* Column */
+.requests-cell { white-space: nowrap; }
+.btn-open-requests { cursor: pointer; border: 1px solid var(--border-5, #ccc); background: var(--bg-14, #fff); color: var(--text-6, #333); border-radius: 4px; font-size: 0.8rem; padding: 1px 7px; }
+.req-badge { display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 1px 8px; border-radius: 10px; margin-left: 6px; background: #feebc8; color: #7c2d12; }
+.req-badge.acknowledged { background: #e2e8f0; color: #4a5568; }
