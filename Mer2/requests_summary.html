@@ -1,0 +1,244 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chimera - Storage requests</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'hardware/css/hardware.css' %}">
+    <link rel="icon" type="image/svg+xml" href="{% static 'hardware/img/favicon.svg' %}">
+    <meta name="csrf-token" content="{{ csrf_token }}">
+    <style>
+        .rs-page { padding: 16px 24px; }
+        .rs-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+        .rs-title h2 { margin: 0; font-size: 1.25rem; color: var(--text-6); }
+
+        .rs-counters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .rs-counter { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-1); background: var(--bg-14); color: var(--text-6); text-decoration: none; font-size: 0.85rem; }
+        .rs-counter strong { font-size: 1.05rem; }
+        .rs-counter.active { border-color: var(--text-13); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); font-weight: 600; }
+
+        .rs-filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 12px; margin-bottom: 14px; border: 1px solid var(--border-1); border-radius: 8px; background: var(--bg-14); }
+        .rs-filters label { display: flex; flex-direction: column; gap: 3px; font-size: 0.8rem; font-weight: 600; color: var(--text-13); }
+        .rs-filters input, .rs-filters select { padding: 5px 8px; font-size: 0.85rem; border: 1px solid var(--border-1); border-radius: 5px; background: var(--bg-14); color: var(--text-6); font-family: inherit; }
+        .rs-filters input[name="item"] { min-width: 220px; }
+        .rs-filters input:focus, .rs-filters select:focus { outline: none; border-color: var(--text-13); }
+        .rs-btn { padding: 5px 12px; font-size: 0.85rem; border-radius: 5px; border: 1px solid var(--border-1); background: var(--bg-14); color: var(--text-6); cursor: pointer; text-decoration: none; display: inline-block; }
+        .rs-btn:hover { background: var(--bg-15); }
+        .rs-btn:focus { outline: none; }
+        .rs-btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .rs-btn.primary:hover { background: #1d4ed8; }
+        .rs-btn.small { padding: 2px 8px; font-size: 0.78rem; }
+        .rs-btn.reject { color: #b91c1c; }
+        .rs-btn.reject:hover { background: #fef2f2; border-color: #f5a3a3; }
+
+        .rs-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: var(--bg-14); border: 1px solid var(--border-1); border-radius: 8px; overflow: hidden; }
+        .rs-table th { text-align: left; padding: 8px 10px; background: var(--bg-15); color: var(--text-6); font-weight: 600; border-bottom: 1px solid var(--border-1); white-space: nowrap; }
+        .rs-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-1); color: var(--text-6); vertical-align: top; }
+        .rs-table tr:last-child td { border-bottom: 0; }
+        .rs-nowrap { white-space: nowrap; }
+        .rs-sub { font-size: 0.78rem; color: var(--text-13); word-break: break-all; }
+        .rs-item a { color: inherit; font-weight: 600; text-decoration: none; }
+        .rs-item a:hover { text-decoration: underline; }
+        .rs-change { white-space: nowrap; }
+        .rs-change .rs-old { color: var(--text-13); }
+        .rs-empty { padding: 30px; text-align: center; color: var(--text-13); }
+
+        .rs-status { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+        .rs-status.new { background: #feebc8; color: #7c2d12; }
+        .rs-status.acknowledged { background: #e2e8f0; color: #4a5568; }
+        .rs-status.rejected { background: #fee2e2; color: #991b1b; }
+        .rs-reject-reason { color: #991b1b; }
+
+        .rs-actions { display: flex; gap: 6px; white-space: nowrap; }
+        .rs-reject-form { display: flex; gap: 6px; margin-top: 6px; }
+        .rs-reject-form input { flex: 1; min-width: 180px; padding: 3px 8px; font-size: 0.8rem; border: 1px solid var(--border-1); border-radius: 5px; background: var(--bg-14); color: var(--text-6); }
+        .rs-reject-form input:focus { outline: none; border-color: var(--text-13); }
+        .rs-msg { color: #b91c1c; font-size: 0.8rem; margin-top: 4px; }
+
+        .rs-pagination { display: flex; gap: 6px; align-items: center; justify-content: flex-end; margin-top: 12px; font-size: 0.85rem; color: var(--text-13); }
+    </style>
+</head>
+<body>
+<script>
+    if (localStorage.getItem('darkMode') === 'true') { document.documentElement.setAttribute('data-theme', 'dark-mode'); }
+</script>
+
+<div id="topbar">
+    <div id="app-info"><span>Storage - User requests</span></div>
+    <div id="user-info">
+        <span>Welcome, {{ user.username }}</span>
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
+</div>
+
+<div class="rs-page">
+    <div class="rs-title">
+        <h2>User requests{% if not can_acknowledge %} (yours){% endif %}</h2>
+        <a class="rs-btn" href="{% url 'storage:requests_summary_export' %}?{{ query_string }}">Export CSV</a>
+    </div>
+
+    {# Counters ignore the status filter; clicking one applies it #}
+    <div class="rs-counters">
+        <a class="rs-counter{% if not filters.status %} active{% endif %}" href="?{{ query_no_status }}&status=">All <strong>{{ total }}</strong></a>
+        <a class="rs-counter{% if filters.status == 'new' %} active{% endif %}" href="?{{ query_no_status }}&status=new">New <strong>{{ counts.new }}</strong></a>
+        <a class="rs-counter{% if filters.status == 'acknowledged' %} active{% endif %}" href="?{{ query_no_status }}&status=acknowledged">Acknowledged <strong>{{ counts.acknowledged }}</strong></a>
+        <a class="rs-counter{% if filters.status == 'rejected' %} active{% endif %}" href="?{{ query_no_status }}&status=rejected">Rejected <strong>{{ counts.rejected }}</strong></a>
+    </div>
+
+    <form class="rs-filters" method="get">
+        <label>From <input type="date" name="date_from" value="{{ filters.date_from }}"></label>
+        <label>To <input type="date" name="date_to" value="{{ filters.date_to }}"></label>
+        {% if can_acknowledge %}
+        <label>User
+            <select name="user">
+                <option value="">All</option>
+                {% for u in users %}<option value="{{ u }}"{% if filters.user == u %} selected{% endif %}>{{ u }}</option>{% endfor %}
+            </select>
+        </label>
+        {% endif %}
+        <label>Type
+            <select name="type">
+                <option value="">All</option>
+                <option value="share"{% if filters.type == 'share' %} selected{% endif %}>Share</option>
+                <option value="object"{% if filters.type == 'object' %} selected{% endif %}>Object</option>
+            </select>
+        </label>
+        <label>Kind
+            <select name="kind">
+                <option value="">All</option>
+                <option value="fields"{% if filters.kind == 'fields' %} selected{% endif %}>Fields to correct</option>
+                <option value="comment"{% if filters.kind == 'comment' %} selected{% endif %}>Comment</option>
+            </select>
+        </label>
+        <label>Status
+            <select name="status">
+                <option value="">All</option>
+                {% for s in statuses %}<option value="{{ s }}"{% if filters.status == s %} selected{% endif %}>{{ s|capfirst }}</option>{% endfor %}
+            </select>
+        </label>
+        <label>Item (filer, path, name)
+            <input type="text" name="item" value="{{ filters.item }}" placeholder="Contains... (@ for exact)">
+        </label>
+        <button type="submit" class="rs-btn primary">Filter</button>
+        <a class="rs-btn" href="{% url 'storage:requests_summary' %}">Reset</a>
+    </form>
+
+    {% if page_obj.object_list %}
+    <table class="rs-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>User</th>
+                <th>Request</th>
+                <th>Status</th>
+                <th>Processed</th>
+                {% if can_acknowledge %}<th></th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for r in page_obj %}
+            <tr data-id="{{ r.id }}" data-type="{{ r.resource_type }}">
+                <td class="rs-nowrap">{{ r.created_at|date:"d.m.Y" }}<div class="rs-sub">{{ r.created_at|date:"H:i" }}</div></td>
+                <td class="rs-item">
+                    <a href="{{ r.item_url }}" title="Open in the {{ r.resource_type }} list">{{ r.item_main }}</a>
+                    {% if r.item_sub %}<div class="rs-sub">{{ r.item_sub }}</div>{% endif %}
+                    <div class="rs-sub">{{ r.get_resource_type_display }}</div>
+                </td>
+                <td class="rs-nowrap">{{ r.created_by.get_username|default:"Unknown" }}</td>
+                <td>
+                    {% if r.kind == 'comment' %}
+                        {{ r.comment|linebreaksbr }}
+                    {% else %}
+                        {% for c in r.changes %}
+                            <div class="rs-change">{{ c.label }}: <span class="rs-old">"{{ c.current }}"</span> &rarr; <strong>"{{ c.proposed }}"</strong></div>
+                        {% endfor %}
+                    {% endif %}
+                    {% if r.reason %}<div class="rs-sub">Why: {{ r.reason }}</div>{% endif %}
+                </td>
+                <td><span class="rs-status {{ r.status }}">{{ r.status }}</span></td>
+                <td>
+                    {% if r.acknowledged_by %}
+                        {{ r.acknowledged_by.get_username }}<div class="rs-sub">{{ r.acknowledged_at|date:"d.m.Y H:i" }}</div>
+                    {% endif %}
+                    {% if r.reject_reason %}<div class="rs-sub rs-reject-reason">"{{ r.reject_reason }}"</div>{% endif %}
+                </td>
+                {% if can_acknowledge %}
+                <td class="rs-action-cell">
+                    {% if r.status == 'new' %}
+                    <div class="rs-actions">
+                        <button type="button" class="rs-btn small" onclick="ackRequest(this)">Acknowledge</button>
+                        <button type="button" class="rs-btn small reject" onclick="showReject(this)">Reject</button>
+                    </div>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <div class="rs-pagination">
+        {% if page_obj.has_previous %}<a class="rs-btn small" href="?{{ query_string }}&page={{ page_obj.previous_page_number }}">&larr; Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }} ({{ page_obj.paginator.count }} requests)</span>
+        {% if page_obj.has_next %}<a class="rs-btn small" href="?{{ query_string }}&page={{ page_obj.next_page_number }}">Next &rarr;</a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="rs-table rs-empty">No request matches these filters.</div>
+    {% endif %}
+</div>
+
+{% if can_acknowledge %}
+<script>
+    function csrf() { return document.querySelector('meta[name="csrf-token"]').getAttribute('content'); }
+
+    function post(url, params) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrf()},
+            body: new URLSearchParams(params)
+        }).then(r => r.json().then(j => { if (!r.ok || j.success === false) throw new Error(j.message || r.status); return j; }));
+    }
+
+    function showError(cell, text) {
+        let m = cell.querySelector('.rs-msg');
+        if (!m) { m = document.createElement('div'); m.className = 'rs-msg'; cell.appendChild(m); }
+        m.textContent = text;
+    }
+
+    function ackRequest(btn) {
+        const row = btn.closest('tr');
+        post('/storage/requests/' + row.dataset.type + '/acknowledge/', {ids: row.dataset.id})
+            .then(() => window.location.reload())
+            .catch(e => showError(btn.closest('td'), e.message));
+    }
+
+    function showReject(btn) {
+        const cell = btn.closest('td');
+        if (cell.querySelector('.rs-reject-form')) return;
+        const form = document.createElement('div');
+        form.className = 'rs-reject-form';
+        form.innerHTML = '<input type="text" maxlength="500" aria-label="Reason for rejecting" placeholder="Reason (required)">'
+            + '<button type="button" class="rs-btn small reject">Reject</button>'
+            + '<button type="button" class="rs-btn small">Cancel</button>';
+        const [input, confirm, cancel] = form.children;
+        confirm.addEventListener('click', () => {
+            const reason = input.value.trim();
+            if (!reason) { showError(cell, 'Enter a reason to reject this request.'); input.focus(); return; }
+            const row = cell.closest('tr');
+            post('/storage/requests/' + row.dataset.type + '/reject/', {id: row.dataset.id, reason})
+                .then(() => window.location.reload())
+                .catch(e => showError(cell, e.message));
+        });
+        cancel.addEventListener('click', () => { form.remove(); const m = cell.querySelector('.rs-msg'); if (m) m.remove(); });
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') confirm.click(); });
+        cell.appendChild(form);
+        input.focus();
+    }
+</script>
+{% endif %}
+</body>
+</html>
