@@ -1,0 +1,4 @@
+ Un bug existant est noté dans ma mémoire : quand on mélange valeurs normales et exclusions dans une même colonne,
+  l'ordre change le résultat.
+  - prod, !test donne « contient prod et pas test », ce qui est logique.
+  - !test, prod donne « pas test ou contient prod », ce qui garde aussi les lignes « test » qui contiennent « prod ».
