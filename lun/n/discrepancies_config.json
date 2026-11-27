@@ -1,0 +1,23 @@
+{
+  "title": "Hardware - Data Quality Dashboard",
+  "item_label": "Hardware assets",
+  "invalid_values": ["", "MISSING", "N/A", "NA", "UNKNOWN", "NULL", "NONE", "-", "EMPTY"],
+  "no_region_label": "No region",
+  "no_country_label": "No country",
+  "region_groups": {
+    "EMEA + EURO": ["EMEA", "EURO"]
+  },
+  "checks": {
+    "SERVER_IP": {"label": "Server IP"},
+    "REGION": {"label": "Region"},
+    "IDRAC_IP": {"label": "iDRAC IP"},
+    "DATACENTER": {"label": "Datacenter"},
+    "WARRANTY_ACTIVE": {"label": "Warranty Active", "valid_values": ["YES"], "gauge_title": "Warranty not active"}
+  },
+  "thresholds": {"critical": 90, "warning": 97, "good": 100},
+  "colors": {"critical": "#dc3545", "warning": "#ffc107", "good": "#28a744"},
+  "trend_colors": {
+    "any_missing": "#A0826D", "SERVER_IP": "#dc3545", "REGION": "#0dcaf0",
+    "IDRAC_IP": "#6f42c1", "DATACENTER": "#fd7e14", "WARRANTY_ACTIVE": "#20c997"
+  }
+}
